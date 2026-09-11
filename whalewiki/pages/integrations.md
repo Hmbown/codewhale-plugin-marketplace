@@ -28,6 +28,11 @@ private absolute env-file path and launches the chosen adapter from its package
 directory. Feishu and WeCom have declared dependencies to install first. No plugin
 activation automatically starts a bot or listener.
 
+Telegram and Feishu persist the admitted sender's identity for recovery. Before
+reattaching after restart they check that identity against the current allowlist
+and group policy. Legacy state without identity stays detached. Feishu updates
+its reply destination only after admitting the incoming sender.
+
 ## Signed webhook intake
 
 The marketplace-owned webhook bridge reuses `bridge-core`'s runtime client.

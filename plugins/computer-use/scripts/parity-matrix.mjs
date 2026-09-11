@@ -52,6 +52,8 @@ const codexAvailable = codexFiles.length > 0;
 const taskDocs = new Map();
 function metaForRun(run) {
   const file = run.meta.tasks_file ?? "tasks.json";
+  if (typeof file !== "string" || !/^tasks(?:\.[a-z0-9-]+)*\.json$/.test(file)) throw new Error("invalid tasks_file in run metadata");
+  if (path.dirname(fs.realpathSync(path.join(PARITY, file))) !== fs.realpathSync(PARITY)) throw new Error("tasks_file must remain in the parity directory");
   if (!taskDocs.has(file)) {
     const doc = JSON.parse(fs.readFileSync(path.join(PARITY, file), "utf8"));
     taskDocs.set(file, new Map(doc.tasks.map((t) => [t.id, t])));
@@ -78,6 +80,10 @@ const surfaces = new Map();
 for (const dir of runDirs) {
   const run = JSON.parse(fs.readFileSync(path.join(dir, "run.json"), "utf8"));
   const meta = run.meta;
+  for (const field of ["platform", "session_type"]) {
+    if (typeof meta?.[field] !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(meta[field])) throw new Error(`invalid ${field} in run metadata`);
+  }
+  if (typeof meta.date !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z)?$/.test(meta.date) || !Number.isFinite(Date.parse(meta.date)) || new Date(meta.date).toISOString().slice(0, 10) !== meta.date.slice(0, 10)) throw new Error("invalid date in run metadata");
   const surface = `${meta.platform}-${meta.session_type}${meta.isolated ? " (isolated)" : ""}`;
   const repsByTask = new Map();
   for (const r of run.reps) {
@@ -151,6 +157,7 @@ for (const dir of runDirs) {
   summaryCounts.set(stem, count);
   // Preserve every run supplied, including failed attempts and focused retries.
   const outFile = path.join(outputRoot, "parity", "results", `${stem}${count > 1 ? `-run${count}` : ""}.json`);
+  if (path.dirname(outFile) !== path.join(outputRoot, "parity", "results")) throw new Error("report filename escaped results directory");
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.writeFileSync(outFile, JSON.stringify(resultJson, null, 2));
   summaries.push(outFile);

@@ -41,13 +41,13 @@
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
-      "page_sha256": "af2cdf32fedff893d4a663ea0c4cb5befad37df12ae922d82541ab0cdddb1d12",
+      "page_sha256": "071c1617bf45c59fee811ca877c8cd95194b20b064411616704d4e8e4cb38558",
       "sources": [
         {
           "path": "plugins/whalewiki/scripts/whalewiki.mjs",
           "root": "repo",
-          "sha256": "72eb36281fb75dd57e4c28574fe0990c1c24fc9f4aeef0767831e0b013c29b58",
-          "bytes": 39329
+          "sha256": "84a22e582fcb77293150f75755a1c0cdabffebc27bb071c5d72e5822bfe2e447",
+          "bytes": 40939
         },
         {
           "path": "plugins/whalewiki/mcp/server.mjs",
@@ -68,11 +68,11 @@
           "bytes": 5242
         }
       ],
-      "sealed_at": "2026-09-11T09:43:24.896Z"
+      "sealed_at": "2026-09-11T10:39:33.490Z"
     },
     "pages/integrations.md": {
       "title": "integrations",
-      "page_sha256": "eb7703b9e1324c115c0dfeb89baa8dfb717196bd73c51c7e6e1224668b192f10",
+      "page_sha256": "2ea4841484ae3c6bd662ebd4fc7bf90e6b78656aa71175f8be89d1a05d8774da",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -95,8 +95,8 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "ccfd5c46875cd067a8e9bef9edc4292382cbe487a2a726da9367c4ffa151309e",
-          "bytes": 4387
+          "sha256": "fafd7d8bd266248b09b3ada54b7341b53cd192d8f09799195fe6a64489e4ee19",
+          "bytes": 4517
         },
         {
           "path": "integrations/README.md",
@@ -127,10 +127,28 @@
           "root": "repo",
           "sha256": "498188b63368c7e319d1a2df044b2dcaa4692b98182f2858cbb8dda23b648413",
           "bytes": 4354
+        },
+        {
+          "path": "integrations/telegram-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "bc9d0b5a2cfa944a96ec3b8858a5691b20b76f4a4d0e86182a9aea5807df3005",
+          "bytes": 32736
+        },
+        {
+          "path": "integrations/feishu-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "0a5946804f179e122ddb00183a63aec31adb736b265a399c1d5c892c0e687938",
+          "bytes": 19755
+        },
+        {
+          "path": "integrations/bridge-core/src/lib.mjs",
+          "root": "repo",
+          "sha256": "a2b2e9e7b463a587412562a9ce597c6df6d954b2de68662463149f3d8d295a48",
+          "bytes": 15381
         }
       ],
-      "sealed_at": "2026-09-11T09:47:48.528Z"
+      "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-11T09:49:10.315Z"
+  "updated_at": "2026-09-11T10:39:33.601Z"
 }

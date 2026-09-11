@@ -33,6 +33,11 @@ Status, search, export and MCP reads do not write a receipt. The CLI's explicit
 `status --receipt` and `status --mark` opt into writes. No session-start hook
 automatically runs an executable from the repository being opened.
 
+Generated files use checked destinations and atomic replacement. Linked wiki
+directories and symlink leaves, including dangling links, are refused. Replacing
+a hardlinked output does not modify its other name. An explicit external export
+directory remains an operator-selected destination.
+
 ## Reviewing and sharing
 
 `scaffold` preserves existing prose and copies a verifier into `.tool/status.mjs`.

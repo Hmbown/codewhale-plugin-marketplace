@@ -4,7 +4,15 @@ This is local source and package evidence, not a hosted deployment or live-servi
 acceptance report. The takeover started at marketplace `c32a8d9`; the public
 `origin/main` was `1fd701c4590c2fc4450f77a750469f7be3b99936` when checked.
 
-## Local gates
+## Security follow-up
+
+The later [security source pass](SECURITY-20260911.md) found and fixed eight
+issues, synchronized the canonical sources, and passed 369 Node tests with 15
+platform skips plus four browser checks. That receipt supersedes the initial
+source-review conclusion below. The package hashes and installed-host evidence
+in this document still describe the initial snapshot.
+
+## Initial local gates
 
 `npm run check` and the required `npm test && npm run check:web` passed on macOS.
 The final Node suites reported **370 tests: 355 passed, 15 skipped, zero failures**.
@@ -90,9 +98,9 @@ No recordings or operational receipts are included in the package.
 canonical source `0880ffb`, and Core runtime copies match. One Core test
 mirror differs: `tests/server-routes.test.mjs` lacks upstream atomic fixture
 writes. Core does not vendor the standalone `tests/app.test.mjs` packaging test.
-The route-test synchronization remains with the active Core lane. No Computer
-Use runtime patch was justified by this review, and no desktop input or screen
-capture was performed as part of the test suite qualification.
+The route-test synchronization remains with the active Core lane. This initial functional review did not identify a Computer Use runtime patch.
+The later security pass above did and also synchronized the route-test fixture.
+No desktop input or screen capture was performed as part of this qualification.
 
 The existing four chat bridges and shared helper retain exact source hashes from
 Core `40d04faa4af7d2e2ea1ea932dc3ccc315c11e885` in `integrations/upstream.json`.

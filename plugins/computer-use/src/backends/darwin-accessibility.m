@@ -357,6 +357,24 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
   if(!verified) receipt[@"verification_required"]=@"screenshot";
   return receipt;
 }
+static NSDictionary *windowAtPoint(NSArray *windows, CGPoint p) {
+    NSMutableArray *skipped=[NSMutableArray array];
+    for(NSDictionary *w in windows) {          // front to back
+      CGRect b;
+      if(!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)w[(__bridge NSString *)kCGWindowBounds],&b)) continue;
+      if(!CGRectContainsPoint(b,p)) continue;
+      pid_t owner=[w[(__bridge NSString *)kCGWindowOwnerPID] intValue];
+      NSString *name=w[(__bridge NSString *)kCGWindowOwnerName]?:@"";
+      NSNumber *alpha=w[(__bridge NSString *)kCGWindowAlpha], *layer=w[(__bridge NSString *)kCGWindowLayer]?:@0;
+      // Visible floating windows occlude input just like normal windows.
+      if(alpha && [alpha doubleValue]<=0) { [skipped addObject:@{@"owner":name,@"why":@"transparent"}]; continue; }
+      return @{@"found":@YES,@"owner_pid":@(owner),@"owner_name":name,
+               @"window_id":w[(__bridge NSString *)kCGWindowNumber]?:@0,@"layer":layer,
+               @"skipped":skipped};
+    }
+    return @{@"found":@NO,@"skipped":skipped};
+}
+
 static id execute(NSDictionary *p) {
   NSString *tool=p[@"tool"]; NSDictionary *args=p[@"args"]?:@{};
   if([tool isEqual:@"pointer_sequence"] && ![args[@"foreground_input"] boolValue])
@@ -391,6 +409,7 @@ static id execute(NSDictionary *p) {
     cuValidateElementIdentity((__bridge AXUIElementRef)args[@"element"],args[@"target"]);
     return @{@"identity_matches":@YES};
   }
+  if([tool isEqual:@"inspect_window_at_point"]) return windowAtPoint(args[@"windows"],CGPointMake([args[@"x"] doubleValue],[args[@"y"] doubleValue]));
   if([tool isEqual:@"inspect_window_match"]) {
     NSDictionary *b=args[@"bounds"];
     CGRect bounds=CGRectMake([b[@"x"] doubleValue],[b[@"y"] doubleValue],[b[@"w"] doubleValue],[b[@"h"] doubleValue]);
@@ -463,27 +482,7 @@ static id execute(NSDictionary *p) {
   if([tool isEqual:@"window_at_point"]) {
     CGPoint p=CGPointMake([args[@"x"] doubleValue],[args[@"y"] doubleValue]);
     NSArray *windows=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly|kCGWindowListExcludeDesktopElements,kCGNullWindowID));
-    // The bound application, when one is known: its own panels and menus sit
-    // above the normal window layer and are legitimate targets.
-    pid_t bound=[args[@"input_app_ref"][@"pid"] intValue];
-    NSMutableArray *skipped=[NSMutableArray array];
-    for(NSDictionary *w in windows) {          // front to back
-      CGRect b;
-      if(!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)w[(__bridge NSString *)kCGWindowBounds],&b)) continue;
-      if(!CGRectContainsPoint(b,p)) continue;
-      pid_t owner=[w[(__bridge NSString *)kCGWindowOwnerPID] intValue];
-      NSString *name=w[(__bridge NSString *)kCGWindowOwnerName]?:@"";
-      NSNumber *alpha=w[(__bridge NSString *)kCGWindowAlpha], *layer=w[(__bridge NSString *)kCGWindowLayer]?:@0;
-      // Invisible overlays and the system furniture that floats over every
-      // point (Dock, menu bar, notification layer) are not what a coordinate
-      // means; a normal-layer window from any application is.
-      if(alpha && [alpha doubleValue]<=0.01) { [skipped addObject:@{@"owner":name,@"why":@"transparent"}]; continue; }
-      if([layer intValue]!=0 && owner!=bound) { [skipped addObject:@{@"owner":name,@"why":[NSString stringWithFormat:@"layer %d",[layer intValue]]}]; continue; }
-      return @{@"found":@YES,@"owner_pid":@(owner),@"owner_name":name,
-               @"window_id":w[(__bridge NSString *)kCGWindowNumber]?:@0,@"layer":layer,
-               @"skipped":skipped};
-    }
-    return @{@"found":@NO,@"skipped":skipped};
+    return windowAtPoint(windows,p);
   }
   if([tool isEqual:@"app_info"]) {
     NSRunningApplication *a=resolve(args[@"app_ref"]);

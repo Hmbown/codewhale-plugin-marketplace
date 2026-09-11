@@ -110,6 +110,18 @@ test('native window matching refuses another process, mismatched geometry and am
   assert.equal(missing.status,1);assert.match(missing.stderr,/selected app window is not capturable/);
   const ambiguous=query([selected,{...selected,kCGWindowNumber:45}]);
   assert.equal(ambiguous.status,1);assert.match(ambiguous.stderr,/selected window is ambiguous/);
+  const owner=windows=>{
+    const result=spawnSync(binary,[JSON.stringify({tool:'inspect_window_at_point',args:{x:50,y:50,input_app_ref:{pid:123},windows}})],{encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr);return JSON.parse(result.stdout);
+  };
+  for(const layer of [0,3,8,25,1000]) {
+    const floating={...wrongProcess,kCGWindowLayer:layer,kCGWindowAlpha:1};
+    assert.equal(owner([floating,selected]).owner_pid,999,'visible foreign windows own the point at every layer');
+    assert.equal(owner([{...floating,kCGWindowAlpha:0.001},selected]).owner_pid,999,'faint foreign windows remain occluders');
+    assert.equal(owner([{...floating,kCGWindowAlpha:0},selected]).owner_pid,123,'transparent overlays do not intercept');
+  }
+  assert.equal(owner([{...selected,kCGWindowLayer:8}]).owner_pid,123,'the bound app can target its own floating panels');
+
 });
 
 test('native owner pipe survives forced MCP exit, releases promptly and excludes competing input', {skip:process.platform!=='darwin'}, async t=>{

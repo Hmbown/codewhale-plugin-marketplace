@@ -1,25 +1,25 @@
 {
   "repository": "https://github.com/Hmbown/CodeWhale",
-  "commit": "40d04faa4af7d2e2ea1ea932dc3ccc315c11e885",
+  "commit": "64bf603c7a60882a68e504cd801a58af6955fa78",
   "files": {
     "integrations/bridge-core/package.json": "25033f9e2720f3aa93cef149be99b0a2489afd8a72ed0592e800ad8185a8fdf8",
-    "integrations/bridge-core/src/lib.mjs": "71f8fff73124fcd7bb975bccf70f9fd535743f4146fa99f6d0775df3434201e5",
+    "integrations/bridge-core/src/lib.mjs": "a2b2e9e7b463a587412562a9ce597c6df6d954b2de68662463149f3d8d295a48",
     "integrations/bridge-core/test/lib.test.mjs": "be49d084b5aeadb33f924725efad71519bb4154490bcdd702f8d709e9aeed066",
     "integrations/feishu-bridge/.env.example": "30e1e28c03cd72653c3f99a2aabde6fdf30fbae0ee0865aff5526531f448a0e2",
-    "integrations/feishu-bridge/README.md": "54e0c53127642a192371bec65cc7c6b56c4ac1eedf8b709f21f23ef22f60cb74",
+    "integrations/feishu-bridge/README.md": "6f98d1f1508f6ad26da6364c029e526d58e5c371a79c6f3ccec15ad26bd0eab1",
     "integrations/feishu-bridge/package-lock.json": "1895646057138f6676839f17cfd27673857a2c80e895eea27ce16e63a8fc5668",
     "integrations/feishu-bridge/package.json": "5b521e12368023a4b06dbe5649ffba4c9f4f6080bc6f4ab9ef3e841cb7951bff",
     "integrations/feishu-bridge/scripts/validate-config.mjs": "08f4a4d7b07082e9beba361bfec6b6f153f1b9018738ca34ad9ffd12c0520a69",
-    "integrations/feishu-bridge/src/index.mjs": "55820c542b4a23c53823498fe7a43b8ef4efd981ecb1e8be68cdf4ebad470038",
-    "integrations/feishu-bridge/src/lib.mjs": "d0239e513312ab28e0757726a6a7741dd463d6ddf2da3c0cd7d5b2c134227b24",
+    "integrations/feishu-bridge/src/index.mjs": "0a5946804f179e122ddb00183a63aec31adb736b265a399c1d5c892c0e687938",
+    "integrations/feishu-bridge/src/lib.mjs": "5e1788ac7dc182262ea2422b38b8ccb0eecf5ad04197cace370de6131138c114",
     "integrations/feishu-bridge/test/lib.test.mjs": "2e40fec770226300e469379604f93a4e043029601af60ba885e645f7aed0d12b",
     "integrations/feishu-bridge/test/startup-order.test.mjs": "3d2a45e09be03c79a9a4136a621664d9c724ba1faa540bc24293675b9e57ee30",
     "integrations/telegram-bridge/.env.example": "1b6b894d9ed523b5c02f8f16f2a6a6d094032bcf740a62c1a02a846ad8649b95",
-    "integrations/telegram-bridge/README.md": "897b723214fa0f6042e7d710bfb32dffc193c2e1cc28f4243fae543dc58327a2",
+    "integrations/telegram-bridge/README.md": "cb13662096ac1c115a4861de850ba0e91e9e4eb4fd03806c6ae96cc709b2e3dc",
     "integrations/telegram-bridge/package-lock.json": "aea930c59a00a818f71218e990a67bae1793619a6e4974840c7d98e493bff5a2",
     "integrations/telegram-bridge/package.json": "23bbb3c65251cc07bf4351a3c335ec437f597bfbadb5b401acc9a1d41b73d5ca",
     "integrations/telegram-bridge/scripts/validate-config.mjs": "660e53e59e6dbc7ccac3ae0f3b7366773f8a185eda336a68e0ea0bfbcd9ad954",
-    "integrations/telegram-bridge/src/index.mjs": "393aa302033c16ea44c87cad5dd52256f514dcbdc8241801f7b4f1c70e56add3",
+    "integrations/telegram-bridge/src/index.mjs": "bc9d0b5a2cfa944a96ec3b8858a5691b20b76f4a4d0e86182a9aea5807df3005",
     "integrations/telegram-bridge/src/lib.mjs": "8e26bd42c0bfa3711f74135010b4c88d208d7f7cd812431d061cbe1a06d50271",
     "integrations/telegram-bridge/test/dispatch-concurrency.test.mjs": "efa362b90651e8872b6a8c8fb96f9717f48cf74179273209f6700dada352e6bd",
     "integrations/telegram-bridge/test/lib.test.mjs": "561d9dc8f73da936fd1ff4d88cb67fdd727730aed2b6513ac40766aaeb9b0069",
@@ -37,6 +37,7 @@
     "integrations/weixin-bridge/package.json": "647b39750f11c9c874f15d1b52c0bb1585a3a8e878861906448b80bf8bdd9196",
     "integrations/weixin-bridge/src/index.mjs": "1638d54219bba8ed6444d063bd7f065b5627ff8cfe1f73b246bf6d4b51867b75",
     "integrations/weixin-bridge/src/lib.mjs": "8845269b8dacbea6a9f22df1c26ca8a23598a7f5ebb16c9adb09f49c1ed6a66e",
-    "integrations/weixin-bridge/test/lib.test.mjs": "d228bb571b2f5891a2a1c6575ecc1fa1e0083b3a617f13603853a22999e31202"
+    "integrations/weixin-bridge/test/lib.test.mjs": "d228bb571b2f5891a2a1c6575ecc1fa1e0083b3a617f13603853a22999e31202",
+    "integrations/bridge-core/test/recovery-policy.test.mjs": "10f49d01a1ce6b0d6b85547232afb6f99e1180ecdeef26bb814d12652b9fc914"
   }
 }

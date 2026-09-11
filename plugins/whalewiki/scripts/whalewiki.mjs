@@ -12,14 +12,13 @@
 //   whalewiki.mjs search <query>      grep-ranked page matches
 //   whalewiki.mjs export [--out f.html]
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const WIKI_DIRNAME = "whalewiki";
-const TOOL_COPY = path.join(".tool", "status.mjs");
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const PAGE_PATH = /^pages\/[\w][\w.-]*\.md$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -138,10 +137,47 @@ export function readWikiFile(wiki, rel) {
   return fs.readFileSync(safeFile(wiki, rel), "utf8");
 }
 
+function ensureDirectory(dir) {
+  const absolute = path.resolve(dir);
+  const root = path.resolve(repoRoot());
+  // Check repository-controlled parents as well as the destination itself.
+  // An explicitly selected external directory is its own trust anchor.
+  const rootStat = fs.lstatSync(root);
+  let anchor = absolute;
+  // Git may spell /var as /private/var on macOS. Match the trusted root's
+  // identity without realpath-ing repository-controlled descendants.
+  for (let candidate = absolute;; candidate = path.dirname(candidate)) {
+    const stat = fs.lstatSync(candidate, { throwIfNoEntry: false });
+    if (stat?.isDirectory() && stat.dev === rootStat.dev && stat.ino === rootStat.ino) { anchor = candidate; break; }
+    if (path.dirname(candidate) === candidate) break;
+  }
+  let current = anchor;
+  for (const part of ["", ...path.relative(anchor, absolute).split(path.sep).filter(Boolean)]) {
+    current = path.join(current, part);
+    const stat = fs.lstatSync(current, { throwIfNoEntry: false });
+    if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) throw new Error(`directory must not be a symlink or file: ${current}`);
+    if (!stat) fs.mkdirSync(current, { recursive: current === anchor });
+  }
+  return absolute;
+}
+
+function writeTarget(base, rel) {
+  if (typeof rel !== "string" || !rel || rel.includes("\\") || rel.includes("\0") ||
+      path.isAbsolute(rel) || /^[A-Za-z]:/.test(rel) || rel.split("/").some(p => !p || p === "." || p === "..")) {
+    throw new Error(`invalid relative file path: ${rel}`);
+  }
+  ensureDirectory(base);
+  let parent = path.resolve(base);
+  for (const part of rel.split("/").slice(0, -1)) parent = ensureDirectory(path.join(parent, part));
+  const target = path.join(parent, path.basename(rel));
+  const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+  if (stat && (!stat.isFile() || stat.isSymbolicLink())) throw new Error(`output must be a regular file, not a symlink: ${rel}`);
+  return target;
+}
+
 function atomicWrite(wiki, rel, body) {
-  const target = path.join(wiki, rel);
-  if (fs.existsSync(target)) safeFile(wiki, rel);
-  const temp = path.join(wiki, `.whalewiki-${process.pid}-${Date.now()}.tmp`);
+  const target = writeTarget(wiki, rel);
+  const temp = path.join(path.dirname(target), `.whalewiki-${randomUUID()}.tmp`);
   try {
     fs.writeFileSync(temp, body, { flag: "wx", mode: 0o600 });
     fs.renameSync(temp, target);
@@ -427,26 +463,20 @@ written from. \`node whalewiki/.tool/status.mjs\` recomputes freshness._
 
 export function scaffold(root = repoRoot()) {
   const wiki = process.env.WHALEWIKI_DIR ? path.resolve(process.env.WHALEWIKI_DIR) : path.join(root, WIKI_DIRNAME);
-  if (fs.existsSync(wiki) && fs.lstatSync(wiki).isSymbolicLink()) throw new Error("wiki must not be a symlink");
-  for (const rel of ["pages", ".tool"]) {
-    const dir = path.join(wiki, rel);
-    if (fs.existsSync(dir) && fs.lstatSync(dir).isSymbolicLink()) throw new Error(`${rel} must not be a symlink`);
-  }
-  fs.mkdirSync(path.join(wiki, "pages"), { recursive: true });
-  fs.mkdirSync(path.join(wiki, ".tool"), { recursive: true });
+  ensureDirectory(wiki);
+  for (const rel of ["pages", ".tool"]) ensureDirectory(path.join(wiki, rel));
   const self = fileURLToPath(import.meta.url);
-  const target = path.join(wiki, TOOL_COPY);
-  if (fs.existsSync(target)) safeFile(wiki, TOOL_COPY);
-  if (!fs.existsSync(target) || fs.realpathSync(self) !== fs.realpathSync(target)) fs.copyFileSync(self, target);
+  const target = writeTarget(wiki, ".tool/status.mjs");
+  if (!fs.existsSync(target) || fs.realpathSync(self) !== fs.realpathSync(target)) atomicWrite(wiki, ".tool/status.mjs", fs.readFileSync(self));
   for (const [name, body] of [
     ["whalewiki.toml", WIKI_TOML_TEMPLATE],
     ["INSTRUCTIONS.md", INSTRUCTIONS_TEMPLATE],
     ["INDEX.md", INDEX_TEMPLATE],
   ]) {
-    const p = path.join(wiki, name);
-    if (!fs.existsSync(p)) fs.writeFileSync(p, body);
+    const p = writeTarget(wiki, name);
+    if (!fs.existsSync(p)) atomicWrite(wiki, name, body);
   }
-  if (!fs.existsSync(manifestPath(wiki))) {
+  if (!fs.existsSync(writeTarget(wiki, "manifest.json"))) {
     saveManifest({ version: 2, tool: "whalewiki", pages: {} }, wiki);
   }
   return wiki;
@@ -660,9 +690,8 @@ export function main(argv = process.argv.slice(2)) {
     }
     case "map": {
       const wiki = wikiDir();
-      fs.mkdirSync(wiki, { recursive: true });
       const out = path.join(wiki, "codemap.md");
-      fs.writeFileSync(out, codemap());
+      atomicWrite(wiki, "codemap.md", codemap());
       console.log(`whalewiki: wrote ${out}`);
       break;
     }
@@ -713,15 +742,15 @@ export function main(argv = process.argv.slice(2)) {
       const report = statusReport(wikiDir(), { receipt: flag("--receipt") });
       if (flag("--mark")) {
         const indexFile = path.join(report.wiki, "INDEX.md");
-        if (fs.existsSync(indexFile)) {
+        if (fs.lstatSync(indexFile, { throwIfNoEntry: false })) {
           const byPage = Object.fromEntries(report.pages.map((p) => [p.page, p.verdict]));
-          const marked = fs.readFileSync(indexFile, "utf8").split("\n").map((line) => {
+          const marked = readWikiFile(report.wiki, "INDEX.md").split("\n").map((line) => {
             const m = line.match(/\((pages\/[^)]+\.md)\)/);
             return m && byPage[m[1]]
               ? line.replace(/\s*<!--\s*ww:\w+\s*-->$/, "") + ` <!-- ww:${byPage[m[1]]} -->`
               : line;
           }).join("\n");
-          fs.writeFileSync(indexFile, marked);
+          atomicWrite(report.wiki, "INDEX.md", marked);
         }
       }
       if (flag("--json")) console.log(JSON.stringify(report, null, 2));
@@ -742,7 +771,7 @@ export function main(argv = process.argv.slice(2)) {
     }
     case "export": {
       const out = opt("--out", path.join(wikiDir(), "whalewiki.html"));
-      fs.writeFileSync(out, exportHtml());
+      atomicWrite(path.dirname(path.resolve(out)), path.basename(out), exportHtml());
       console.log(`whalewiki: wrote ${out}`);
       break;
     }
