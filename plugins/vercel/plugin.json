@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "vercel",
+  "version": "0.1.0",
+  "description": "Vercel projects, deployments, domains and logs through Vercel's official remote MCP server. Authenticates with the VERCEL_TOKEN environment variable.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "connector",
+    "vercel"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Vercel",
+      "capabilities": {
+        "network_hosts": [
+          "mcp.vercel.com"
+        ]
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

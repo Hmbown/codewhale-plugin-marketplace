@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "cloudflare-docs",
+  "version": "0.1.0",
+  "description": "Search Cloudflare's developer documentation through Cloudflare's official remote MCP server. No credentials required.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "connector",
+    "cloudflare-docs"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Cloudflare Docs",
+      "capabilities": {
+        "network_hosts": [
+          "docs.mcp.cloudflare.com"
+        ]
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

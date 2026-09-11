@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "cloudflare-docs": {
+      "type": "streamable-http",
+      "url": "https://docs.mcp.cloudflare.com/mcp",
+      "extensions": {
+        "net.codewhale": {
+          "connect_timeout": 30,
+          "execute_timeout": 60
+        }
+      }
+    }
+  }
+}

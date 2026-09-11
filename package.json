@@ -1,0 +1,11 @@
+{
+  "name": "codewhale-plugin-marketplace",
+  "private": true,
+  "description": "First-party Codewhale plugin catalog: installable plugin bundles and the bundled skill set.",
+  "scripts": {
+    "check": "node scripts/check-marketplace.mjs",
+    "check:cu-sync": "node scripts/check-cu-sync.mjs",
+    "test:whalewiki": "node --test plugins/whalewiki/tests/",
+    "test:computer-use": "cd plugins/computer-use && node --test tests/"
+  }
+}

@@ -18,7 +18,10 @@ only. That separation is the point — a catalog is a menu, not a permission.
 | | |
 | --- | --- |
 | `plugins/computer-use` | See the screen and operate it — accessibility-first control, screenshots and zoom on macOS, Windows and Linux, macOS recording, HarmonyOS over `hdc`. |
-| `skills/` | The 37 skills Codewhale bundles. They also ship inside the binary and are unpacked on first run, so you already have them; they live here so they can be read and improved by people who do not build Codewhale. |
+| `skills/` | The 37 skills Codewhale bundles. They also ship inside the binary and are unpacked on first run, so you already have them; they live here so they can be read and improved by people who do not build Codewhale. Installable as one reviewed bundle named `codewhale-skills`. |
+| `plugins/cloudflare-docs` `linear` `github` `stripe` `supabase` `resend` `vercel` | Connector bundles: official remote MCP endpoints wrapped for reviewed install. Each declares its `network_hosts` and authenticates with a bearer env var; see `docs/CONNECTIONS.md`. |
+| `docs/CONNECTIONS.md` | How Codewhale connects to services: plugin MCP (bearer), user-level MCP (OAuth: Slack, Notion, Atlassian, Sentry), and app-level webhook bridges (Slackbot, Linear). |
+| `docs/REVIEW-BOT.md` | Matching Devin Review: what the `review` skill already encodes, the Actions/webhook recipes, and the gap that is real product work. |
 
 `marketplace.json` is Codewhale's native catalog format. An entry is a `name`
 plus a `source` that is exactly the install spec `/plugin install` accepts:
@@ -53,3 +56,4 @@ Issues are the right place for "this should exist" and "this is wrong" alike.
 ## License
 
 Each entry carries its own license. `plugins/computer-use` is MIT.
+

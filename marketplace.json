@@ -1,7 +1,7 @@
 {
   "name": "codewhale",
   "description": "First-party Codewhale extensions: the plugins and skills Codewhale ships, maintained in the open so anyone can propose a change.",
-  "version": "1",
+  "version": "2",
   "plugins": [
     {
       "name": "computer-use",
@@ -11,225 +11,59 @@
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "batch",
-      "source": "path:skills/batch",
-      "description": "Break a large, parallelizable goal into bounded work units, coordinate existing agent/worktree machinery, integrate, and verify. Explicit-only.",
+      "name": "cloudflare-docs",
+      "source": "path:plugins/cloudflare-docs",
+      "version": "0.1.0",
+      "description": "Cloudflare's official remote docs MCP: current Workers/Pages/storage/platform documentation search. No credentials required.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "best-of-n",
-      "source": "path:skills/best-of-n",
-      "description": "Generate a small set of independent candidate solutions in worktrees, judge them against one explicit rubric, and apply the winner only after PASS verification.",
+      "name": "linear",
+      "source": "path:plugins/linear",
+      "version": "0.1.0",
+      "description": "Linear's official remote MCP: issues, projects, cycles, comments, documents. Bearer auth via LINEAR_API_KEY.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "contributor-onboarding",
-      "source": "path:skills/contributor-onboarding",
-      "description": "Help a new contributor get productive on this checkout - inspect sync state against main, build, run the repository's exact verification gate, and produce a local what's-new digest. Never fetches, pulls, or modifies a dirty tree on its own. Explicit-only.",
+      "name": "github",
+      "source": "path:plugins/github",
+      "version": "0.1.0",
+      "description": "GitHub's official remote MCP: repos, issues, PRs, Actions, code search. Bearer auth via GITHUB_PERSONAL_ACCESS_TOKEN.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "dataviz",
-      "source": "path:skills/dataviz",
-      "description": "Choose and produce an appropriate chart/dashboard/visual explanation from data, with legible encodings and source/assumption notes.",
+      "name": "stripe",
+      "source": "path:plugins/stripe",
+      "version": "0.1.0",
+      "description": "Stripe's official remote MCP: customers, payments, subscriptions, disputes. Bearer auth via STRIPE_SECRET_KEY \u2014 a restricted rk_ key is recommended.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "debug",
-      "source": "path:skills/debug",
-      "description": "Reproduce, minimize, localize, identify root cause, and distinguish diagnosis from an authorized fix. Prefer root-cause over symptom patches.",
+      "name": "supabase",
+      "source": "path:plugins/supabase",
+      "version": "0.1.0",
+      "description": "Supabase's official remote MCP: projects, database, auth, storage, edge functions. Bearer auth via SUPABASE_ACCESS_TOKEN.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "delegate",
-      "source": "path:skills/delegate",
-      "description": "Strategic delegation for multi-step coding, research, or verification work. Use when a task can be split into parent reasoning plus focused sub-agent execution through the agent tool.",
+      "name": "resend",
+      "source": "path:plugins/resend",
+      "version": "0.1.0",
+      "description": "Resend's official remote MCP: transactional email, domains, audiences, broadcasts. Bearer auth via RESEND_API_KEY.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "dependency-update",
-      "source": "path:skills/dependency-update",
-      "description": "Read release notes/changelogs, update a defined dependency scope, handle breaking changes, and verify. Explicit-only; no broad update-everything by inference.",
+      "name": "vercel",
+      "source": "path:plugins/vercel",
+      "version": "0.1.0",
+      "description": "Vercel's official remote MCP: projects, deployments, domains, logs. Bearer auth via VERCEL_TOKEN.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
-      "name": "document",
-      "source": "path:skills/document",
-      "description": "Write or update repository/product documentation: README, user guides, API docs, architecture, migration notes, and changelog material. This is not the Word-document artifact skill.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "documents",
-      "source": "path:skills/documents",
-      "description": "Compatibility alias for the docx skill. Prefer loading docx.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "docx",
-      "source": "path:skills/docx",
-      "description": "Create/edit/inspect Word documents using available managed or host capabilities.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "feishu",
-      "source": "path:skills/feishu",
-      "description": "Work with Feishu or Lark bots, docs, sheets, bitables, approval flows, and OpenAPI/MCP setup without hardcoding credentials.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "fleet-manager",
-      "source": "path:skills/fleet-manager",
-      "description": "Use when managing, triaging, restarting, escalating, or summarizing Codewhale fleet runs and workers.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "frontend-design",
-      "source": "path:skills/frontend-design",
-      "description": "Produce intentional, responsive, accessible UI work and perform visual QA instead of generic component assembly.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "handoff",
-      "source": "path:skills/handoff",
-      "description": ">-",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "help",
-      "source": "path:skills/help",
-      "description": "Route a \"how do I use Codewhale\" question to the installed help, config, and doctor surfaces instead of reciting a manual from memory. Explicit-only.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "implement",
-      "source": "path:skills/implement",
-      "description": "Carry an authorized, defined request or approved plan through scoped edits and proportionate verification. Skill loading is not write authorization by itself.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "interview",
-      "source": "path:skills/interview",
-      "description": "Ask one useful structured question at a time only when material product/implementation choices are genuinely missing; remember answers and produce a brief/spec. Discoverable facts should be investigated instead of asked.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "mcp-builder",
-      "source": "path:skills/mcp-builder",
-      "description": "Design, build, configure, or debug Model Context Protocol servers for codewhale, including stdio and HTTP/SSE transports.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "mcp-discovery",
-      "source": "path:skills/mcp-discovery",
-      "description": "Find and start a zero-environment local MCP server when the session lacks a capability that no available tool, project script, or ordinary local code can cover.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "pdf",
-      "source": "path:skills/pdf",
-      "description": "Read, extract, split, merge, rotate, watermark, fill, OCR, or create PDF files with verification of page counts and text extraction.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "plan",
-      "source": "path:skills/plan",
-      "description": "Turn a sufficiently understood task into an ordered implementation plan with dependencies and verification. Orchestrate Codewhale’s native plan state; do not build a parallel planner.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "plugin-creator",
-      "source": "path:skills/plugin-creator",
-      "description": "Scaffold a local Codewhale plugin bundle with a versioned manifest, namespaced Skills, and an explicit trust review.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "pptx",
-      "source": "path:skills/pptx",
-      "description": "Create/edit/inspect/verify slide decks and PPTX presentations.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "presentations",
-      "source": "path:skills/presentations",
-      "description": "Compatibility alias for the pptx skill. Prefer loading pptx.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "release",
-      "source": "path:skills/release",
-      "description": "Prepare a named version: preflight, version consistency, build/package, smoke test, checksums/notes, and release readiness. Publishing/tagging/deploy need separate authorization. Explicit-only.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "research",
-      "source": "path:skills/research",
-      "description": "Current external research using available web tools, primary sources where possible, links/citations, date awareness, synthesis, and unresolved uncertainty.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "review",
-      "source": "path:skills/review",
-      "description": "Read-only correctness review with actionable findings first, tight file/line evidence, severity, and a concise residual-risk summary.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "security-review",
-      "source": "path:skills/security-review",
-      "description": "Review trust boundaries, auth/authz, injection, secrets, filesystem/network exposure, dependencies, and exploitability without pretending a shallow lint is an audit.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "simplify",
-      "source": "path:skills/simplify",
-      "description": "Improve clarity and reduce needless complexity after behavior is understood; preserve behavior and keep cleanup separate from correctness fixes.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "skill-creator",
-      "source": "path:skills/skill-creator",
-      "description": "Create or improve codewhale skills. Use when the user wants a new skill, wants to update an existing skill, or needs guidance on when a skill should be a skill versus MCP, hooks, tools, or a plugin scaffold.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "skill-installer",
-      "source": "path:skills/skill-installer",
-      "description": "Install, update, trust, or inspect Codewhale skills from GitHub or local skill folders. Use when the user asks for available skills or wants a community skill installed.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "spreadsheets",
-      "source": "path:skills/spreadsheets",
-      "description": "Compatibility alias for the xlsx skill. Prefer loading xlsx.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "test",
-      "source": "path:skills/test",
-      "description": "Detect the project’s test stack, run the narrowest useful tests, create tests when authorized, and report coverage/gaps honestly.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "v4-best-practices",
-      "source": "path:skills/v4-best-practices",
-      "description": "Use when working with deepseek-v4-pro or deepseek-v4-flash in thinking mode on multi-step or plan-driven tasks. Provides rules to prevent stale references, unverified plan assumptions, and vague plan output.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "verify",
-      "source": "path:skills/verify",
-      "description": "Exercise the real app/API/CLI and collect observable evidence; tests alone do not count as end-to-end verification.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "webapp-testing",
-      "source": "path:skills/webapp-testing",
-      "description": "Start/reuse a local app, wait for readiness, inspect rendered state/console/network, act from observed selectors, and verify with evidence.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "xlsx",
-      "source": "path:skills/xlsx",
-      "description": "Create/edit/analyze/verify spreadsheet workbooks including XLSX/CSV/TSV.",
+      "name": "codewhale-skills",
+      "source": "path:skills",
+      "version": "1.0.0",
+      "description": "The Codewhale skill set as one reviewed plugin: implement, debug, test, review, verify, webapp-testing, release, handoff, research and the rest of the bundled workflow skills. Each arrives namespaced as codewhale-skills:<name>. These skills also ship inside the Codewhale binary; install this bundle to carry a reviewed copy to a host that only loads plugins.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     }
   ]

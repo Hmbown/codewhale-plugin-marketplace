@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "resend",
+  "version": "0.1.0",
+  "description": "Resend transactional email \u2014 sending, domains, audiences, broadcasts \u2014 through Resend's official remote MCP server. Authenticates with the RESEND_API_KEY environment variable.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "connector",
+    "resend"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Resend",
+      "capabilities": {
+        "network_hosts": [
+          "mcp.resend.com"
+        ]
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

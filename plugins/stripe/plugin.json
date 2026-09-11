@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "stripe",
+  "version": "0.1.0",
+  "description": "Stripe customers, payments, subscriptions, disputes and balances through Stripe's official remote MCP server. Authenticates with the STRIPE_SECRET_KEY environment variable \u2014 a restricted rk_ key is recommended.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "connector",
+    "stripe"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Stripe",
+      "capabilities": {
+        "network_hosts": [
+          "mcp.stripe.com"
+        ]
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

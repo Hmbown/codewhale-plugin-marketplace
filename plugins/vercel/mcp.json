@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "vercel": {
+      "type": "streamable-http",
+      "url": "https://mcp.vercel.com",
+      "extensions": {
+        "net.codewhale": {
+          "connect_timeout": 30,
+          "execute_timeout": 60,
+          "bearer_token_env_var": "VERCEL_TOKEN"
+        }
+      }
+    }
+  }
+}

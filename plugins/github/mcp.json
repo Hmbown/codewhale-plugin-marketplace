@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "github": {
+      "type": "streamable-http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "extensions": {
+        "net.codewhale": {
+          "connect_timeout": 30,
+          "execute_timeout": 60,
+          "bearer_token_env_var": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        }
+      }
+    }
+  }
+}
