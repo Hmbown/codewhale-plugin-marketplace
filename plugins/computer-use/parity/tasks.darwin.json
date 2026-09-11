@@ -1,0 +1,1309 @@
+{
+ "$schema_note": "Parity task suite. Each task is a deterministic script of MCP tool calls against a disposable fixture plus an oracle check defined BEFORE execution. Step forms: {call, args, [expect_error]} | {expect:{path, equals|gte|contains|not_equals}} | {sleep} | {key} (shorthand for call key). Coordinate sugar: target {client:[x,y]} = fixture client-relative point converted to a coordinate target in the latest full-screen raster; {client_zoom:[x,y]} = point inside the latest zoom raster; region {client:[x,y,w,h]} for zoom. {window:'second'} on a client target aims at the fixture's second window instead of the main one. Every task is repeated `repeats` times from a fresh fixture. Steps that need accessibility are marked optional_a11y and count as 'untested' (not failed) when get_app_state cannot see the app. macOS variant: fixtures are Chrome (served over the runner's loopback origin so the oracle needs no extra TCC grant) and a native AppKit app. Input is process-bound, so the runner prepends open_application(pid, activate:false) to every task with a fixture; that prelude is recorded separately from the task's own tool calls. A task the platform cannot express carries `skip` with the reason and is reported as skipped, not omitted.",
+ "repeats": 5,
+ "fixtures": {
+  "browser": {
+   "kind": "chrome-app",
+   "file": "fixtures/browser.html",
+   "size": [
+    1000,
+    800
+   ],
+   "position": [
+    0,
+    60
+   ],
+   "title_prefix": "CU-FIXTURE "
+  },
+  "native": {
+   "kind": "appkit",
+   "file": "fixtures/native-macos.m",
+   "size": [
+    800,
+    600
+   ],
+   "title_prefix": "CU-NATIVE",
+   "second_window_title": "CU-NATIVE-2",
+   "note": "Purpose-built AppKit app with the same client-relative geometry as fixtures/native.py. Tk is not usable here: Tk/Aqua does not consume CGEvents posted to its process, so it could not distinguish a product failure from a toolkit one."
+  }
+ },
+ "tasks": [
+  {
+   "id": "browser.form_submit",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Fill and submit the form, choosing the popup value through its advertised accessibility action.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        200,
+        62
+       ]
+      }
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "Ada Lovelace"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        332,
+        64
+       ]
+      }
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        500,
+        64
+       ]
+      }
+     }
+    },
+    {
+     "sleep": 300
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "perform_action",
+     "args": {
+      "target": {
+       "element_by_label": "green"
+      },
+      "action": "AXPick"
+     }
+    },
+    {
+     "sleep": 300
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        680,
+        64
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "submitted.name",
+      "equals": "Ada Lovelace"
+     }
+    },
+    {
+     "expect": {
+      "path": "submitted.agree",
+      "equals": true
+     }
+    },
+    {
+     "expect": {
+      "path": "submitted.color",
+      "equals": "green"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.tabs",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Switch tabs B then C then A; panel state follows.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        260,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "B"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        420,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "C"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        100,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "A"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.dynamic_content",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Click Load; a premature click during loading must not confirm; after ready, Confirm succeeds.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        700,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "equals": "loading"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        700,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "not_equals": "confirmed"
+     }
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "equals": "ready"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        700,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "equals": "confirmed"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.scroll_reveal",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Scroll the list to the bottom and click the Reveal button that only exists on the last row.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "scroll",
+     "args": {
+      "target": {
+       "client": [
+        260,
+        340
+       ]
+      },
+      "direction": "down",
+      "amount": 40
+     }
+    },
+    {
+     "expect": {
+      "path": "scrollTop",
+      "gte": 1400
+     }
+    },
+    {
+     "sleep": 500
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        64,
+        420
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "revealed",
+      "equals": true
+     }
+    }
+   ],
+   "note": "A wheel notch scrolls one row (40px) on macOS against ~47px on X11, so reaching the same bottom-of-list state takes more notches. The oracle (scrollTop >= 1400, then the Reveal button that only exists on the last row) is unchanged. Chrome publishes the scrolled layout to its accessibility tree after the DOM has already reported the new scrollTop, so the click waits for the tree to catch up; without it the point resolves to the row group instead of the button inside it."
+  },
+  {
+   "id": "browser.iframe_click",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Click a button inside a same-document iframe; parent receives the message.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        740,
+        340
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "frameClicked",
+      "gte": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.drag_drop",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Drag the chip onto the drop zone.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click_drag",
+     "args": {
+      "from_target": {
+       "client": [
+        80,
+        540
+       ]
+      },
+      "to": {
+       "client": [
+        400,
+        540
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dropped",
+      "equals": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.upload",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Upload through the native file picker: observe Go to Folder, set its focused text field, choose the observed completion row, and press Open.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        120,
+        660
+       ]
+      }
+     }
+    },
+    {
+     "sleep": 1500
+    },
+    {
+     "call": "open_application",
+     "args": {
+      "pid": "${FIXTURE_PID}",
+      "activate": true
+     }
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "key": "cmd+shift+g"
+    },
+    {
+     "sleep": 600
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "set_value",
+     "args": {
+      "target": {
+       "element_match": {
+        "role": "AXTextField",
+        "focused": true
+       }
+      },
+      "value": "${UPLOAD_FILE}"
+     }
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "double_click",
+     "args": {
+      "target": {
+       "element_match": {
+        "role": "AXList",
+        "label": "path"
+       },
+       "ancestor_role": "AXRow"
+      }
+     }
+    },
+    {
+     "sleep": 600
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "perform_action",
+     "args": {
+      "target": {
+       "element_match": {
+        "role": "AXButton",
+        "label": "Open",
+        "enabled": true
+       }
+      },
+      "action": "AXPress"
+     }
+    },
+    {
+     "expect": {
+      "path": "upload.text",
+      "equals": "codewhale upload fixture\n"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.download",
+   "issue": 2,
+   "fixture": "browser",
+   "goal": "Click the download link; a file with the expected contents lands in the run's download dir.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        400,
+        660
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "downloads",
+      "gte": 1
+     }
+    },
+    {
+     "expect_file": {
+      "name": "cu-fixture.txt",
+      "contains": "codewhale parity fixture download"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.unicode_type",
+   "issue": 3,
+   "fixture": "browser",
+   "goal": "Type accented text, CJK and an emoji into an input; value round-trips exactly.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        700,
+        660
+       ]
+      }
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "héllo wörld 日本 🐳"
+     }
+    },
+    {
+     "expect": {
+      "path": "uni",
+      "equals": "héllo wörld 日本 🐳"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.modifiers",
+   "issue": 3,
+   "fixture": "browser",
+   "goal": "Send a ctrl+shift chord and a plain key; the page sees exactly those chords.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        500,
+        740
+       ]
+      }
+     }
+    },
+    {
+     "key": "ctrl+shift+k"
+    },
+    {
+     "key": "escape"
+    },
+    {
+     "expect": {
+      "path": "keys",
+      "contains": "ctrl+shift+K"
+     }
+    },
+    {
+     "expect": {
+      "path": "keys",
+      "contains": "Escape"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.zoom_click",
+   "issue": 4,
+   "fixture": "browser",
+   "goal": "Zoom into the tab strip and click Tab C using coordinates in the ZOOM raster; verifies child-raster coordinate transform live.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "zoom",
+     "args": {
+      "region": {
+       "client": [
+        300,
+        120,
+        300,
+        100
+       ]
+      }
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client_zoom": [
+        420,
+        164
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "C"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.outside_raster_fails",
+   "issue": 4,
+   "fixture": "browser",
+   "goal": "A coordinate outside the zoom raster is refused before any input is sent.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "zoom",
+     "args": {
+      "region": {
+       "client": [
+        300,
+        120,
+        300,
+        100
+       ]
+      }
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "type": "coordinate",
+       "x": 5000,
+       "y": 5000
+      }
+     },
+     "expect_error": "target_outside_raster"
+    },
+    {
+     "expect": {
+      "path": "clicks",
+      "equals": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.element_click",
+   "issue": 2,
+   "fixture": "browser",
+   "optional_a11y": true,
+   "goal": "Observe the page through accessibility, click 'Tab B' by element target, verify via oracle.",
+   "steps": [
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "max_elements": 400
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "element_by_label": "Tab B"
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "B"
+     }
+    }
+   ]
+  },
+  {
+   "id": "browser.stale_element",
+   "issue": 2,
+   "fixture": "browser",
+   "optional_a11y": true,
+   "goal": "After the observed element disappears (Load replaces it), acting on the old element target fails element_stale instead of clicking something else.",
+   "steps": [
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "max_elements": 400
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "element_by_label": "Load"
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "equals": "ready"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "element_by_label": "Load"
+      }
+     },
+     "expect_error": "element_stale"
+    },
+    {
+     "expect": {
+      "path": "dyn",
+      "equals": "ready"
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.entry_apply",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Type into the entry and press Apply; label shows the applied text.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        200,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "parity"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        450,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "applied",
+      "equals": "parity"
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.menu_command",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Observe the native menu bar and invoke File > Mark file through accessibility.",
+   "steps": [
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "perform_action",
+     "args": {
+      "target": {
+       "element_by_label": "File"
+      },
+      "action": "AXPress"
+     }
+    },
+    {
+     "sleep": 300
+    },
+    {
+     "call": "get_app_state",
+     "args": {
+      "app_ref": {
+       "pid": "${FIXTURE_PID}"
+      },
+      "detail": "full"
+     }
+    },
+    {
+     "call": "perform_action",
+     "args": {
+      "target": {
+       "element_by_label": "Mark file"
+      },
+      "action": "AXPick"
+     }
+    },
+    {
+     "expect": {
+      "path": "menu",
+      "contains": "file"
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.list_scroll_select",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Wheel-scroll the listbox down then click a visible row; a row beyond the first page is selected.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "scroll",
+     "args": {
+      "target": {
+       "client": [
+        190,
+        180
+       ]
+      },
+      "direction": "down",
+      "amount": 10
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        190,
+        270
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "selected",
+      "gte": 15
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.drag_square",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Drag the square into the zone.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click_drag",
+     "args": {
+      "from_target": {
+       "client": [
+        480,
+        180
+       ]
+      },
+      "to": {
+       "client": [
+        720,
+        180
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "in_zone",
+      "equals": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.modal_dialog",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Open a modal dialog; while it is open, clicking Apply must NOT apply; answer the dialog with the keyboard.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        200,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "blocked"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        100,
+        330
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "dialog",
+      "equals": "open"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        450,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "sleep": 400
+    },
+    {
+     "expect": {
+      "path": "applied",
+      "equals": ""
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "answer"
+     }
+    },
+    {
+     "key": "return"
+    },
+    {
+     "expect": {
+      "path": "dialog",
+      "equals": "closed"
+     }
+    },
+    {
+     "expect": {
+      "path": "dialog_result",
+      "equals": "answer"
+     }
+    }
+   ],
+   "known_limitations": {
+    "linux-x11": "KWin does not give the transient Tk dialog X input focus, so typed text does not reach it; passes on the isolated Xvfb route"
+   }
+  },
+  {
+   "id": "native.second_window",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Open a second window and click a button inside it, targeting by that window's own origin.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        300,
+        330
+       ]
+      }
+     }
+    },
+    {
+     "sleep": 600
+    },
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        150,
+        94
+       ],
+       "window": "second"
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "second_clicks",
+      "gte": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.unicode_type",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Type accented text and an emoji into a AppKit entry and apply it.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        200,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "call": "type",
+     "args": {
+      "text": "Ünïcödé ✓"
+     }
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        450,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "applied",
+      "equals": "Ünïcödé ✓"
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.select_text",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "Triple-click selects the whole entry text.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "triple_click",
+     "args": {
+      "target": {
+       "client": [
+        500,
+        400
+       ]
+      }
+     }
+    },
+    {
+     "expect": {
+      "path": "select",
+      "equals": "hello parity world"
+     }
+    }
+   ]
+  },
+  {
+   "id": "native.modifiers",
+   "issue": 3,
+   "fixture": "native",
+   "goal": "A ctrl chord reaches the entry with the modifier state intact.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        200,
+        40
+       ]
+      }
+     }
+    },
+    {
+     "key": "ctrl+b"
+    },
+    {
+     "expect": {
+      "path": "keys",
+      "contains": "ctrl+b"
+     }
+    }
+   ]
+  },
+  {
+   "id": "control.permission_denied",
+   "issue": 6,
+   "fixture": null,
+   "server_env": {
+    "CODEWHALE_CU_APP": "off"
+   },
+   "goal": "Direct mode with no bound application refuses raw input with an actionable message instead of typing into whatever is in front. (macOS binds input to a process, so this — not a missing DISPLAY — is the platform's fail-closed edge.)",
+   "steps": [
+    {
+     "call": "type",
+     "args": {
+      "text": "parity-must-not-type"
+     },
+     "expect_error_any": true,
+     "expect_message_contains": "open_application"
+    },
+    {
+     "call": "key",
+     "args": {
+      "text": "return"
+     },
+     "expect_error_any": true,
+     "expect_message_contains": "open_application"
+    }
+   ]
+  },
+  {
+   "id": "control.cancellation",
+   "issue": 6,
+   "fixture": null,
+   "goal": "A cancelled in-flight request gets no response, the next request is served, and no action is replayed.",
+   "steps": [
+    {
+     "call": "wait",
+     "args": {
+      "seconds": 3
+     },
+     "cancel_after_ms": 300,
+     "expect_no_response_ms": 3500
+    },
+    {
+     "call": "computer_list"
+    }
+   ]
+  },
+  {
+   "id": "control.stop_blocks_actions",
+   "issue": 6,
+   "fixture": "browser",
+   "goal": "After stop_computer_control, pointer actions are refused and the fixture sees no click.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "call": "stop_computer_control"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        260,
+        164
+       ]
+      }
+     },
+     "expect_error": "control_stopped"
+    },
+    {
+     "expect": {
+      "path": "clicks",
+      "equals": 0
+     }
+    },
+    {
+     "expect": {
+      "path": "tab",
+      "equals": "A"
+     }
+    }
+   ]
+  },
+  {
+   "id": "control.reconnect_no_replay",
+   "issue": 6,
+   "fixture": "browser",
+   "goal": "Restart the server mid-task: old state_ids and rasters are rejected on the new session (no stale replay), a fresh screenshot works.",
+   "steps": [
+    {
+     "call": "screenshot"
+    },
+    {
+     "restart_server": true
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "client": [
+        260,
+        164
+       ]
+      }
+     },
+     "expect_error": "no_raster"
+    },
+    {
+     "call": "left_click",
+     "args": {
+      "target": {
+       "type": "element",
+       "state_id": "s-1",
+       "index": 0
+      }
+     },
+     "expect_error": "unknown_state"
+    },
+    {
+     "expect": {
+      "path": "clicks",
+      "equals": 0
+     }
+    },
+    {
+     "call": "screenshot"
+    }
+   ]
+  }
+ ]
+}

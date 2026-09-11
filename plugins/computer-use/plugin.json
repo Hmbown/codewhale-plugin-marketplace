@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "computer-use",
+  "version": "0.2.1",
+  "description": "See the screen and operate it: accessibility-first control, screenshots and zoom on macOS, Windows and Linux, plus macOS recording and HarmonyOS devices over hdc. SSH is experimental; Windows/Linux recording is unavailable pending owned cleanup.",
+  "author": { "name": "Codewhale" },
+  "license": "MIT",
+  "keywords": [
+    "computer-use",
+    "automation",
+    "screenshot",
+    "recording",
+    "accessibility",
+    "harmonyos"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Computer Use",
+      "commands": { "path": "commands" },
+      "skills": { "path": "skills" },
+      "when": {
+        "binaries": ["node"],
+        "os": ["macos", "linux", "windows"]
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "date": "2026-09-07T06:12:47.776Z",
+  "host": "darwin 25.1.0",
+  "macos": "26.1",
+  "commit": "b402f5bf8593a4376960a3164d31b448eb318659",
+  "git_dirty": true,
+  "claim": "with the application bound by open_application(activate:false): observed, typed into, and pressed, without bringing it forward",
+  "rows": [
+    {
+      "id": "appkit",
+      "label": "AppKit (parity native fixture)",
+      "family": "native AppKit",
+      "notes": [
+        "keyboard: fixture reported entry=\"codewhale-bg-d8cbb0\"",
+        "a11y click: strategy=a11y applied=\"codewhale-bg-d8cbb0\""
+      ],
+      "observable_elements": 101,
+      "keyboard_background": true,
+      "a11y_click_background": true,
+      "foreground_before": "TextEdit",
+      "foreground_after": "TextEdit",
+      "foreground_preserved": true,
+      "verdict": "verified live"
+    },
+    {
+      "id": "chrome",
+      "label": "Google Chrome",
+      "family": "browser (Chromium)",
+      "notes": [
+        "keyboard: page reported uni=\"\"",
+        "a11y click: strategy=a11y tab=B"
+      ],
+      "observable_elements": 85,
+      "keyboard_background": true,
+      "a11y_click_background": true,
+      "foreground_before": "Google Chrome",
+      "foreground_after": "Google Chrome",
+      "foreground_preserved": true,
+      "verdict": "verified live"
+    },
+    {
+      "id": "chromium",
+      "label": "Chromium",
+      "family": "Chromium-based app",
+      "notes": [
+        "keyboard: page reported uni=\"\"",
+        "a11y click: strategy=a11y tab=B"
+      ],
+      "observable_elements": 122,
+      "keyboard_background": true,
+      "a11y_click_background": true,
+      "foreground_before": "Chromium",
+      "foreground_after": "Chromium",
+      "foreground_preserved": true,
+      "verdict": "verified live"
+    },
+    {
+      "id": "electron",
+      "label": "Electron (Visual Studio Code)",
+      "family": "Electron",
+      "notes": [
+        "keyboard: saved file contains \"\"; editable accessibility element: none (roles: AXWindow, AXGroup, AXButton)",
+        "a11y click: no pressable control with an oracle in an empty editor window"
+      ],
+      "observable_elements": 12,
+      "keyboard_background": false,
+      "a11y_click_background": null,
+      "foreground_before": "Code",
+      "foreground_after": "Code",
+      "foreground_preserved": true,
+      "verdict": "verified failed-closed"
+    },
+    {
+      "id": "tk",
+      "label": "Tk (python3 tkinter)",
+      "family": "Tk",
+      "notes": [
+        "keyboard: fixture reported entry=\"\"",
+        "a11y click: strategy=event (no_pressable_element_at_point)"
+      ],
+      "observable_elements": 6,
+      "keyboard_background": false,
+      "a11y_click_background": false,
+      "foreground_before": "Python",
+      "foreground_after": "Python",
+      "foreground_preserved": true,
+      "verdict": "verified failed-closed"
+    },
+    {
+      "id": "java",
+      "label": "Java (Swing/AWT)",
+      "family": "Java",
+      "notes": [],
+      "verdict": "untested",
+      "reason": "no Java runtime installed on this host (/usr/libexec/java_home finds none)"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "codewhale-computer-use",
+  "version": "0.2.1",
+  "description": "Codewhale Computer Use: text-first app observation, local macOS OCR, semantic actions, screenshots and input.",
+  "license": "MIT",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "interface": {
+    "displayName": "Codewhale Computer Use",
+    "shortDescription": "Operate apps with text or vision",
+    "developerName": "Codewhale"
+  },
+  "mcpServers": {
+    "computer": {
+      "command": "node",
+      "args": ["mcp/server.mjs"],
+      "cwd": "./",
+      "startupTimeoutMs": 30000,
+      "toolTimeoutMs": 120000
+    }
+  }
+}

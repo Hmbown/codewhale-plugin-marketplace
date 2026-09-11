@@ -1,0 +1,12 @@
+{
+  "$note": "Eligibility contract for the six original native model-trial goals. Uses the existing parity expectation DSL. Fixture outcomes are separate from model, package, platform, or full parity qualification.",
+  "modes": ["text", "vision"],
+  "tasks": [
+    { "id": "entry_apply", "expect": { "path": "applied", "equals": "Ada Lovelace" } },
+    { "id": "unicode_type", "expect": { "path": "applied", "equals": "héllo 世界 🐋" } },
+    { "id": "menu_command", "expect": { "path": "menu", "contains": "file" } },
+    { "id": "drag_square", "expect": { "path": "in_zone", "equals": true } },
+    { "id": "modal_dialog", "expect": { "path": "dialog_result", "equals": "sheet text" } },
+    { "id": "list_select", "expect": { "path": "selected", "equals": 20 } }
+  ]
+}

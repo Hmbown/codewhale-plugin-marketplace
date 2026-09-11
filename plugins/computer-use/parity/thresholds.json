@@ -1,0 +1,21 @@
+{
+  "$note": "Release thresholds, fixed before any run is scored (issue #1/#7). A capability row's status is derived mechanically from receipts by scripts/parity-matrix.mjs; nothing here may be edited to make a run pass.",
+  "repeats_required": 5,
+  "status_rules": {
+    "demonstrated": "successes == repeats_required on the Codewhale surface AND (no Codex column OR Codex successes <= Codewhale successes)",
+    "partial": "1 <= successes < repeats_required, or demonstrated on Codewhale but Codex column shows more successes",
+    "missing": "successes == 0 with the tool present, or the tool/backend reports unsupported",
+    "untested": "no receipts for the surface/platform, or every attempt was skipped for a missing precondition (e.g. optional_a11y with no accessible app)"
+  },
+  "release_gates": {
+    "parity_claim_requires": "every task tagged issue 2 or 3 is 'demonstrated' AND a Codex column exists for the same tasks on the same OS AND every 'untested' row is listed verbatim in docs/LIMITATIONS.md",
+    "linux_x11_release_requires": "all non-optional tasks 'demonstrated' on linux-x11; optional_a11y tasks may be 'untested' but must be listed",
+    "macos_release_requires": "a linux-style run on macOS 14+ with both Retina and non-Retina displays recorded; until such receipts exist the README must not claim macOS parity",
+    "max_pointer_interference_local": "hardware pointer displacement during a task is reported, not gated, on the shared-desktop route; the isolated-desktop route (--isolated) must report 0 px displacement and unchanged active window on the host display",
+    "elapsed_budget_ms_per_step": 5000
+  },
+  "codex_baseline": {
+    "how": "Fill parity/results/codex-<os>-<date>.json by hand from a Codex CLI session driving the same fixtures with the same goals (see docs/PARITY.md). Absent file => Codex column is 'untested' and no parity claim may be published.",
+    "fields_per_task": ["successes", "repeats", "elapsed_ms", "tool_calls", "interruptions", "notes"]
+  }
+}

@@ -1,33 +1,55 @@
+<img src="assets/codewhale.png" alt="Codewhale" width="96" />
+
 # Codewhale plugin marketplace
 
-The first-party catalog: the plugins and skills Codewhale itself ships and
-supports. `marketplace.json` is Codewhale's native catalog format — an entry is
-a `name` plus a `source` that is exactly the install spec `/plugin install`
-accepts.
-
-Add it:
+The first-party catalog: the plugins and skills Codewhale ships, kept in the
+open so anyone can read them, propose a change, or add their own.
 
 ```
 /plugin marketplace add codewhale <path-to>/marketplace.json
 ```
 
 Adding a catalog installs nothing. It lists what is available; trust and
-enablement stay separate, explicit steps.
+enablement stay separate, explicit steps, and tier and provenance are display
+only. That separation is the point — a catalog is a menu, not a permission.
 
-## Layout
+## What is here
 
-- `marketplace.json` — the catalog.
-- `plugins/<name>/` — first-party plugins carried in this repository, referenced
-  as `path:plugins/<name>`.
+| | |
+| --- | --- |
+| `plugins/computer-use` | See the screen and operate it — accessibility-first control, screenshots and zoom on macOS, Windows and Linux, macOS recording, HarmonyOS over `hdc`. |
+| `skills/` | The 37 skills Codewhale bundles. They also ship inside the binary and are unpacked on first run, so you already have them; they live here so they can be read and improved by people who do not build Codewhale. |
 
-An entry may also point outward (`github:owner/repo`, an `https` tarball) when a
-plugin has its own home. Carrying one here is a convenience for plugins that do
-not, not a rule.
+`marketplace.json` is Codewhale's native catalog format. An entry is a `name`
+plus a `source` that is exactly the install spec `/plugin install` accepts:
 
-## Skills
+```json
+{ "name": "formatter", "source": "github:owner/repo", "version": "2.1.0" }
+```
 
-Codewhale's bundled skills ship inside the binary and are unpacked to
-`$CODEWHALE_HOME` on first run. They are already present on every install and
-are deliberately **not** listed here: a catalog entry for something that cannot
-be installed, because it is already there, is an affordance that does nothing.
-This catalog is for extensions a person chooses to add.
+`path:` sources are relative to this repository, so a plugin carried here needs
+no home of its own. `github:owner/repo` and `https://` tarballs point outward
+for plugins that have one.
+
+Codewhale also reads the Claude (`.claude-plugin/marketplace.json`), Kimi and
+Codex catalog formats, so a catalog written for one of those can be added
+without conversion.
+
+## Contributing
+
+A skill is a directory with a `SKILL.md`; a plugin is a directory with a
+`plugin.json`. Add yours, add the matching entry to `marketplace.json`, and open
+a pull request.
+
+Two things make a contribution easy to accept:
+
+- **Say what it does in one line.** The `description` is what someone reads
+  before deciding to trust it, so write the sentence that would let them decide.
+- **Ask for what you need and no more.** Permissions are reviewed. A plugin that
+  wants the filesystem to format a string will be asked why.
+
+Issues are the right place for "this should exist" and "this is wrong" alike.
+
+## License
+
+Each entry carries its own license. `plugins/computer-use` is MIT.

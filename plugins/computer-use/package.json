@@ -1,0 +1,29 @@
+{
+  "name": "codewhale-cu-plugin",
+  "version": "0.2.1",
+  "description": "Codewhale Computer Use: an MCP server that sees the screen and operates it (accessibility-first control, screenshots, zoom, recording) on macOS, Windows, Linux, and HarmonyOS, with multi-computer switching and a desktop app that owns the OS permissions. Works with any MCP host and any model. Zero runtime dependencies.",
+  "license": "MIT",
+  "repository": "github:Hmbown/codewhale-cu-plugin",
+  "type": "module",
+  "private": true,
+  "main": "./mcp/server.mjs",
+  "bin": {
+    "codewhale-cu": "./mcp/server.mjs",
+    "codewhale-cu-app": "./app/daemon.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "parity": "node scripts/parity-run.mjs",
+    "parity:matrix": "node scripts/parity-matrix.mjs",
+    "check:receipts": "node scripts/check-receipts.mjs",
+    "app": "node app/daemon.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
+    "build:app": "node scripts/build-app.mjs",
+    "install:app": "node scripts/install-app.mjs",
+    "remove:app": "node scripts/install-app.mjs --remove"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

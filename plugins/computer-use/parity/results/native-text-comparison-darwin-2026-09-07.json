@@ -1,0 +1,89 @@
+{
+  "date": "2026-09-07",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "fixture": "disposable TextEdit document",
+  "task": "Set Unicode text, observe, select Codewhale, observe, replace with CODEWHALE, observe",
+  "oracle": "Fresh accessibility value equals expected Unicode string after replacement",
+  "codewhale": {
+    "build": "development working tree before the final native review; helper reported version 0.2.0 and sessionProtocol 1",
+    "transport": "fresh MCP stdio client through Developer ID signed local app",
+    "results": [
+      {
+        "rep": 1,
+        "success": true,
+        "elapsed_ms": 700,
+        "api_calls": 6
+      },
+      {
+        "rep": 2,
+        "success": true,
+        "elapsed_ms": 771,
+        "api_calls": 6
+      },
+      {
+        "rep": 3,
+        "success": true,
+        "elapsed_ms": 721,
+        "api_calls": 6
+      },
+      {
+        "rep": 4,
+        "success": true,
+        "elapsed_ms": 707,
+        "api_calls": 6
+      },
+      {
+        "rep": 5,
+        "success": true,
+        "elapsed_ms": 737,
+        "api_calls": 6
+      }
+    ],
+    "median_elapsed_ms": 721
+  },
+  "codex": {
+    "surface": "Codex native computer-use API",
+    "results": [
+      {
+        "rep": 1,
+        "success": true,
+        "elapsed_ms": 2095,
+        "api_calls": 6
+      },
+      {
+        "rep": 2,
+        "success": true,
+        "elapsed_ms": 2291,
+        "api_calls": 6
+      },
+      {
+        "rep": 3,
+        "success": true,
+        "elapsed_ms": 2316,
+        "api_calls": 6
+      },
+      {
+        "rep": 4,
+        "success": true,
+        "elapsed_ms": 2324,
+        "api_calls": 6
+      },
+      {
+        "rep": 5,
+        "success": true,
+        "elapsed_ms": 2283,
+        "api_calls": 6
+      }
+    ],
+    "median_elapsed_ms": 2291
+  },
+  "limitations": [
+    "One native text editing workflow only; this is not full computer-use parity.",
+    "Five sequential trials per tool on the same Mac and disposable document; timings include each tool transport and observation overhead, not randomized benchmark trials.",
+    "Different observation response shapes; no cost or token comparison.",
+    "The 27-task browser/native suite has no matching Codex baseline.",
+    "Browser baseline attempt was blocked by Codex file URL policy and was not worked around.",
+    "No recording or preview enabled."
+  ]
+}

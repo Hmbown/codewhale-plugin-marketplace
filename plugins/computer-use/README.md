@@ -1,0 +1,345 @@
+# Codewhale Computer Use
+
+An MCP server that sees the screen and operates it — accessibility-first
+control, screenshots and zoom on macOS, Windows, Linux, and HarmonyOS, plus
+screen recording on macOS and HarmonyOS — and a desktop app that **owns the OS permissions** so grants go
+to "Codewhale Computer Use" and not to whichever terminal happens to host the
+server. One tool surface, four platforms, and **switching between registered
+computers as a default**: every tool accepts `computer`, and using a computer
+id sticks until you switch. The SSH route is experimental: its one-shot
+agent does not yet retain macOS input bindings or support leased held-input
+workflows.
+
+It works with **any MCP host and any model**: Codewhale, Kimi Code, Claude Code,
+Codex CLI, Cursor, Gemini CLI, opencode, or anything else that speaks MCP over stdio.
+Zero runtime dependencies (Node ≥ 20; platform tools are probed at call time).
+
+| | |
+|---|---|
+| Platforms | macOS, Windows, Linux (X11 + Wayland), HarmonyOS (hdc devices) |
+| Hosts | macOS, Windows, Linux; HarmonyOS is a target device, not a host |
+| Transports | desktop app socket, local process, ssh + bundled remote agent, hdc |
+| Tools | 39: observe, pointer, keyboard/text, semantic, clipboard, recording, computer registry |
+| Restrictions | none by app: it types, clicks, and reads in any app, including the terminal, IDE, or browser that hosts it |
+
+Actions validate the selected computer, observed target, OS permissions and
+session kill switch. Stale targets and unexpected foreground changes fail
+closed; receipts distinguish dispatch from verified application state.
+
+## Verification status
+
+**Live-verified: macOS (arm64, single Retina display, macOS 26.1).**
+Each of the 27 fixture workflows has a five-trial passing run. The broad
+26-task run passed 129/130 trials; its dynamic-page failure was a fixture
+clock race, corrected and repeated 5/5. The repaired file-picker flow also
+passed 5/5 separately. The matrix retains the broad failure and both focused
+runs; these are local 0.2.1 development receipts, not full Codex parity or
+final release qualification. Shared-desktop pointer displacement is measured
+and sometimes nonzero. OS permissions survived the signed 0.2.1 update.
+
+**Text and vision use the same actions.** App observations default to a text
+summary containing controls, values, actions and layout. `detail:"full"`
+exposes nested menus and tree structure. On macOS, `include_ocr:true` adds
+on-device recognition of visible text with confidence and coordinate targets,
+without a vision model or remote service. The default does not capture an
+image. OCR was verified on a generated image and the actual Codewhale app;
+it does not interpret unlabeled icons, charts or other graphical meaning.
+Screenshots and zoom remain available to models that support images.
+
+**Live-verified: Linux X11** — shared desktop and the isolated Xvfb route,
+26/27 demonstrated. Those rows predate the parity runner's split into a
+platform-neutral engine plus per-platform drivers and have not been re-run
+since; see [docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
+
+**Background input is verified per application family** (AppKit, Chrome,
+Chromium: live; Electron and Tk: verified failing; Java: untested) by
+`node scripts/background-input.mjs` — table in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+
+**Not live-verified:** macOS non-Retina and mixed-DPI, Windows, Wayland,
+HarmonyOS, SSH remote — implemented, no device receipts. A
+[same-document native editing comparison](parity/results/native-text-comparison-darwin-2026-09-07.json)
+completed 5/5 trials with each of Codewhale and Codex; it covers one workflow,
+not the full task suite. A separate
+[public-browser navigation comparison](parity/results/public-browser-comparison-darwin-2026-09-07.json)
+also completed 5/5 trials on each surface, using Codewhale 0.2.1. Known behavioral limitations and the
+release gating checklist are in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md) and
+[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
+the suite is in [docs/PARITY.md](docs/PARITY.md).
+
+## Quick start
+
+```bash
+git clone https://github.com/Hmbown/codewhale-cu-plugin
+cd codewhale-cu-plugin
+npm test                # unit and protocol tests, no GUI input performed
+npm run build:app       # dist/{macos,linux,windows}
+npm run install:app     # puts the app in place, registers it, opens it once
+```
+
+Then grant the app its permissions (macOS: System Settings → Privacy &
+Security → *Accessibility* and *Screen & System Audio Recording* → enable
+**Codewhale Computer Use**) and point your host at the server:
+
+| Host | Configuration |
+|---|---|
+| Codewhale | Discovers the Agent Plugins v1 bundle (`plugin.json` + `mcp.json`); nothing to configure. |
+| Kimi Code | Run `/plugins install /path/to/codewhale-cu-plugin`, then `/reload`. The native `kimi.plugin.json` registers the server and skills. |
+| Claude Code | `claude mcp add computer -- node /path/to/mcp/server.mjs` |
+| Codex CLI | `~/.codex/config.toml`: `[mcp_servers.computer]` `command = "node"` `args = ["/path/to/mcp/server.mjs"]` |
+| Cursor / Windsurf / VS Code | `{"mcpServers":{"computer":{"command":"node","args":["/path/to/mcp/server.mjs"]}}}` |
+| Gemini CLI | same JSON in `~/.gemini/settings.json` |
+| opencode | `{"mcp":{"computer":{"type":"local","command":["node","/path/to/mcp/server.mjs"]}}}` |
+
+`/path/to/mcp/server.mjs` can be this checkout or the stable copy inside the
+installed app (`install:app` prints it — on macOS
+`~/Applications/Codewhale Computer Use.app/Contents/Resources/plugin/mcp/server.mjs`).
+`npm link` also gives you a `codewhale-cu` command for hosts that want one.
+
+### Kimi Code
+
+Install the desktop helper above first, then use Kimi's `/plugins install`
+command with this checkout's absolute path. Review the local plugin and choose
+**Trust and install**. Kimi copies it into its managed plugin directory and
+enables its MCP server. Run `/reload` in an existing session, then `/mcp`:
+`plugin-codewhale-computer-use:computer` should show **connected** and **39 tools**.
+`/plugins info codewhale-computer-use` shows the installed version and status.
+This flow was verified with Kimi Code 0.41.0. See the
+[Kimi plugin documentation](https://moonshotai.github.io/kimi-code/en/customization/plugins.html)
+for managed updates and removal.
+
+The server needs Node 20 or newer on Kimi's PATH and uses the installed
+Codewhale permission helper. Existing MCP servers and model settings are
+preserved. Models without vision can read the default text observations and
+request local macOS OCR; models with vision can also request screenshots.
+
+## The desktop app
+
+macOS grants Accessibility and Screen Recording to the *responsible process*
+of a permission check. A bare `node mcp/server.mjs` inherits its host's
+identity, so the grant lands on Terminal, Cursor, or Claude, and every host
+needs its own. The app fixes that:
+
+- **What it is** — a tiny native launcher (`app/macos/launcher.c` on macOS)
+  that runs `app/daemon.mjs`, a long-lived process that executes the platform
+  backend and answers one-line JSON requests over a per-user socket
+  (`~/.codewhale-cu/app.sock`, a named pipe on Windows). Only the same
+  allow-listed tool set the ssh agent accepts will execute; the socket is
+  never a shell.
+- **How the server uses it** — every call on the local computer goes through
+  the app when it is running. If it is installed but not running, the server
+  launches it (via LaunchServices on macOS, so it is its own responsible
+  process) and waits for it. If it is not installed, calls run directly in
+  the server process as before. `request_access` reports which mode is active
+  (`via: "app"` or `"direct"`) and, in direct mode, how to install the app.
+  Set `CODEWHALE_CU_APP=off` to force direct mode. Codewhale
+  distributions with an embedded native helper use their hosting app or
+  terminal permission identity directly and do not require the separate app.
+- **First launch** — the app touches each permission-gated capability once so
+  the OS asks for its grants under the app's own name and icon.
+
+Where `install:app` puts things:
+
+| OS | App | Also |
+|---|---|---|
+| macOS | `~/Applications/Codewhale Computer Use.app` (registered with LaunchServices) | `--login`: `~/Library/LaunchAgents/net.codewhale.computer-use.plist` |
+| Linux | `~/.local/share/codewhale-computer-use` | `~/.local/bin/codewhale-computer-use`, `~/.local/share/applications/net.codewhale.computer-use.desktop`, hicolor icons; `--login`: `~/.config/autostart/` |
+| Windows | `%LOCALAPPDATA%\Programs\Codewhale Computer Use` | Start Menu shortcut with icon; `--login`: Startup-folder shortcut |
+
+### macOS permission recovery
+
+The build signs the complete app bundle, and installation signs again after
+pinning Node, then verifies the installed signature. Signing only the launcher
+leaves an invalid app identity: macOS can show an enabled switch while refusing
+the grant and repeatedly prompting for Accessibility.
+
+If upgrading from that broken package, remove the old Codewhale Computer Use
+entry from Accessibility, add `~/Applications/Codewhale Computer Use.app`, and
+enable it. Refresh its Screen & System Audio Recording grant and restart the
+helper. The probe must report Accessibility `granted` and screen capture `ok`;
+`via: "app"` alone is not a pass. Authentication in System Settings is handled
+by the user. Never modify the TCC database.
+
+Builds use `CODEWHALE_CU_SIGN_IDENTITY` when configured, otherwise an available
+Developer ID or Apple Development identity, and fall back to ad-hoc signing.
+Ad-hoc updates can require a new grant. Installation preserves the selected
+identity and verifies the finished bundle. Building the native macOS helper
+requires Xcode Command Line Tools on a Mac; the Codewhale distribution embeds
+the compiled helper. Do not edit installed resources without re-signing.
+
+### Background control and visible cursor on macOS
+
+Use `open_application` with `activate: false` to select the input destination
+without bringing it forward. Keyboard events go to that process and semantic
+actions use Accessibility — both are quiet: no cursor movement, no activation.
+`screenshot` accepts `app_ref` to capture that app's window even behind other
+windows. For a workflow that requires keyboard focus, explicitly select
+`activate: true`; receipts then say `keyboard_delivery: "foreground-guarded"`.
+Keystrokes stop if another app takes focus. Select `activate: false` again to
+return to process-bound delivery. In either mode, verify the application
+result: a successful dispatch alone does not prove the app handled it.
+
+Coordinate `left_click` first resolves the bound application's accessibility
+control and performs its press action (`strategy: "a11y"`). In background mode,
+an unavailable press or a raw gesture returns `shared_pointer_required` before
+moving the pointer. This includes double/triple/right/middle click, drag, hover
+and scroll. There is no automatic foreground fallback.
+
+When the user authorizes exclusive desktop use, select `activate: true` for
+shared-desktop control. Pointer gestures move the real cursor and may bring the
+app forward; restoring the cursor afterward is not isolation. The receipt
+reports `strategy: "event"`, `pointer_moved` and `foreground_taken`. A point
+covered by another application's window is still refused. Return to
+`activate: false` when the shared-desktop step ends.
+
+The binding receipt exposes `input_scope`, `shared_pointer` and
+`isolated_desktop: false`. The preview title distinguishes background app
+control from shared-desktop control. It is a view of the app, not a sandbox.
+
+Only when the user asks to watch, enable `preview` with `enabled: true` to show a small, nonactivating window
+containing the controlled app and a cyan cursor labeled Codewhale. The preview
+updates after agent actions, and its cursor is separate from the hardware
+pointer. Close the panel or use `enabled: false` to hide it.
+
+This is background control of a local app, not an isolated desktop. Some apps,
+system dialogs, and workflows may still require foreground interaction. The
+opt-in `node scripts/verify-macos.mjs` test exercises a uniquely named TextEdit fixture (closed automatically afterward; add `--preview` to test the overlay),
+Unicode input, selection, screenshots and foreground preservation through a
+fresh MCP connection. Recording is separately opt-in with `--recording`. It creates local receipts and is
+separate from the automated unit suite.
+
+Logs: `~/Library/Logs/Codewhale Computer Use/app.log` (macOS),
+`~/.local/state/codewhale-computer-use/app.log` (Linux),
+`%LOCALAPPDATA%\Codewhale Computer Use\app.log` (Windows).
+`npm run remove:app` reverses the install. Every bundle carries a complete
+runtime copy of the plugin, so hosts can target the installed path and survive
+deleting this checkout.
+
+## Session ownership
+
+Each MCP connection has independent computer selection, application binding,
+rasters, accessibility observations and held-input ownership. Local actions
+are serialized by the permission-owning app; stopping or cancelling one
+session releases its own held input. Normal client shutdown closes the app
+session; losing the client connection also cancels and releases its input.
+On macOS, the native input helper also releases its press when its owning
+process disappears, including in direct mode. On macOS, session exit stops a
+recording started by that session; cancelling an ordinary request leaves an explicitly
+started recording running until stopped or the session exits.
+
+Version 0.2.1 requires session protocol 2: upgrade the helper and restart
+existing MCP connections together. An old client or helper is refused with
+an upgrade error instead of sharing another client's input state.
+
+## Frontier ability set
+
+- **Observe & resolve** — `list_apps`, `list_windows`, `list_displays`,
+  `switch_display`, `get_app_state` (accessibility/UIA/uitest tree with
+  element indices + `state_id`), `screenshot` (display/region, raster-bound
+  coordinates), `zoom` (close-up crop of the last raster), `cursor_position`,
+  `open_application` (exact-name rule), `request_access` (fail-closed
+  permission/capability probe).
+- **Pointer** — left/double/triple/right/middle click, move, drag,
+  down/up, scroll (4 directions).
+- **Keyboard & text** — `type` (unicode), `key` (chords + repeat),
+  `hold_key`, `set_value` (semantic, background-safe), `select_text`,
+  `perform_action` (element's own actions: AXPress / UIA Invoke / AT-SPI / uitest).
+- **Recording** — `recording_start/stop/status/list` (see below).
+- **Computers** — `computer_list`, `computer_switch`, `computer_register`
+  (ssh agent auto-push), `computer_remove`.
+- **Safety** — `stop_computer_control` kill switch; permission probes that
+  name the missing grant; receipts on every call naming the computer it
+  happened on.
+
+## Requirements
+
+Tools and permissions are probed at call time; `request_access` reports what is
+missing and every capability **fails closed naming the missing tool or
+permission** — it never guesses and never half-acts.
+
+- **macOS** — Accessibility + Screen Recording for the app (or, in direct
+  mode, for the terminal that hosts the server). python3+pyobjc or cliclick
+  improves cursor reads.
+- **Windows** — PowerShell (built in). Recording is unavailable pending
+  session-owned recorder cleanup.
+- **Linux** — X11: xdotool, wmctrl, scrot or imagemagick, xclip; Wayland:
+  grim, wtype, ydotool+ydotoold, wl-clipboard; python3-pyatspi
+  for the accessibility tree. Recording is unavailable pending session-owned
+  recorder cleanup.
+- **HarmonyOS** — `hdc` on PATH with the device connected
+  (`hdc list targets`); ffmpeg on the host for snapshot-series recordings.
+
+## How the four platforms map
+
+| Ability | macOS | Windows | Linux | HarmonyOS |
+|---|---|---|---|---|
+| Accessibility tree | Native Accessibility API | UIAutomation | AT-SPI (pyatspi) | `uitest dumpLayout` |
+| Raw input | Native CGEvent to the selected process | user32 SendInput/mouse_event (PowerShell) | xdotool (X11) / ydotool+wtype (Wayland) | `uitest uiInput` |
+| Screenshots | `screencapture` | .NET CopyFromScreen | scrot/import (X11), grim (Wayland) | `snapshot_display` |
+| Recording | ScreenCaptureKit → .mov (no recorder overlay) | unavailable pending owned cleanup | unavailable pending owned cleanup | snapshot-series + ffmpeg mux |
+| Clipboard | pbcopy/pbpaste | Get/Set-Clipboard | xclip/xsel, wl-clipboard | fail-closed (not exposed by hdc) |
+
+## Remote computers (ssh)
+
+```json
+computer_register { "computer": "winbox", "transport": "ssh", "host": "winbox.lan", "user": "me" }
+```
+
+Registration pushes the self-contained agent (`agent.mjs` + `src/`) to
+`~/.codewhale-cu/agent/` on the remote over scp, probes the remote platform
+through it, and pins the result. Remote calls run
+`node agent.mjs <base64 json>` — one JSON receipt line back. Only an
+allow-listed tool set executes remotely; arguments travel as data, never as
+shell. Requires publickey ssh (BatchMode) and Node ≥ 20 on the remote.
+
+## HarmonyOS computers
+
+```json
+computer_register { "computer": "pad", "transport": "hdc" }
+```
+
+Drives the device over `hdc shell uitest ...` and `snapshot_display`. Element
+targets come from `dumpLayout`; input is touch-synthesis (click / swipe /
+inputText / keyEvent). Recording is honestly labeled `snapshot-series`
+(frame captures muxed on stop) because HarmonyOS exposes no CLI screen
+recorder.
+
+## Layout
+
+```
+mcp/server.mjs        MCP stdio server (JSON-RPC 2.0), tool dispatch, receipts
+src/tools.mjs         tool schemas — single source of truth for tools/list
+src/backends/         darwin / win32 / linux / harmonyos
+src/transport.mjs     app socket · local · ssh · hdc executors
+src/app-socket.mjs    app naming, socket protocol client, launch-on-demand
+src/app-handler.mjs   allow-listed request handler shared by app + ssh agent
+app/daemon.mjs        the desktop app process
+app/macos/launcher.c  native bundle executable (keeps TCC attribution on the app)
+agent.mjs             one-shot ssh remote agent
+assets/               icon source + generated .png/.icns/.ico/hicolor, prebuilt mac launcher
+scripts/              build-icons · build-app · install-app · smoke
+commands/, skills/    Agent Plugins v1 command + skills for hosts that read them
+```
+
+## Development
+
+```bash
+npm test              # unit + protocol + app tests (no GUI input performed)
+npm run smoke         # live end-to-end against this machine (isolated state dirs)
+npm run build:icons   # regenerate assets/ from assets/icon-source.png
+npm run build:app     # bundles into dist/ (compiles the mac launcher when clang is present)
+```
+
+Proven levels are separated: local live (this Mac: darwin) > mocked transport
+(ssh protocol, harmony backend logic) > code-complete (win32/linux paths,
+implemented to their documented tool interfaces but only verifiable on those
+platforms).
+
+The Codewhale monorepo vendors the runtime tree of this repository at
+`crates/tui/plugins/computer-use` and embeds it in the TUI as the built-in
+computer-use bundle; this repository is the upstream.
+
+## License
+
+MIT — see `LICENSE`.

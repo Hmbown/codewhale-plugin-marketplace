@@ -1,0 +1,187 @@
+<!doctype html>
+<!--
+  Codewhale parity browser fixture. Disposable, offline, deterministic.
+
+  Oracle: every state change is mirrored into document.title as
+  "CU-FIXTURE " + JSON(state), so a runner can read the outcome with
+  `xdotool getwindowname` / `wmctrl -l` — no browser driver required.
+  Layout is absolute-positioned at fixed pixel offsets from the content
+  origin so coordinate targets are reproducible in a 1000x800 app window.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CU-FIXTURE {}</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 1000px; height: 800px; overflow: hidden; background: #fff; font: 16px/1.2 sans-serif; color: #111; }
+  .abs { position: absolute; }
+  button, input, select { font: inherit; }
+  button { height: 48px; border: 2px solid #333; background: #eee; border-radius: 6px; cursor: pointer; }
+  button:focus, input:focus { outline: 3px solid #06c; }
+  #tabs button[aria-selected="true"] { background: #cde; }
+  .panel { display: none; }
+  .panel.on { display: block; }
+  #list { overflow-y: scroll; border: 1px solid #999; }
+  #list div { height: 40px; line-height: 40px; padding-left: 8px; border-bottom: 1px solid #eee; }
+  #frame { border: 2px dashed #963; }
+  #dropzone { border: 3px dashed #06c; background: #f4f8ff; text-align: center; line-height: 96px; }
+  #dropzone.over { background: #dfe9ff; }
+</style>
+</head>
+<body>
+  <!-- Form: text, checkbox, select, submit. Center of #name = (200, 64). -->
+  <label class="abs" for="name" style="left:20px; top:20px">Name</label>
+  <input id="name" class="abs" style="left:100px; top:40px; width:196px; height:44px" autocomplete="off">
+  <input id="agree" type="checkbox" class="abs" style="left:320px; top:52px; width:24px; height:24px">
+  <label class="abs" for="agree" style="left:350px; top:56px">Agree</label>
+  <select id="color" class="abs" style="left:420px; top:40px; width:160px; height:48px">
+    <option value="">choose…</option><option>red</option><option>green</option><option>blue</option>
+  </select>
+  <button id="submit" class="abs" style="left:600px; top:40px; width:160px">Submit</button>
+
+  <!-- Tabs. Buttons centered at y=164; A=(100,164) B=(260,164) C=(420,164). -->
+  <div id="tabs" role="tablist">
+    <button role="tab" aria-selected="true"  data-tab="A" class="abs" style="left:20px;  top:140px; width:160px">Tab A</button>
+    <button role="tab" aria-selected="false" data-tab="B" class="abs" style="left:180px; top:140px; width:160px">Tab B</button>
+    <button role="tab" aria-selected="false" data-tab="C" class="abs" style="left:340px; top:140px; width:160px">Tab C</button>
+  </div>
+  <div class="panel on abs" data-panel="A" style="left:20px; top:200px">Panel A content</div>
+  <div class="panel abs" data-panel="B" style="left:20px; top:200px">Panel B content</div>
+  <div class="panel abs" data-panel="C" style="left:20px; top:200px">Panel C content</div>
+
+  <!-- Dynamic content: a click at the retired Load location is ignored, then Confirm appears. Center=(700,164). -->
+  <div id="dyn" class="abs" style="left:620px; top:140px; width:160px; height:48px">
+    <button id="load" style="width:160px">Load</button>
+  </div>
+
+  <!-- Scroll list: 40 rows of 40px in a 200px viewport; "Reveal" button is row 39. Box=(20..500, 240..440). -->
+  <div id="list" class="abs" style="left:20px; top:240px; width:480px; height:200px"></div>
+
+  <!-- Iframe with its own button. Frame box=(540..940, 240..440); inner button centered at frame (200,100) -> page (740,340). -->
+  <iframe id="frame" class="abs" style="left:540px; top:240px; width:400px; height:200px" title="inner"></iframe>
+
+  <!-- Drag and drop: drag #chip (center 80,540) onto #dropzone (center 400,540). -->
+  <div id="chip" class="abs" draggable="true" style="left:40px; top:516px; width:80px; height:48px; line-height:48px; text-align:center; background:#fc6; border:2px solid #963; border-radius:6px; cursor:grab">chip</div>
+  <div id="dropzone" class="abs" style="left:200px; top:492px; width:400px; height:96px">drop here</div>
+
+  <!-- Upload + download. Upload input center=(120,660); download link center=(400,660). -->
+  <input id="upload" type="file" class="abs" style="left:20px; top:640px; width:200px; height:40px">
+  <a id="download" class="abs" href="#" download="cu-fixture.txt" style="left:320px; top:648px; width:160px; text-align:center">Download file</a>
+
+  <!-- Unicode/emoji typing target. Center=(700,660). -->
+  <input id="uni" class="abs" style="left:560px; top:640px; width:276px; height:40px" placeholder="unicode" autocomplete="off">
+
+  <!-- Keyboard modifier probe: focus and press keys; last chord is recorded. Center=(500,740). -->
+  <input id="keys" class="abs" style="left:20px; top:720px; width:956px; height:40px" placeholder="keys" autocomplete="off">
+
+<script>
+(() => {
+  const state = {
+    name: "", agree: false, color: "", submitted: null, tab: "A", dyn: "idle",
+    revealed: false, frameClicked: 0, dropped: false, upload: null, downloads: 0,
+    uni: "", keys: [], scrollTop: 0, clicks: 0, ver: 1
+  };
+  // Second oracle channel for runners that cannot read a window title without
+  // an extra OS permission (macOS). The page is served from the runner's
+  // loopback server there, so this is a same-origin GET: no CORS, no
+  // private-network refusal, and it never touches the tool surface under test.
+  // It also reports the window frame, which is how that runner learns the
+  // content origin coordinate targets are relative to.
+  let seq = 0;
+  const beacon = location.protocol === "http:" ? () => {
+    const frame = {
+      screenX: window.screenX, screenY: window.screenY,
+      outerWidth: window.outerWidth, outerHeight: window.outerHeight,
+      innerWidth: window.innerWidth, innerHeight: window.innerHeight,
+      dpr: window.devicePixelRatio,
+    };
+    fetch("/s?n=" + (++seq) + "&j=" + encodeURIComponent(JSON.stringify({ state, frame }))).catch(() => {});
+  } : null;
+  const oracle = () => { document.title = "CU-FIXTURE " + JSON.stringify(state); if (beacon) beacon(); };
+  // Geometry must be readable before the first state change, and a window can
+  // be moved by the window server after load.
+  if (beacon) setInterval(beacon, 400);
+  const $ = (s) => document.querySelector(s);
+
+  document.addEventListener("click", () => { state.clicks++; oracle(); }, true);
+
+  $("#name").addEventListener("input", (e) => { state.name = e.target.value; oracle(); });
+  $("#agree").addEventListener("change", (e) => { state.agree = e.target.checked; oracle(); });
+  $("#color").addEventListener("change", (e) => { state.color = e.target.value; oracle(); });
+  $("#submit").addEventListener("click", () => {
+    state.submitted = { name: state.name, agree: state.agree, color: state.color };
+    oracle();
+  });
+
+  document.querySelectorAll("#tabs [role=tab]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#tabs [role=tab]").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("on", p.dataset.panel === b.dataset.tab));
+    state.tab = b.dataset.tab; oracle();
+  }));
+
+  $("#load").addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.dyn = "loading"; oracle();
+    $("#dyn").innerHTML = "<span>loading…</span>";
+    // Hold the loading state until the test's premature click has arrived.
+    // A wall-clock-only delay could expire during native input dispatch and
+    // turn a correctly delivered click into an apparent plugin failure.
+    $("#dyn").addEventListener("click", () => setTimeout(() => {
+      $("#dyn").innerHTML = '<button id="confirm" style="width:160px">Confirm</button>';
+      $("#confirm").addEventListener("click", () => { state.dyn = "confirmed"; oracle(); });
+      state.dyn = "ready"; oracle();
+    }, 800), { once: true });
+  });
+
+  const list = $("#list");
+  for (let i = 0; i < 40; i++) {
+    const row = document.createElement("div");
+    row.textContent = "row " + i;
+    if (i === 39) { row.innerHTML = '<button id="reveal" style="height:32px">Reveal</button>'; }
+    list.appendChild(row);
+  }
+  list.addEventListener("scroll", () => { state.scrollTop = Math.round(list.scrollTop); oracle(); });
+  list.addEventListener("click", (e) => { if (e.target.id === "reveal") { state.revealed = true; oracle(); } });
+
+  $("#frame").srcdoc = '<body style="margin:0;background:#fff8f0"><button id="inner" style="position:absolute;left:120px;top:76px;width:160px;height:48px;font:16px sans-serif">Inner button</button><script>document.getElementById("inner").onclick=()=>parent.postMessage("inner-click","*")<\/script></body>';
+  window.addEventListener("message", (e) => { if (e.data === "inner-click") { state.frameClicked++; oracle(); } });
+
+  const chip = $("#chip"), zone = $("#dropzone");
+  chip.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", "chip"); });
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); zone.textContent = "dropped: " + e.dataTransfer.getData("text/plain"); state.dropped = true; oracle(); });
+  // Fallback for synthetic pointer drags that do not trigger HTML5 DnD: mousedown on chip, mouseup inside zone.
+  let armed = false;
+  chip.addEventListener("mousedown", () => { armed = true; });
+  document.addEventListener("mouseup", (e) => {
+    if (!armed) return; armed = false;
+    const r = zone.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { zone.textContent = "dropped: chip"; state.dropped = true; oracle(); }
+  });
+
+  $("#upload").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) { state.upload = null; oracle(); return; }
+    f.text().then((t) => { state.upload = { name: f.name, bytes: f.size, sha1: null, text: t.slice(0, 64) }; oracle(); });
+  });
+
+  $("#download").addEventListener("click", (e) => {
+    const blob = new Blob(["codewhale parity fixture download " + state.ver + "\n"], { type: "text/plain" });
+    e.currentTarget.href = URL.createObjectURL(blob);
+    state.downloads++; oracle();
+  });
+
+  $("#uni").addEventListener("input", (e) => { state.uni = e.target.value; oracle(); });
+
+  $("#keys").addEventListener("keydown", (e) => {
+    const chord = [e.ctrlKey && "ctrl", e.altKey && "alt", e.shiftKey && "shift", e.metaKey && "meta", e.key].filter(Boolean).join("+");
+    state.keys = state.keys.concat(chord).slice(-8); oracle();
+    if (e.ctrlKey || e.altKey || e.metaKey) e.preventDefault();
+  });
+
+  oracle();
+})();
+</script>
+</body>
+</html>

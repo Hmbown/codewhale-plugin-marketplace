@@ -1,0 +1,92 @@
+{
+  "date": "2026-09-07",
+  "task": "Observe Example Domain, follow the Learn more link through accessibility, verify Example Domains at IANA",
+  "start_url": "https://example.com/",
+  "expected_destination": "https://www.iana.org/help/example-domains",
+  "scope": "One public page-navigation workflow; not the full 27-task suite or whole-product parity.",
+  "codewhale": {
+    "surface": "Codewhale Computer Use MCP through signed macOS helper",
+    "source_commit": "55b802d027728bd865dbfb7d910b1e61d073b61c",
+    "plugin_version": "0.2.1",
+    "session_protocol": 2,
+    "results": [
+      {
+        "rep": 1,
+        "success": true,
+        "elapsed_ms": 961,
+        "api_calls": 5
+      },
+      {
+        "rep": 2,
+        "success": true,
+        "elapsed_ms": 594,
+        "api_calls": 4
+      },
+      {
+        "rep": 3,
+        "success": true,
+        "elapsed_ms": 621,
+        "api_calls": 4
+      },
+      {
+        "rep": 4,
+        "success": true,
+        "elapsed_ms": 592,
+        "api_calls": 4
+      },
+      {
+        "rep": 5,
+        "success": true,
+        "elapsed_ms": 620,
+        "api_calls": 4
+      }
+    ],
+    "successes": 5,
+    "median_elapsed_ms": 620,
+    "setup": "Fresh disposable Chrome profile per trial; launch, binding and initial page readiness excluded."
+  },
+  "codex": {
+    "surface": "Codex in-app browser accessibility API",
+    "results": [
+      {
+        "rep": 1,
+        "success": true,
+        "elapsed_ms": 4779,
+        "api_calls": 3
+      },
+      {
+        "rep": 2,
+        "success": true,
+        "elapsed_ms": 8880,
+        "api_calls": 3
+      },
+      {
+        "rep": 3,
+        "success": true,
+        "elapsed_ms": 8206,
+        "api_calls": 3
+      },
+      {
+        "rep": 4,
+        "success": true,
+        "elapsed_ms": 6359,
+        "api_calls": 3
+      },
+      {
+        "rep": 5,
+        "success": true,
+        "elapsed_ms": 7282,
+        "api_calls": 3
+      }
+    ],
+    "successes": 5,
+    "median_elapsed_ms": 7282,
+    "setup": "Same in-app browser tab with back navigation reset excluded."
+  },
+  "notes": [
+    "Both tool surfaces followed the observed Learn more link through accessibility and read the destination heading.",
+    "Sequential trials; different browser engines, caching, network and observation behavior. Timings are descriptive and are not general performance or cost claims.",
+    "Codex uses one destination observation per trial; Codewhale polls until the destination is visible and counts every poll.",
+    "No preview or screen recording. Public website navigation is unrelated to the blocked local-file browser fixture."
+  ]
+}
