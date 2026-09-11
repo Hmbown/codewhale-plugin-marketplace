@@ -7,7 +7,7 @@ acceptance report. The takeover started at marketplace `c32a8d9`; the public
 ## Local gates
 
 `npm run check` and the required `npm test && npm run check:web` passed on macOS.
-The Node suites reported **369 tests: 354 passed, 15 skipped, zero failures**.
+The final Node suites reported **370 tests: 355 passed, 15 skipped, zero failures**.
 
 | Suite | Passed | Skipped |
 | --- | ---: | ---: |
@@ -19,12 +19,26 @@ The Node suites reported **369 tests: 354 passed, 15 skipped, zero failures**.
 | Slack/Linear webhook adapter | 13 | 0 |
 | WeCom | 16 | 0 |
 | WeChat/Weixin | 3 | 0 |
-| Repository contract and packaging | 9 | 0 |
+| Repository contract and packaging | 10 | 0 |
 
 All **four Playwright checks passed**, across desktop and mobile Chromium:
 page/heading links, full-text and Unicode search, empty state, freshness filter,
 safe HTML/link rendering, keyboard search, deep links and horizontal overflow.
 The resulting desktop/mobile screenshots were visually inspected.
+
+Verification also ran from a separate checkout containing only the committed
+base and this slice's final patch, with no unrelated dirty skills. That exposed
+two hidden prerequisites in the initial working-checkout pass:
+
+- `FAIL: skills/handoff: SKILL.md description is a YAML marker, not text`.
+  Core supports folded/literal YAML descriptions; the checker now accepts their
+  indented content and still rejects empty descriptions. No handoff-lane edit
+  was included to mask the problem.
+- `ENOENT` for `plugins/computer-use/assets/icon.png`. Those icons are correctly
+  generated on demand by the app but were wrongly assumed present by its test.
+  The canonical test now generates and verifies them in an isolated fixture.
+
+The full gate then passed in that independent checkout with the counts above.
 
 `npm run check:wiki` reports three fresh pages and no stale, orphaned or unsealed
 pages. They describe the actual repository and are sealed to their source basis.
@@ -58,24 +72,25 @@ The test host was stopped afterward; the user's plugin configuration was untouch
 
 ## Package and source ownership
 
-Working-checkout packages fit the host's 5 MiB limit:
+Packages from the independent source snapshot fit the host's 5 MiB limit:
 
 | Bundle | Files | Bytes |
 | --- | ---: | ---: |
 | WhaleWiki | 13 | 79,373 |
-| Computer Use | 102 | 2,048,886 |
+| Computer Use | 102 | 2,049,112 |
 | Cloudflare docs | 3 | 2,119 |
-| Codewhale skills | 38 | 62,137 |
+| Codewhale skills | 39 | 65,049 |
 
-The skills figures reflect the existing dirty skill lane, which this takeover
-does not commit. Computer Use's development directory is about 6.6 MiB because
+The skills package uses its committed source; this takeover does not include
+the existing dirty skill lane. Computer Use's development directory is about 6.6 MiB because
 of local ignored artifacts; package its reviewed source before a path install.
 No recordings or operational receipts are included in the package.
 
 `npm run check:cu-sync` verified that the marketplace Computer Use mirror equals
-canonical source `7ff244dfef7d`, and Core runtime copies match. One Core test
-mirror differs: `tests/server-routes.test.mjs` lacks upstream atomic fixture
-writes. That test synchronization remains with the active Core lane. No Computer
+canonical source `0880ffb`, and Core runtime copies match. Two Core test
+mirrors differ: `tests/server-routes.test.mjs` lacks upstream atomic fixture
+writes, and `tests/app.test.mjs` needs this clean-checkout icon fixture correction.
+Those test synchronizations remain with the active Core lane. No Computer
 Use runtime patch was justified by this review, and no desktop input or screen
 capture was performed as part of the test suite qualification.
 

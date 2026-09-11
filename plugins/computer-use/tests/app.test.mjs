@@ -81,17 +81,21 @@ test("a second daemon on the same state dir exits instead of fighting for the so
   assert.ok(await hello(), "original daemon still answers");
 });
 
-test("icon artifacts exist in every format the bundles need", () => {
-  const png = fs.readFileSync(path.join(ROOT, "assets", "icon.png"));
+test("icon artifacts build from the tracked source in every required format", async (t) => {
+  const { buildIcons } = await import("../scripts/build-icons.mjs");
+  const assets = fs.mkdtempSync(path.join(os.tmpdir(), "cu-icons-"));
+  t.after(() => fs.rmSync(assets, { recursive: true, force: true }));
+  buildIcons({ assets });
+  const png = fs.readFileSync(path.join(assets, "icon.png"));
   assert.equal(png.subarray(1, 4).toString("latin1"), "PNG");
-  const icns = fs.readFileSync(path.join(ROOT, "assets", "icon.icns"));
+  const icns = fs.readFileSync(path.join(assets, "icon.icns"));
   assert.equal(icns.subarray(0, 4).toString("latin1"), "icns");
   assert.equal(icns.readUInt32BE(4), icns.length, "icns length header matches file");
-  const ico = fs.readFileSync(path.join(ROOT, "assets", "icon.ico"));
+  const ico = fs.readFileSync(path.join(assets, "icon.ico"));
   assert.equal(ico.readUInt16LE(2), 1, "ico type");
   assert.ok(ico.readUInt16LE(4) >= 6, "ico has the standard sizes");
   for (const n of [16, 32, 48, 128, 256, 512]) {
-    assert.ok(fs.existsSync(path.join(ROOT, "assets", "icons", "hicolor", `${n}x${n}`, "apps", "net.codewhale.computer-use.png")), `hicolor ${n}`);
+    assert.ok(fs.existsSync(path.join(assets, "icons", "hicolor", `${n}x${n}`, "apps", "net.codewhale.computer-use.png")), `hicolor ${n}`);
   }
 });
 

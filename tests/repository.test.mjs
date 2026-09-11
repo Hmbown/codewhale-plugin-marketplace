@@ -51,6 +51,17 @@ test('malformed MCP server maps fail with a useful diagnostic',t=>{
   const f=contractFixture(t);fs.writeFileSync(path.join(f.root,f.source,'mcp.json'),'{"mcpServers":null}');
   const r=f.run();assert.equal(r.status,1);assert.match(r.stderr,/must be an object/);
 });
+test('skill metadata accepts supported YAML blocks and rejects empty descriptions',t=>{
+  const f=contractFixture(t),dir=path.join(f.root,f.source,'skills/example');fs.mkdirSync(dir,{recursive:true});
+  for(const description of ['>-\n  A useful handoff\n  across sessions.','|\n  A useful handoff']){
+    fs.writeFileSync(path.join(dir,'SKILL.md'),`---\nname: example\ndescription: ${description}\ninvocation: model+user\n---\nBody`);
+    const r=f.run();assert.equal(r.status,0,r.stderr);
+  }
+  for(const description of ['>-','','""']){
+    fs.writeFileSync(path.join(dir,'SKILL.md'),`---\nname: example\ndescription: ${description}\ninvocation: model+user\n---\nBody`);
+    const r=f.run();assert.equal(r.status,1);assert.match(r.stderr,/description must contain text/);
+  }
+});
 test('packaging reflects working-tree deletions and refuses output inside its source',t=>{
   const f=contractFixture(t);
   fs.copyFileSync(path.join(ROOT,'scripts/package-plugin.mjs'),path.join(f.root,'scripts/package-plugin.mjs'));

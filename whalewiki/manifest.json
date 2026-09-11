@@ -27,8 +27,8 @@
         {
           "path": "scripts/check-marketplace.mjs",
           "root": "repo",
-          "sha256": "a88867eeea5ac276f1c90cae2942f2d0ea6e0d039696b49423d828ae0760e820",
-          "bytes": 13455
+          "sha256": "c429144f60970679565d33ab263e03c8741b54fd784643edbfcba245f0dbf819",
+          "bytes": 13754
         },
         {
           "path": "package.json",
@@ -37,7 +37,7 @@
           "bytes": 1023
         }
       ],
-      "sealed_at": "2026-09-11T09:46:32.570Z"
+      "sealed_at": "2026-09-11T09:49:10.314Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -132,5 +132,5 @@
       "sealed_at": "2026-09-11T09:47:48.528Z"
     }
   },
-  "updated_at": "2026-09-11T09:47:48.529Z"
+  "updated_at": "2026-09-11T09:49:10.315Z"
 }

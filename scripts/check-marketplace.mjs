@@ -108,14 +108,23 @@ function checkSkillMd(file, label) {
   const end = text.indexOf("\n---", 3);
   if (end < 0) { fail(`${label}: SKILL.md frontmatter never closes`); return; }
   const fm = text.slice(3, end);
-  const name = /^name:\s*(.+)$/m.exec(fm)?.[1]?.trim();
-  const desc = /^description:\s*(.+)$/m.exec(fm);
+  const name = /^name:[ \t]*(.*)$/m.exec(fm)?.[1]?.trim();
+  const desc = /^description:[ \t]*(.*)$/m.exec(fm);
   if (!name) fail(`${label}: SKILL.md frontmatter missing name`);
   if (!desc) { fail(`${label}: SKILL.md frontmatter missing description`); return; }
-  const value = desc[1].trim();
-  // `>-`/`|` are YAML fold markers — a sign the line was copied raw out of a
-  // frontmatter block instead of carrying the description itself.
-  if (/^[>|][-+]?$/.test(value) || value === "") fail(`${label}: SKILL.md description is a YAML marker, not text`);
+  let value = desc[1].trim();
+  // Core supports folded/literal block scalars. Require their indented text,
+  // rather than rejecting a valid description or accepting an empty marker.
+  if (/^[>|][-+]?$/.test(value)) {
+    const lines = fm.slice(desc.index + desc[0].length).split("\n").slice(1);
+    const body = [];
+    for (const line of lines) {
+      if (line.trim() && !/^[ \t]/.test(line)) break;
+      body.push(line.trim());
+    }
+    value = body.join(" ").trim();
+  }
+  if (!value || value === '""' || value === "''") fail(`${label}: SKILL.md description must contain text`);
 }
 
 // The host requires capabilities.network_hosts to exactly match the host set
