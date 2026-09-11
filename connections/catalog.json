@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "checked_at": "2026-09-11",
+  "connections": [
+    {"id":"linear","name":"Linear","url":"https://mcp.linear.app/mcp/readonly","auth":"oauth","status":"documented","docs":"https://linear.app/docs/mcp","note":"Starts read-only. The service also supports a scoped API key in a bearer header. Codewhale account login is separate from Linear authorization."},
+    {"id":"github","name":"GitHub","url":"https://api.githubcopilot.com/mcp/readonly","auth":"bearer","env":"GITHUB_PERSONAL_ACCESS_TOKEN","status":"documented","docs":"https://github.com/github/github-mcp-server","note":"Use a fine-grained personal access token with only the repositories and permissions needed."},
+    {"id":"stripe","name":"Stripe","url":"https://mcp.stripe.com","auth":"oauth","status":"documented","docs":"https://docs.stripe.com/mcp","note":"Review scopes and use a test environment for initial qualification. Installation is not permission for a financial action."},
+    {"id":"supabase","name":"Supabase","url":"https://mcp.supabase.com/mcp?read_only=true","auth":"oauth","status":"documented","docs":"https://supabase.com/docs/guides/getting-started/mcp","note":"Scope to a project using project_ref before connecting. Start read-only."},
+    {"id":"resend","name":"Resend","url":"https://mcp.resend.com/mcp","auth":"oauth","status":"documented","docs":"https://github.com/resend/resend-mcp","note":"The official remote setup uses OAuth. RESEND_API_KEY is not a verified login for this remote endpoint."},
+    {"id":"vercel","name":"Vercel","url":"https://mcp.vercel.com","auth":"oauth","status":"client-qualification-needed","docs":"https://vercel.com/docs/agent-resources/vercel-mcp","note":"Vercel requires an approved MCP client. Codewhale is not in the currently documented supported-client list; do not promise working login."},
+    {"id":"slack","name":"Slack","url":"https://mcp.slack.com/mcp","auth":"oauth","status":"client-qualification-needed","docs":"https://docs.slack.dev/ai/slack-mcp-server/","note":"Requires an eligible Slack app and confidential OAuth client credentials. This is not an ordinary plug-and-play connection; use the Slack Events bridge for inbound bot work."},
+    {"id":"notion","name":"Notion","url":"https://mcp.notion.com/mcp","auth":"oauth","status":"documented","docs":"https://developers.notion.com/docs/mcp","note":"Authorize the workspace using the host's OAuth flow. Live Codewhale login has not been qualified here."},
+    {"id":"atlassian","name":"Atlassian","url":"https://mcp.atlassian.com/v1/mcp","auth":"oauth","status":"documented","docs":"https://support.atlassian.com/atlassian-rovo-mcp-server/","note":"Jira and Confluence access follows the authorized account. Live Codewhale login has not been qualified here."},
+    {"id":"sentry","name":"Sentry","url":"https://mcp.sentry.dev/mcp","auth":"oauth","status":"documented","docs":"https://docs.sentry.io/product/sentry-mcp/","note":"Live Codewhale login has not been qualified here."}
+  ]
+}

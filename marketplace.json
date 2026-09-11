@@ -11,52 +11,17 @@
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {
+      "name": "whalewiki",
+      "source": "path:plugins/whalewiki",
+      "version": "0.1.0",
+      "description": "An evidence-bound wiki for the repo: generated pages sealed against the source files they were written from, computed staleness, a zero-install CI drift gate, and a read-only MCP surface.",
+      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
+    },
+    {
       "name": "cloudflare-docs",
       "source": "path:plugins/cloudflare-docs",
       "version": "0.1.0",
       "description": "Cloudflare's official remote docs MCP: current Workers/Pages/storage/platform documentation search. No credentials required.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "linear",
-      "source": "path:plugins/linear",
-      "version": "0.1.0",
-      "description": "Linear's official remote MCP: issues, projects, cycles, comments, documents. Bearer auth via LINEAR_API_KEY.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "github",
-      "source": "path:plugins/github",
-      "version": "0.1.0",
-      "description": "GitHub's official remote MCP: repos, issues, PRs, Actions, code search. Bearer auth via GITHUB_PERSONAL_ACCESS_TOKEN.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "stripe",
-      "source": "path:plugins/stripe",
-      "version": "0.1.0",
-      "description": "Stripe's official remote MCP: customers, payments, subscriptions, disputes. Bearer auth via STRIPE_SECRET_KEY \u2014 a restricted rk_ key is recommended.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "supabase",
-      "source": "path:plugins/supabase",
-      "version": "0.1.0",
-      "description": "Supabase's official remote MCP: projects, database, auth, storage, edge functions. Bearer auth via SUPABASE_ACCESS_TOKEN.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "resend",
-      "source": "path:plugins/resend",
-      "version": "0.1.0",
-      "description": "Resend's official remote MCP: transactional email, domains, audiences, broadcasts. Bearer auth via RESEND_API_KEY.",
-      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
-    },
-    {
-      "name": "vercel",
-      "source": "path:plugins/vercel",
-      "version": "0.1.0",
-      "description": "Vercel's official remote MCP: projects, deployments, domains, logs. Bearer auth via VERCEL_TOKEN.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
     },
     {

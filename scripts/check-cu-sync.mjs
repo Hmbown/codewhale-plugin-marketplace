@@ -27,6 +27,7 @@ const CORE = arg("--core") ?? path.resolve(ROOT, "..", "codewhale");
 const CORE_TREE = path.join(CORE, "crates", "tui", "plugins", "computer-use");
 
 const problems = [];
+let coreTestDrift = 0;
 const notes = [];
 const fail = (m) => problems.push(m);
 const note = (m) => notes.push(m);
@@ -90,7 +91,8 @@ if (coreExists) {
     if (!ours.equals(buf)) {
       if (CORE_VARIANTS.has(rel)) { note(`core:${rel}: deliberate Core variant`); continue; }
       drift++;
-      note(`core:${rel}: differs — expected only while an upstream sync is in flight; builtin.rs embeds this copy`);
+      if (rel.startsWith("tests/")) { coreTestDrift++; note(`core:${rel}: test mirror differs; Core has not received this upstream fixture change`); }
+      else fail(`core:${rel}: runtime mirror differs; synchronize before claiming Core package parity`);
     }
   }
   if (!drift) note(`Core vendored tree matches the marketplace runtime set`);
@@ -103,4 +105,4 @@ if (problems.length) {
   for (const m of problems) console.error(`FAIL: ${m}`);
   process.exit(1);
 }
-console.log("computer-use copies: OK");
+console.log(coreTestDrift ? `Computer Use runtime copies match; ${coreTestDrift} Core test mirror difference(s) remain` : "computer-use copies: OK");

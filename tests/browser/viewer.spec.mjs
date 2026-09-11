@@ -1,0 +1,41 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {scaffold,exportHtml} from '../../plugins/whalewiki/scripts/whalewiki.mjs';
+const engine=fileURLToPath(new URL('../../plugins/whalewiki/scripts/whalewiki.mjs',import.meta.url));
+let root,url;
+test.beforeAll(()=>{
+  root=fs.mkdtempSync(path.join(os.tmpdir(),'cw-wiki-browser-'));const wiki=scaffold(root);
+  fs.writeFileSync(path.join(root,'engine.mjs'),'export const mode="fixture";');
+  fs.writeFileSync(path.join(wiki,'INDEX.md'),'# Project guide\n\nRead how this fixture works.\n\n[Architecture](pages/architecture.md#evidence)');
+  fs.writeFileSync(path.join(wiki,'pages/architecture.md'),'# Architecture\n\nThis fixture uses one deterministic engine.\n\n## Evidence\n\n[Next page](operations.md)\n\n| Component | Purpose |\n| --- | --- |\n| Engine | Receipts |\n\n<script>window.compromised=true</script>\n\n[Unsafe](javascript:alert)');
+  execFileSync(process.execPath,[engine,'manifest','set','pages/architecture.md','--sources','engine.mjs'],{cwd:root,env:{...process.env,WHALEWIKI_DIR:wiki}});
+  fs.writeFileSync(path.join(wiki,'pages/operations.md'),'# Operations\n\n中文操作说明。\n\n'+('long-path-'.repeat(50))+'\n');
+  const file=path.join(root,'viewer.html');fs.writeFileSync(file,exportHtml(wiki));url=pathToFileURL(file).href;
+});
+test.afterAll(()=>fs.rmSync(root,{recursive:true,force:true}));
+test('navigate, search, review filter, empty state and safe offline rendering',async({page},info)=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(url);
+  if(info.project.name==='mobile')await page.getByText('Browse pages and search',{exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Project guide'})).toBeVisible();
+  await page.locator('main').getByRole('link',{name:'Architecture'}).click();
+  await expect(page.getByRole('heading',{name:'Evidence',exact:true})).toBeVisible();
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText(/Architecture/);
+  await page.getByRole('link',{name:'Next page'}).click();await expect(page.getByRole('heading',{name:'Operations',exact:true})).toBeVisible();
+  await expect(page.getByText('Check the sources before relying on this page.')).toBeVisible();
+  await page.getByLabel('Search this wiki').fill('中文');await expect(page.locator('nav li:visible')).toHaveCount(1);
+  await page.getByLabel('Search this wiki').fill('nothing-matches-this');await expect(page.getByRole('status')).toContainText('No matching pages');
+  await page.getByRole('button',{name:'Clear filters'}).click();await page.getByLabel('Show',{exact:true}).selectOption('attention');await expect(page.locator('nav li:visible')).toHaveCount(1);
+  await page.getByRole('button',{name:'Clear filters'}).click();await page.locator('nav').getByRole('link',{name:/Architecture/}).click();
+  await expect(page.getByRole('heading',{name:'Architecture',exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>window.compromised)).toBeUndefined();expect(await page.locator('a[href^="javascript:"]').count()).toBe(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);expect(errors).toEqual([]);
+  await page.screenshot({path:`test-results/whalewiki-${info.project.name}.png`,fullPage:true});
+});
+test('keyboard search and deep links remain usable',async({page},info)=>{
+  await page.goto(url);if(info.project.name==='mobile')await page.getByText('Browse pages and search',{exact:true}).click();await page.locator('main').focus();await page.keyboard.press('/');await expect(page.getByLabel('Search this wiki')).toBeFocused();
+  await page.goto(url+'#p-'+Buffer.from('pages/architecture.md').toString('base64url')+'--evidence');await expect(page.getByRole('heading',{name:'Evidence',exact:true})).toBeVisible();
+});

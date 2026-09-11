@@ -1,0 +1,9 @@
+# WhaleWiki configuration.
+# Extra ignore names for scanning, in addition to the built-in list:
+# ignore = ["fixtures", "benches"]
+#
+# Pod mode — additional source roots this wiki covers (paths relative to the
+# directory containing whalewiki/):
+# [[sources]]
+# name = "api"
+# root = "../api"

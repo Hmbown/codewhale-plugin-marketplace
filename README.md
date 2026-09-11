@@ -1,59 +1,83 @@
 <img src="assets/codewhale.png" alt="Codewhale" width="96" />
 
-# Codewhale plugin marketplace
+# Codewhale extensions
 
-The first-party catalog: the plugins and skills Codewhale ships, kept in the
-open so anyone can read them, propose a change, or add their own.
+A home for useful Codewhale plugins, skills, connections, and chat integrations.
+Each extension should help someone complete a real task and explain how to tell
+whether it worked.
 
+Read the repository's [source-sealed wiki](whalewiki/INDEX.md), or build its
+offline reader with `node plugins/whalewiki/scripts/whalewiki.mjs export` and
+open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
+
+## Choose what you need
+
+| Job | Start here | What is available |
+| --- | --- | --- |
+| Understand and maintain a repository wiki | [WhaleWiki](plugins/whalewiki/README.md) | Source and page seals, freshness checks, five read tools, searchable offline reader |
+| Operate a computer | [Computer Use](plugins/computer-use/README.md) | Accessibility, screenshots, input and device routing; platform requirements apply |
+| Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
+| Add workflows to an agent | [Skills](skills/) | Codewhale's bundled skills as one reviewed plugin |
+| Connect Linear, GitHub or another service | [Connections](docs/CONNECTIONS.md) | Official endpoints and honest setup/qualification status; no empty connector plugins |
+| Use Telegram, WeChat, WeCom or Feishu | [Chat integrations](integrations/README.md) | Existing Core bridges, packaged here with source provenance |
+| Receive Slack mentions or Linear webhooks | [Webhook bridge](integrations/webhook-bridge/README.md) | Signed, allowlisted intake, durable queue and explicit runtime dispatch; reply delivery remains open |
+| Build a review bot | [Review bot guide](docs/REVIEW-BOT.md) | Review workflow, implementation boundaries and required host integration |
+
+## Install a plugin
+
+Clone this repository, then add its local catalog in Codewhale:
+
+```text
+/plugin marketplace add codewhale /absolute/path/codewhale-plugin-marketplace/marketplace.json
 ```
-/plugin marketplace add codewhale <path-to>/marketplace.json
+
+A catalog entry does not install or authorize anything. Install the selected
+plugin, review its capabilities, then trust and enable it through Codewhale.
+
+For a development checkout, package the selected plugin first. Local build and
+receipt files can exceed the installer's 5 MiB cap even when the source fits:
+
+```sh
+npm run package:plugin -- whalewiki
+npm run package:plugin -- computer-use
 ```
 
-Adding a catalog installs nothing. It lists what is available; trust and
-enablement stay separate, explicit steps, and tier and provenance are display
-only. That separation is the point — a catalog is a menu, not a permission.
+Install the resulting `dist/<name>` directory. Packaging excludes Git-ignored
+artifacts, refuses symlinks, enforces the size cap and never overwrites an existing
+package. Pass `--out /another/output/directory` for a later build. A clean clone
+can use the catalog's `path:` sources directly.
 
-## What is here
+Codewhale carries its own Computer Use runtime and bundled skills. Installing a
+reviewed marketplace copy is optional; inspect existing plugins before adding a
+duplicate. This repository does not replace account connection management.
 
-| | |
-| --- | --- |
-| `plugins/computer-use` | See the screen and operate it — accessibility-first control, screenshots and zoom on macOS, Windows and Linux, macOS recording, HarmonyOS over `hdc`. |
-| `skills/` | The 37 skills Codewhale bundles. They also ship inside the binary and are unpacked on first run, so you already have them; they live here so they can be read and improved by people who do not build Codewhale. Installable as one reviewed bundle named `codewhale-skills`. |
-| `plugins/cloudflare-docs` `linear` `github` `stripe` `supabase` `resend` `vercel` | Connector bundles: official remote MCP endpoints wrapped for reviewed install. Each declares its `network_hosts` and authenticates with a bearer env var; see `docs/CONNECTIONS.md`. |
-| `docs/CONNECTIONS.md` | How Codewhale connects to services: plugin MCP (bearer), user-level MCP (OAuth: Slack, Notion, Atlassian, Sentry), and app-level webhook bridges (Slackbot, Linear). |
-| `docs/REVIEW-BOT.md` | Matching Devin Review: what the `review` skill already encodes, the Actions/webhook recipes, and the gap that is real product work. |
+## Develop and verify
 
-`marketplace.json` is Codewhale's native catalog format. An entry is a `name`
-plus a `source` that is exactly the install spec `/plugin install` accepts:
+Node 22+ and Git are required for repository development. WhaleWiki and Computer
+Use have no runtime npm dependencies. Browser tests use Playwright as a dev tool.
 
-```json
-{ "name": "formatter", "source": "github:owner/repo", "version": "2.1.0" }
+```sh
+npm ci
+npx playwright install chromium
+npm run check
+npm test && npm run check:web
 ```
 
-`path:` sources are relative to this repository, so a plugin carried here needs
-no home of its own. `github:owner/repo` and `https://` tarballs point outward
-for plugins that have one.
+On macOS, browser checks use an installed Google Chrome when available. Set
+`CW_BROWSER_PATH` to select another Chromium executable. CI installs Chromium.
+Tests never require live service credentials or model calls. Native tests skip
+platforms unavailable on the host; those skips are not platform acceptance.
 
-Codewhale also reads the Claude (`.claude-plugin/marketplace.json`), Kimi and
-Codex catalog formats, so a catalog written for one of those can be added
-without conversion.
+`npm run check:cu-sync` compares the Computer Use mirror against sibling source
+checkouts. [Validation evidence](docs/VALIDATION-20260911.md) records the current
+source, packaging, local checks and remaining qualification work.
 
-## Contributing
+## Contribute
 
-A skill is a directory with a `SKILL.md`; a plugin is a directory with a
-`plugin.json`. Add yours, add the matching entry to `marketplace.json`, and open
-a pull request.
+Read [CONTRIBUTING.md](CONTRIBUTING.md). Put installable capabilities in `plugins/`,
+service setup in `connections/`, and inbound bots in `integrations/`. A plugin
+needs a useful capability beyond carrying a service URL. Keep one runtime and
+reuse the existing bridge and authentication owners.
 
-Two things make a contribution easy to accept:
-
-- **Say what it does in one line.** The `description` is what someone reads
-  before deciding to trust it, so write the sentence that would let them decide.
-- **Ask for what you need and no more.** Permissions are reviewed. A plugin that
-  wants the filesystem to format a string will be asked why.
-
-Issues are the right place for "this should exist" and "this is wrong" alike.
-
-## License
-
-Each entry carries its own license. `plugins/computer-use` is MIT.
-
+Each bundle carries its own license. Vendored integrations retain Core's license
+and exact provenance in `integrations/upstream.json`.

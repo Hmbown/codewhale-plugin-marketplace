@@ -5,7 +5,20 @@
   "scripts": {
     "check": "node scripts/check-marketplace.mjs",
     "check:cu-sync": "node scripts/check-cu-sync.mjs",
-    "test:whalewiki": "node --test plugins/whalewiki/tests/",
-    "test:computer-use": "cd plugins/computer-use && node --test tests/"
+    "check:wiki": "node plugins/whalewiki/scripts/whalewiki.mjs status --exit-stale --short",
+    "test:whalewiki": "node --test plugins/whalewiki/tests/*.test.mjs",
+    "test:computer-use": "npm --prefix plugins/computer-use test",
+    "test": "npm run test:whalewiki && npm run test:computer-use && npm run test:integrations && node --test tests/*.test.mjs",
+    "test:integrations": "node scripts/test-integrations.mjs",
+    "check:web": "playwright test",
+    "package:plugin": "node scripts/package-plugin.mjs",
+    "connections": "node scripts/connections.mjs",
+    "integrations": "node scripts/integrations.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

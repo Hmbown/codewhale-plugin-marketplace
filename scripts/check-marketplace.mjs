@@ -25,7 +25,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 const CAP = 5 * 1024 * 1024; // host plugin-install cap, uncompressed bytes
@@ -53,7 +53,7 @@ function readJson(file, label) {
 function trackedSizeBytes(dir) {
   try {
     const rel = path.relative(ROOT, dir);
-    const out = execSync(`git ls-files -z -- ${JSON.stringify(rel)}`, { cwd: ROOT });
+    const out = execFileSync("git", ["ls-files", "-z", "--", rel], { cwd: ROOT });
     let total = 0;
     for (const f of out.toString("utf8").split("\0")) {
       if (!f) continue;
@@ -125,7 +125,7 @@ function checkMcpContract(dir, manifest, label) {
   const mcpFile = path.join(dir, "mcp.json");
   if (!fs.existsSync(mcpFile)) return;
   const doc = readJson(mcpFile, `${label}/mcp.json`);
-  if (!doc || typeof doc.mcpServers !== "object") return;
+  if (!doc || !doc.mcpServers || typeof doc.mcpServers !== "object" || Array.isArray(doc.mcpServers)) { fail(`${label}/mcp.json: mcpServers must be an object`); return; }
   const remoteHosts = new Set();
   for (const [id, server] of Object.entries(doc.mcpServers)) {
     if (!server?.url) continue;
@@ -139,13 +139,13 @@ function checkMcpContract(dir, manifest, label) {
       fail(`${label}/mcp.json: server '${id}' bearer_token_env_var '${cw.bearer_token_env_var}' is not an env-var name`);
     }
   }
-  if (!remoteHosts.size) return;
+
   const declared = new Set((manifest.networkHosts ?? []).map((h) => h.toLowerCase()));
   for (const host of remoteHosts) {
     if (!declared.has(host)) fail(`${label}: mcp.json reaches ${host} but capabilities.network_hosts does not declare it — install would fail review`);
   }
   for (const host of declared) {
-    if (!remoteHosts.has(host)) note(`${label}: network_hosts declares ${host} but no remote endpoint uses it`);
+    if (!remoteHosts.has(host)) fail(`${label}: network_hosts declares ${host} but no remote endpoint uses it`);
   }
 }
 
@@ -191,6 +191,7 @@ if (catalog) {
     if (source.startsWith("path:")) {
       const rel = source.slice(5);
       const dir = path.resolve(ROOT, rel);
+      if (fs.existsSync(dir) && fs.realpathSync(dir) !== dir) { fail(`${name}: path source must not traverse symlinks`); continue; }
       if (!path.relative(ROOT, dir).length || path.relative(ROOT, dir).startsWith("..")) { fail(`${name}: path source escapes the repository: ${source}`); continue; }
       if (!fs.existsSync(dir)) { fail(`${name}: path source does not exist: ${rel}`); continue; }
       const manifest = manifestOf(dir);
@@ -211,7 +212,7 @@ if (catalog) {
       checkSkillRoots(dir, manifest);
     } else if (/^github:[^\s/]+\/[^\s/]+$/.test(source)) {
       note(`${name}: remote source '${source}' — not validated offline`);
-    } else if (/^https?:\/\//.test(source)) {
+    } else if (/^https:\/\//.test(source)) {
       note(`${name}: remote source '${source}' — not validated offline`);
     } else {
       fail(`${name}: source '${source}' is not a spec Codewhale accepts (path:, github:owner/repo, https:// tarball)`);

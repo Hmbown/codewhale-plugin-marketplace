@@ -1,0 +1,42 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "whalewiki",
+  "version": "0.1.0",
+  "description": "An evidence-bound wiki for the repo: generated pages sealed against the source files they were written from, computed staleness, a zero-install CI drift gate, and a read-only MCP surface for other agents.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "wiki",
+    "documentation",
+    "codebase",
+    "deepwiki",
+    "staleness",
+    "receipts"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "WhaleWiki",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "agents": {
+        "path": "agents"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  }
+}

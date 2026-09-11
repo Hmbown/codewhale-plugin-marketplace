@@ -1,0 +1,136 @@
+{
+  "version": 2,
+  "tool": "whalewiki",
+  "pages": {
+    "pages/extensions.md": {
+      "title": "extensions",
+      "page_sha256": "f135f421d9a0ff7b13e77070b17ae78a0da88ab4b398c39d8b6c95e2e7f54e71",
+      "sources": [
+        {
+          "path": "marketplace.json",
+          "root": "repo",
+          "sha256": "493b6ab2bd732e78b2e2e7fe0c11df82f9ad7b51ae03b67d333f8be7b02f3904",
+          "bytes": 1890
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "root": "repo",
+          "sha256": "9b1a765054b6c175b87d6111962d7af7e61b015b312bb8a9e4d3dec6914d84c3",
+          "bytes": 2071
+        },
+        {
+          "path": "scripts/package-plugin.mjs",
+          "root": "repo",
+          "sha256": "a9bd7e7db06012869169dda3e9e8bf671c9735e261316a963c91bd81735b2e19",
+          "bytes": 3082
+        },
+        {
+          "path": "scripts/check-marketplace.mjs",
+          "root": "repo",
+          "sha256": "a88867eeea5ac276f1c90cae2942f2d0ea6e0d039696b49423d828ae0760e820",
+          "bytes": 13455
+        },
+        {
+          "path": "package.json",
+          "root": "repo",
+          "sha256": "80d49d02ad3ee63ad2621b05919bbf35eaaf61be4ad3ebe6de7b9fb00f66f373",
+          "bytes": 1023
+        }
+      ],
+      "sealed_at": "2026-09-11T09:46:32.570Z"
+    },
+    "pages/wiki-evidence.md": {
+      "title": "wiki evidence",
+      "page_sha256": "af2cdf32fedff893d4a663ea0c4cb5befad37df12ae922d82541ab0cdddb1d12",
+      "sources": [
+        {
+          "path": "plugins/whalewiki/scripts/whalewiki.mjs",
+          "root": "repo",
+          "sha256": "72eb36281fb75dd57e4c28574fe0990c1c24fc9f4aeef0767831e0b013c29b58",
+          "bytes": 39329
+        },
+        {
+          "path": "plugins/whalewiki/mcp/server.mjs",
+          "root": "repo",
+          "sha256": "266411f8abe577d720cbb6523a3de6edfa80d6b4c734b33ebc58620a7bef24b2",
+          "bytes": 7489
+        },
+        {
+          "path": "plugins/whalewiki/plugin.json",
+          "root": "repo",
+          "sha256": "b44d957088cdb1459d8ab88f1d7b8aa7986d1895d056967c328f04e1ac33ce68",
+          "bytes": 921
+        },
+        {
+          "path": "plugins/whalewiki/README.md",
+          "root": "repo",
+          "sha256": "4b3b07b894b3b65085ddc0237a7267b9fb3652f20adc36cf228ae1ab33dcce37",
+          "bytes": 5242
+        }
+      ],
+      "sealed_at": "2026-09-11T09:43:24.896Z"
+    },
+    "pages/integrations.md": {
+      "title": "integrations",
+      "page_sha256": "eb7703b9e1324c115c0dfeb89baa8dfb717196bd73c51c7e6e1224668b192f10",
+      "sources": [
+        {
+          "path": "connections/catalog.json",
+          "root": "repo",
+          "sha256": "0d9754a73043deffebdfcdb396a1682df3843f69feaae36eccdefe2aa9caefe2",
+          "bytes": 2994
+        },
+        {
+          "path": "scripts/connections.mjs",
+          "root": "repo",
+          "sha256": "e5cbe242c2706252de082a2c58c5049ad7e5fc21ff812f8cf37e3022680e8b2b",
+          "bytes": 1690
+        },
+        {
+          "path": "docs/CONNECTIONS.md",
+          "root": "repo",
+          "sha256": "acf8b59c6a9abf7b3f9d33c443d5266f5860ae15d651c1fa80fe815a73c98941",
+          "bytes": 3764
+        },
+        {
+          "path": "integrations/upstream.json",
+          "root": "repo",
+          "sha256": "ccfd5c46875cd067a8e9bef9edc4292382cbe487a2a726da9367c4ffa151309e",
+          "bytes": 4387
+        },
+        {
+          "path": "integrations/README.md",
+          "root": "repo",
+          "sha256": "663b78ce1dbaa82b8dc178800349eab11df1747a8da516898c750ba92d8953c4",
+          "bytes": 2434
+        },
+        {
+          "path": "scripts/integrations.mjs",
+          "root": "repo",
+          "sha256": "e46ce91b9cf4aa8fd38fa999311c7db68177521aa124f4c6735fe28e6ba94af0",
+          "bytes": 1534
+        },
+        {
+          "path": "integrations/webhook-bridge/src/lib.mjs",
+          "root": "repo",
+          "sha256": "99cba691fc3d5306dae92ba194e3c83d1b92da01eee46c631d425a744ac1470b",
+          "bytes": 8995
+        },
+        {
+          "path": "integrations/webhook-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "af280ffdab8188f4caddf3c2f7abf261a68add6ba1633fd0389a3296ebd354c6",
+          "bytes": 2725
+        },
+        {
+          "path": "integrations/webhook-bridge/README.md",
+          "root": "repo",
+          "sha256": "498188b63368c7e319d1a2df044b2dcaa4692b98182f2858cbb8dda23b648413",
+          "bytes": 4354
+        }
+      ],
+      "sealed_at": "2026-09-11T09:47:48.528Z"
+    }
+  },
+  "updated_at": "2026-09-11T09:47:48.529Z"
+}

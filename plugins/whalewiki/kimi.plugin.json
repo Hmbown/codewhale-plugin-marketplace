@@ -1,0 +1,21 @@
+{
+  "name": "codewhale-whalewiki",
+  "version": "0.1.0",
+  "description": "Codewhale WhaleWiki: an evidence-bound repository wiki with computed staleness and a read-only MCP surface.",
+  "license": "MIT",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "interface": {
+    "displayName": "Codewhale WhaleWiki",
+    "shortDescription": "A repo wiki that knows when it is stale",
+    "developerName": "Codewhale"
+  },
+  "mcpServers": {
+    "whalewiki": {
+      "command": "node",
+      "args": ["mcp/server.mjs"],
+      "startupTimeoutMs": 30000,
+      "toolTimeoutMs": 30000
+    }
+  }
+}
