@@ -1,0 +1,14 @@
+{
+  "name": "codewhale",
+  "description": "First-party Codewhale extensions: the plugins and skills Codewhale itself ships and supports.",
+  "version": "1",
+  "plugins": [
+    {
+      "name": "computer-use",
+      "source": "path:plugins/computer-use",
+      "version": "0.2.1",
+      "description": "See the screen and operate it: accessibility-first control, screenshots and zoom on macOS, Windows and Linux, plus macOS recording and HarmonyOS devices over hdc.",
+      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
+    }
+  ]
+}
