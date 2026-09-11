@@ -87,10 +87,10 @@ of local ignored artifacts; package its reviewed source before a path install.
 No recordings or operational receipts are included in the package.
 
 `npm run check:cu-sync` verified that the marketplace Computer Use mirror equals
-canonical source `0880ffb`, and Core runtime copies match. Two Core test
-mirrors differ: `tests/server-routes.test.mjs` lacks upstream atomic fixture
-writes, and `tests/app.test.mjs` needs this clean-checkout icon fixture correction.
-Those test synchronizations remain with the active Core lane. No Computer
+canonical source `0880ffb`, and Core runtime copies match. One Core test
+mirror differs: `tests/server-routes.test.mjs` lacks upstream atomic fixture
+writes. Core does not vendor the standalone `tests/app.test.mjs` packaging test.
+The route-test synchronization remains with the active Core lane. No Computer
 Use runtime patch was justified by this review, and no desktop input or screen
 capture was performed as part of the test suite qualification.
 
