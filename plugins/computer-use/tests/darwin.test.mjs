@@ -644,7 +644,8 @@ function crc32(buf) {
 // and the geometry must follow it: `pixels` is the PNG's, `points` stays in
 // screen points, and `scale` is derived from the two, so raster-to-point
 // conversion stays exact at the smaller size.
-test('macOS screenshot shrinks an over-budget raster and keeps its geometry exact', async (t) => {
+// This integration test exercises the real macOS sips resizer.
+test('macOS screenshot shrinks an over-budget raster and keeps its geometry exact', { skip: process.platform !== 'darwin' }, async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-budget-shot-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const big = path.join(dir, 'big.png');

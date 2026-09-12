@@ -72,6 +72,15 @@ platforms unavailable on the host; those skips are not platform acceptance.
 checkouts. [Validation evidence](docs/VALIDATION-20260911.md) records the current
 source, packaging, local checks and remaining qualification work.
 
+Core embeds this catalog for offline browsing and installs each selected bundle
+through its existing reviewed installer. After a catalog or bundle update,
+commit the marketplace change and run `python3 scripts/sync-marketplace.py`
+from the sibling Core checkout. Core's `Marketplace connection` workflow checks
+the pinned catalog on changes and checks current upstream mirrors weekly.
+See Core's [marketplace maintenance guide](https://github.com/Hmbown/codewhale/blob/main/docs/PLUGIN_MARKETPLACE.md)
+for source ownership, update commands, and the publication order. Catalog
+membership never grants trust or enablement to an installed plugin.
+
 ## Contribute
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). Put installable capabilities in `plugins/`,
