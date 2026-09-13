@@ -9,8 +9,10 @@ Computer Use 0.3.0 includes a whale icon, publisher and platform labels. The
 [official download and setup page](https://codewhale.net/computer-use) links
 to qualified GitHub release assets. The native macOS helper provides
 permission setup, a background check, human
-Pause/Stop and on-demand verified updates. Its signed local build is not yet
-a notarized public installer. Catalog artwork is inline PNG, bounded to
+Pause/Stop and on-demand verified updates. Its universal Mac archive has
+passed Apple notarization, stapling and Gatekeeper; the versioned receipt
+records its size, digest and accepted submission. Windows remains unqualified.
+Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
 
 ## Choose a home
@@ -57,3 +59,4 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
 - `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
 - `package.json`: executable repository gates.
+- `plugins/computer-use/docs/releases/0.3.0.json`: exact qualified Mac archive receipt.

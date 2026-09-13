@@ -35,7 +35,7 @@ export function verifySignature(bundle) {
 
 export function verifyReleaseBundle(bundle) {
   verifySignature(bundle);
-  const requirement='anchor apple generic and identifier "net.codewhale.computer-use" and certificate leaf[subject.OU] = "5RDNSHA5TY"';
+  const requirement='=anchor apple generic and identifier "net.codewhale.computer-use" and certificate leaf[subject.OU] = "5RDNSHA5TY"';
   for(const [command,args] of [["/usr/bin/codesign",["--verify","--strict","-R",requirement,bundle]],["/usr/sbin/spctl",["--assess","--type","execute","--verbose=2",bundle]]]) {
     const result=spawnSync(command,args,{encoding:"utf8"});
     // Gatekeeper ships with macOS. Requiring its notarized source also rejects

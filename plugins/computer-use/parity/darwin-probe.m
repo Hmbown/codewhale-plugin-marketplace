@@ -33,4 +33,8 @@ int main(int argc, const char **argv) { do { @autoreleasepool {
   NSData *data = [NSJSONSerialization dataWithJSONObject:out options:0 error:nil];
   puts([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding].UTF8String);
   fflush(stdout);
-} if(argc<2 || strcmp(argv[1],"--watch")!=0) break; usleep(10000); } while(1); return 0; }
+} if(argc<2 || strcmp(argv[1],"--watch")!=0) break;
+  // NSWorkspace refreshes its application state through run-loop notifications.
+  // Sleeping without servicing them can report the initial foreground forever.
+  [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+} while(1); return 0; }

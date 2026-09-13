@@ -166,10 +166,15 @@ frontmost. Those rows establish effects, not background isolation.
 
 The new `scripts/verify-background-macos.mjs` keeps a disposable native AppKit
 window behind the user, checks the fixture file for text/button/scroll effects,
-and samples foreground PID and cursor through an independent 100 Hz observer.
+and samples foreground PID and cursor through an independent observer with a
+10 ms polling interval. Its watch loop now services NSWorkspace notifications;
+earlier watch-probe receipts with cached foreground state are superseded.
 It also checks that an unqualified observation and capture stay app-scoped.
 A physical cursor move or any focus change invalidates that trial's isolation
-verdict. This is a direct-source MCP test, not packaged Engine/model parity.
+verdict. It can also bind the running installed helper. An opt-in separate
+trial deliberately switches to an owned decoy during held input and checks
+target completion, no decoy input and no focus reclaim. These are MCP tests,
+not Engine/model parity; see [the commands](DEMO.md).
 
 | family | observable (AX elements) | keyboard in background | accessibility press in background | window stays behind | verdict |
 |---|---|---|---|---|---|

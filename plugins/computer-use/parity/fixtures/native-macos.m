@@ -225,7 +225,12 @@ int main(int argc, const char **argv) { @autoreleasepool {
                @"square": @[@480, @180], @"in_zone": @NO, @"dialog": @"closed",
                @"dialog_result": NSNull.null, @"second_clicks": @0, @"keys": @[],
                @"select": NSNull.null, @"scroll_top": @0, @"mouse_events": @{}, @"origin": NSNull.null, @"origin2": NSNull.null,
-               @"ver": @1 } mutableCopy];
+               @"key_down_count": @0, @"key_up_count": @0, @"keys_up": @[],
+               @"pid": @(NSProcessInfo.processInfo.processIdentifier), @"ver": @1 } mutableCopy];
+  NSString *entry = @"";
+  for (int i=2; i<argc; i++) {
+    if (strcmp(argv[i],"--entry")==0 && i+1<argc) entry=[NSString stringWithUTF8String:argv[++i]];
+  }
 
   [NSApplication sharedApplication];
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -259,7 +264,8 @@ int main(int argc, const char **argv) { @autoreleasepool {
   gContent = root;
   gWindow.contentView = root;
 
-  gEntry = field(NSMakeRect(20, 20, 360, 40), @"");
+  gEntry = field(NSMakeRect(20, 20, 360, 40), entry);
+  gState[@"entry"] = entry;
   gEntry.delegate = fx;
   [root addSubview:gEntry];
 
@@ -304,7 +310,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
   [root addSubview:gSelect];
 
   // One monitor sees every key the app receives, whichever control has focus.
-  [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *e) {
+  [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown | NSEventMaskKeyUp handler:^NSEvent *(NSEvent *e) {
     NSMutableArray *parts = [NSMutableArray array];
     if (e.modifierFlags & NSEventModifierFlagControl) [parts addObject:@"ctrl"];
     if (e.modifierFlags & NSEventModifierFlagOption) [parts addObject:@"alt"];
@@ -314,7 +320,16 @@ int main(int argc, const char **argv) { @autoreleasepool {
     if (e.keyCode == 36) key = @"Return";
     else if (e.keyCode == 53) key = @"Escape";
     [parts addObject:key];
-    pushKey([parts componentsJoinedByString:@"+"]);
+    NSString *chord=[parts componentsJoinedByString:@"+"];
+    if (e.type==NSEventTypeKeyUp) {
+      gState[@"key_up_count"]=@([gState[@"key_up_count"] integerValue]+1);
+      NSArray *keys=[gState[@"keys_up"] arrayByAddingObject:chord];
+      gState[@"keys_up"]=keys.count>8?[keys subarrayWithRange:NSMakeRange(keys.count-8,8)]:keys;
+      writeState();
+    } else {
+      gState[@"key_down_count"]=@([gState[@"key_down_count"] integerValue]+1);
+      pushKey(chord);
+    }
     return e;
   }];
 

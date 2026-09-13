@@ -1,0 +1,11 @@
+{
+  "version": "0.3.0",
+  "platform": "macos",
+  "arch": "universal",
+  "archive": "Codewhale-Computer-Use-0.3.0-macos-universal.zip",
+  "size": 79719093,
+  "sha256": "f0a3d2b9365370578746729a493a6c0ac3d08a7b64947c0b66bc579003084952",
+  "notarized": true,
+  "submissionId": "652ab09d-6dc6-4f7a-b4f6-b3058d709df2",
+  "createdAt": "2026-09-13T07:29:47.198Z"
+}

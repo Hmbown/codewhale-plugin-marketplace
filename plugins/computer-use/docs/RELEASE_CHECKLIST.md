@@ -6,22 +6,41 @@ publishable when every applicable row has a recorded result. Steps marked
 
 Release commit: `<sha>` — date: `<date>` — operator: `<name>`
 
-## 0.3.0 local candidate — 2026-09-13 UTC
+## 0.3.0 macOS qualification — 2026-09-13 UTC
 
 The whale identity, native setup panel, permission actions, background check,
 human Pause/Stop, bundled Node and verified-update path are implemented.
-Local source tests: **227 passed, 0 failed, 15 platform skips** (242 total).
+Local source tests: **237 passed, 0 failed, 15 platform skips** (252 total).
+The human-control fixture has request deadlines, channel-error handling and
+bounded teardown; its 11 focused checks pass on macOS. Windows execution
+remains unqualified and was not rerun for these fixes.
 The owned practice workflow verified the edit, Apply result and app screenshot;
 720 samples recorded zero foreground-app changes and zero pointer changes.
 The installed setup-panel trial also verified edit/capture, but reported
 background isolation as inconclusive when movement occurred. Both outcomes
 are retained; see [the reproducible demo](DEMO.md).
 
-The universal macOS app is Developer ID signed. **Notarization is pending**:
-packaging refused to produce a release archive because no Apple ticket is
-stapled to the candidate. The updater correctly reports that no stable
-installer is published. A clean-machine update, fresh permission grants and
-a model-driven task are still separate acceptance gates.
+The universal macOS app is Developer ID signed and **Apple notarization was
+accepted** for submission `652ab09d-6dc6-4f7a-b4f6-b3058d709df2`. Stapling,
+signature verification and Gatekeeper assessment pass. The runtime includes
+the inline-code-signing-requirement correction from `6d1b2d8`; verification
+accepts the notarized Codewhale app and rejects a differently signed app.
+
+Qualified archive: `Codewhale-Computer-Use-0.3.0-macos-universal.zip`,
+79,719,093 bytes, SHA-256
+`f0a3d2b9365370578746729a493a6c0ac3d08a7b64947c0b66bc579003084952`.
+Publication is a separate action recorded by the GitHub release. A
+clean-machine update, fresh permission grants and a model-driven task are
+still separate acceptance gates.
+
+The installed notarized helper also passed the two-trial MCP check: 173
+samples without foreground/pointer interference, then 212 samples around a
+deliberate app switch during held input. The original target received key-up
+after the switch; the decoy's contents/input counters and the pointer stayed
+unchanged, with no focus reclaim. The standalone observer now services the
+NSWorkspace run loop so foreground changes are live. Earlier watch-probe
+receipts without that fix are superseded; the practice app's own timer-based
+demo above is separate. See [the opt-in command](DEMO.md#verify-an-installed-helper-through-mcp).
 
 Use [the distribution workflow](DISTRIBUTION.md) to qualify the exact signed
 bundle with an existing Apple notary Keychain profile. Do not describe a
