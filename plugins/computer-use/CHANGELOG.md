@@ -1,6 +1,6 @@
 # Release notes
 
-0.3.1 is the first public macOS build: a Developer ID-signed, notarized universal app built from commit 9f6c39f738c0d8e8dcc93af11af5e00d19081b60, with its packaging receipt in [docs/releases/0.3.1.json](docs/releases/0.3.1.json). It is released through GitHub Releases as [v0.3.1](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.3.1); until a human publishes that release, the setup page at https://codewhale.net/computer-use reports the download as pending, and afterwards it offers the download. Earlier versions were developed privately; their notes are kept below for context.
+0.3.1 is the first public macOS build: a Developer ID-signed, notarized universal app built from commit 9f6c39f738c0d8e8dcc93af11af5e00d19081b60, with its packaging receipt in [docs/releases/0.3.1.json](docs/releases/0.3.1.json). It was published on 2026-09-13 as the [v0.3.1 GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.3.1); the setup page at https://codewhale.net/computer-use offers the download. Earlier versions were developed privately; their notes are kept below for context.
 
 ## 0.3.1 — macOS beta
 

@@ -45,8 +45,8 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "93e41f1fd8bffc3b1c727289e8c99b2f705aeea242c71e6933e0ab40922bde58",
-          "bytes": 9512
+          "sha256": "caf948d3405c486ebde9af10e3f49f90f6b7fd9dce9cf93b13d2f554762c66c6",
+          "bytes": 9978
         },
         {
           "path": "plugins/computer-use/docs/releases/0.3.1.json",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "41cdf972bc13d44c61e30a433aa240cc7302d1996eacaaee1617cdf990260040",
-          "bytes": 4161
+          "sha256": "5d5ab7c7fb44a5541e1256ac0a1b474447e1c1001ba1b15362ef696ff99910af",
+          "bytes": 4083
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -67,7 +67,7 @@
           "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-13T21:52:03.309Z"
+      "sealed_at": "2026-09-13T22:04:22.010Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -180,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-13T21:52:03.310Z"
+  "updated_at": "2026-09-13T22:04:22.011Z"
 }

@@ -123,8 +123,7 @@ receipts belong in a public issue.
 | Clean install: install app, connect host, `request_access` shows Accessibility + Screen Recording granted to the app | |
 | Upgrade: rebuild/reinstall over a granted install, verify TCC grants persist for the same bundle identity | |
 | Revoke + re-grant: remove grants in System Settings, verify `request_access` reports them missing and the next call fails closed | |
-| Notarized update: after publication, from an installed older notarized build, **Check for updates…** offers exactly **Install 0.3.1…**, downloads the GitHub asset, verifies the digest, keeps the previous bundle and restarts with controls stopped | |
-| Model-driven task: a Codewhale Engine task observes, acts and verifies through the installed helper | |
+| Notarized update: after publication, from an installed older notarized build, **Check for updates…** offers exactly **Install 0.3.1…**, downloads the GitHub asset, verifies the digest, keeps the previous bundle and restarts with controls stopped | | After publication (2026-09-13): the updater contract was exercised against the live release from a 0.3.0 identity and offers exactly `Install 0.3.1…` with the canonical URL, GitHub digest and size; the real apply from an installed notarized 0.3.0 is still open | Model-driven task: a Codewhale Engine task observes, acts and verifies through the installed helper | |
 
 ## 4. Cross-references
 
@@ -140,7 +139,7 @@ receipts belong in a public issue.
 ## 5. Final actions — human-only, never scripted
 
 - [x] **Repository visibility change** — public since 2026-09-13 (human).
-- [ ] **Publish release** — performed by a human, by hand.
+- [x] **Publish release** — v0.3.1 published 2026-09-13 by Hunter Bown (human); tag on `44bf9fcde4bebacf3d69d03d08972ba02b0d1bc5`; anonymous download verified (size 79,720,031, SHA-256 match, Gatekeeper accepted as Notarized Developer ID, stapled ticket valid).
 
 ---
 
