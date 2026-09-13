@@ -6,6 +6,27 @@ publishable when every applicable row has a recorded result. Steps marked
 
 Release commit: `<sha>` — date: `<date>` — operator: `<name>`
 
+## 0.3.0 local candidate — 2026-09-13 UTC
+
+The whale identity, native setup panel, permission actions, background check,
+human Pause/Stop, bundled Node and verified-update path are implemented.
+Local source tests: **227 passed, 0 failed, 15 platform skips** (242 total).
+The owned practice workflow verified the edit, Apply result and app screenshot;
+720 samples recorded zero foreground-app changes and zero pointer changes.
+The installed setup-panel trial also verified edit/capture, but reported
+background isolation as inconclusive when movement occurred. Both outcomes
+are retained; see [the reproducible demo](DEMO.md).
+
+The universal macOS app is Developer ID signed. **Notarization is pending**:
+packaging refused to produce a release archive because no Apple ticket is
+stapled to the candidate. The updater correctly reports that no stable
+installer is published. A clean-machine update, fresh permission grants and
+a model-driven task are still separate acceptance gates.
+
+Use [the distribution workflow](DISTRIBUTION.md) to qualify the exact signed
+bundle with an existing Apple notary Keychain profile. Do not describe a
+signed local installation as a notarized public release.
+
 ## Local candidate qualification — 2026-09-07
 
 Execution and skill source: `6657399` (local commit, not a published release).

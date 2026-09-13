@@ -1,0 +1,31 @@
+name: Verify Computer Use
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      CODEWHALE_CU_SIGN_IDENTITY: '-'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/check-receipts.mjs docs parity/results
+
+# Signed release qualification is a separate macOS operation using an
+# existing notary profile: scripts/package-macos.mjs. This job never publishes.

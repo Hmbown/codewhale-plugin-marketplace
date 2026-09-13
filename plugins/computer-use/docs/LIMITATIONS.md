@@ -1,5 +1,26 @@
 # Limitations
 
+
+## Version 0.3.0 presentation and controls
+
+The new menu-bar setup panel, live session status, Pause/Stop, practice check
+and verified updater are macOS features. Windows/Linux still use host-side
+permission probes and the existing stop tool; no native menu panel or signed
+installer qualification is claimed for those platforms. The self-contained
+macOS bundle requires macOS 13.5+ (its pinned Node runtime minimum).
+
+Installed local helpers take precedence over embedded native binaries. A
+registered helper that fails to start does not fall back to direct input.
+Explicit developer mode (`CODEWHALE_CU_APP=off`) has no menu-bar controls and
+must never be used by a model to bypass a user's Pause or Stop.
+
+The practice check proves one AppKit field/button and scoped screenshot. It
+measures foreground/pointer changes but cannot distinguish a physical user
+move from another process's move; any movement makes isolation inconclusive.
+It does not qualify arbitrary apps, raw background dragging or full Codex
+parity. Packaging scripts refuse a release archive until notarization,
+stapling, signature and Gatekeeper checks pass.
+
 Everything below is either untested or known-broken. The source of truth for
 live verification is `docs/PARITY_MATRIX.md`; this file lists what the matrix
 cannot claim, and the behaviour behind the numbers it does claim.

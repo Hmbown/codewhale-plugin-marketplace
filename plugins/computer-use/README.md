@@ -1,30 +1,45 @@
-# Codewhale Computer Use
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/icon-dark.svg">
+  <img src="assets/icon-light.svg" width="80" height="80" alt="Codewhale whale and pointer icon">
+</picture>
 
-An MCP server that sees the screen and operates it — accessibility-first
-control, screenshots and zoom on macOS, Windows, Linux, and HarmonyOS, plus
-screen recording on macOS and HarmonyOS — and a desktop app that **owns the OS permissions** so grants go
-to "Codewhale Computer Use" and not to whichever terminal happens to host the
-server. One tool surface, four platforms, and **switching between registered
-computers as a default**: every tool accepts `computer`, and using a computer
-id sticks until you switch. The SSH route is experimental: its one-shot
-agent does not yet retain macOS input bindings or support leased held-input
-workflows.
+# Computer Use
 
-It works with **any MCP host and any model**: Codewhale, Kimi Code, Claude Code,
-Codex CLI, Cursor, Gemini CLI, opencode, or anything else that speaks MCP over stdio.
-Zero runtime dependencies (Node ≥ 20; platform tools are probed at call time).
+**By Codewhale · macOS · Windows · Linux**
 
-| | |
-|---|---|
-| Platforms | macOS, Windows, Linux (X11 + Wayland), HarmonyOS (hdc devices) |
-| Hosts | macOS, Windows, Linux; HarmonyOS is a target device, not a host |
-| Transports | desktop app socket, local process, ssh + bundled remote agent, hdc |
-| Tools | 39: observe, pointer, keyboard/text, semantic, clipboard, recording, computer registry |
-| Restrictions | none by app: it types, clicks, and reads in any app, including the terminal, IDE, or browser that hosts it |
+Let Codewhale see and operate your apps. Read accessible controls, enter
+text, click, scroll and capture the selected app through the same MCP tools.
+The macOS helper keeps permissions and human controls in one menu-bar app.
 
-Actions validate the selected computer, observed target, OS permissions and
-session kill switch. Stale targets and unexpected foreground changes fail
-closed; receipts distinguish dispatch from verified application state.
+- **Set up once.** See Accessibility and Screen Recording status, open the
+  right Settings pane, then run a check in a disposable practice window.
+- **Keep working.** macOS selects apps in background mode by default. Actions
+  that need the shared pointer are refused until foreground control is chosen
+  with the user's authorization. Background support varies by application.
+- **Stay in control.** See selected apps and their input modes. Pause cancels
+  queued work and releases held input; Stop ends existing sessions. Only the
+  person using the menu-bar controls can allow input again.
+- **Update deliberately.** The app checks for stable releases on request.
+  Updates verify the digest, Codewhale signature and Apple notarization before
+  replacing the app, and retain the previous install for rollback.
+
+[Download and setup](https://codewhale.net/computer-use) ·
+[Setup and troubleshooting](docs/TROUBLESHOOTING.md) ·
+[Release notes](CHANGELOG.md) · [Distribution](docs/DISTRIBUTION.md) ·
+[Background demo](docs/DEMO.md)
+
+The native setup panel, background check and updater require **macOS 13.5+**
+for the self-contained download. The source MCP server supports macOS,
+Windows and Linux, with HarmonyOS devices over hdc. Windows and Linux use
+host-side setup and controls; they do not yet have this native panel.
+The SSH route remains experimental. See the platform-specific
+[limitations](docs/LIMITATIONS.md).
+
+The server works with MCP hosts including Codewhale, Kimi Code, Claude Code,
+Codex CLI and Cursor. It has zero runtime npm dependencies. Developer
+checkouts use Node 20+; the macOS distribution includes a pinned Node 24 LTS
+runtime. Codewhale still reviews, trusts and enables a plugin through its
+existing Engine authority before the model can use it.
 
 ## Verification status
 
@@ -68,7 +83,16 @@ release gating checklist are in
 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
 the suite is in [docs/PARITY.md](docs/PARITY.md).
 
-## Quick start
+## Download for Mac
+
+The official download and setup page is
+[codewhale.net/computer-use](https://codewhale.net/computer-use), also linked
+from Codewhale’s install page and plugin marketplace. The download becomes
+available only when a stable release includes the notarized universal app and
+its matching qualification receipt. Until then, the page reports availability
+without offering an unqualified installer.
+
+## Developer quick start
 
 ```bash
 git clone https://github.com/Hmbown/codewhale-cu-plugin
@@ -78,9 +102,9 @@ npm run build:app       # dist/{macos,linux,windows}
 npm run install:app     # puts the app in place, registers it, opens it once
 ```
 
-Then grant the app its permissions (macOS: System Settings → Privacy &
-Security → *Accessibility* and *Screen & System Audio Recording* → enable
-**Codewhale Computer Use**) and point your host at the server:
+Open **Computer Use…** from the whale menu-bar icon. Grant the missing
+permissions using its setup buttons, run the background check, and point your
+host at the server:
 
 | Host | Configuration |
 |---|---|
@@ -133,11 +157,13 @@ needs its own. The app fixes that:
   process) and waits for it. If it is not installed, calls run directly in
   the server process as before. `request_access` reports which mode is active
   (`via: "app"` or `"direct"`) and, in direct mode, how to install the app.
-  Set `CODEWHALE_CU_APP=off` to force direct mode. Codewhale
-  distributions with an embedded native helper use their hosting app or
-  terminal permission identity directly and do not require the separate app.
-- **First launch** — the app touches each permission-gated capability once so
-  the OS asks for its grants under the app's own name and icon.
+  A registered helper takes priority over Codewhale's embedded native helper;
+  if the registered helper cannot start, input fails closed. Without a
+  standalone registration, Codewhale can use its embedded permission identity.
+  `CODEWHALE_CU_APP=off` is an explicit developer override for direct mode,
+  never an agent workaround for the person's Pause or Stop choice.
+- **First launch** — open the whale menu to review permission status. Only the
+  setup buttons request grants; starting the helper does not prompt automatically.
 
 Where `install:app` puts things:
 

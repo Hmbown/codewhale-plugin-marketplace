@@ -30,7 +30,7 @@ import { execFileSync } from "node:child_process";
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 const CAP = 5 * 1024 * 1024; // host plugin-install cap, uncompressed bytes
 const MANIFESTS = ["plugin.json", "kimi.plugin.json", "plugin.toml"];
-const ENTRY_FIELDS = new Set(["name", "source", "description", "version", "homepage"]);
+const ENTRY_FIELDS = new Set(["name", "source", "description", "version", "homepage", "display_name", "author", "icon", "platforms"]);
 
 const args = process.argv.slice(2);
 const coreIdx = args.indexOf("--core");
@@ -176,6 +176,16 @@ function checkSkillRoots(bundleDir, manifest) {
   }
 }
 
+function checkIdentity(entry, label) {
+  for (const field of ["display_name", "author"]) if (entry[field] !== undefined && (typeof entry[field] !== "string" || !entry[field].trim() || entry[field].length > 128 || /[\r\n]/.test(entry[field]))) fail(`${label}: invalid ${field}`);
+  if (entry.platforms !== undefined && (!Array.isArray(entry.platforms) || entry.platforms.length > 3 || entry.platforms.some(os => !["macos", "windows", "linux"].includes(os)) || new Set(entry.platforms).size !== entry.platforms.length)) fail(`${label}: invalid platforms`);
+  if (entry.icon !== undefined) {
+    if (typeof entry.icon !== "string" || entry.icon.length > 32768 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(entry.icon)) { fail(`${label}: icon must be a bounded inline PNG`); return; }
+    const bytes = Buffer.from(entry.icon.slice(22), "base64");
+    if (bytes.length < 33 || !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || bytes.toString("ascii",12,16) !== "IHDR" || !bytes.readUInt32BE(16) || !bytes.readUInt32BE(20) || bytes.readUInt32BE(16) > 256 || bytes.readUInt32BE(20) > 256) fail(`${label}: invalid PNG icon dimensions`);
+  }
+}
+
 // --- catalog ---
 const catalogPath = path.join(ROOT, "marketplace.json");
 const catalog = readJson(catalogPath, "marketplace.json");
@@ -186,6 +196,7 @@ if (catalog) {
   for (const [i, entry] of (catalog.plugins ?? []).entries()) {
     const where = `plugins[${i}]`;
     if (typeof entry !== "object" || entry === null) { fail(`${where}: entry is not an object`); continue; }
+    checkIdentity(entry, entry.name || "catalog entry");
     for (const key of Object.keys(entry)) if (!ENTRY_FIELDS.has(key)) note(`${where} (${entry.name ?? "?"}): unknown field '${key}' — Codewhale parses entries with a fixed field set; extra fields warn`);
     const name = entry.name;
     if (typeof name !== "string" || !/^[a-z0-9][a-z0-9._-]*$/i.test(name)) { fail(`${where}: bad or missing name`); continue; }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Put the built app where this OS expects an app to live, register it, and
-// (by default) open it once so the OS asks for its permissions under the
-// app's own name and icon. The reverse is --remove.
+// (by default) start its helper. The native setup panel owns permission
+// requests under the app's own name and icon. The reverse is --remove.
 //
 //   macOS    ~/Applications/Codewhale Computer Use.app  (+ LaunchServices registration)
 //            --login  ~/Library/LaunchAgents/net.codewhale.computer-use.plist
@@ -19,9 +19,10 @@ import url from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { APP_ID, APP_NAME, defaultLaunch, writeRegistration, registrationPath, runInfoPath, launchApp, hello } from "../src/app-socket.mjs";
 import { MAC_BUNDLE, LINUX_DIR, WIN_DIR, desktopEntry, macSigningIdentity, signMacCode } from "./build-app.mjs";
+import { replaceMacBundle } from "../app/install-macos.mjs";
 
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
-const HOME = os.homedir();
+const INSTALL_HOME = os.homedir();
 
 function sh(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: "utf8", windowsHide: true, ...opts });
@@ -44,8 +45,8 @@ function pinNode(file) {
 const LS_REGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
 function macPaths() {
   return {
-    dest: path.join(HOME, "Applications", MAC_BUNDLE),
-    agent: path.join(HOME, "Library", "LaunchAgents", `${APP_ID}.plist`),
+    dest: path.join(INSTALL_HOME, "Applications", MAC_BUNDLE),
+    agent: path.join(INSTALL_HOME, "Library", "LaunchAgents", `${APP_ID}.plist`),
   };
 }
 function installMac({ dist, login }) {
@@ -53,15 +54,14 @@ function installMac({ dist, login }) {
   if (!fs.existsSync(path.join(src, "Contents", "Info.plist"))) throw new Error(`no built app at ${src}; run "npm run build:app" first`);
   const { dest, agent } = macPaths();
   assertOurs(dest, path.join("Contents", "Resources", "plugin", "app", "daemon.mjs"));
-  fs.rmSync(path.join(dest, "Contents"), { recursive: true, force: true });
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.cpSync(src, dest, { recursive: true });
-  pinNode(path.join(dest, "Contents", "Resources", "node-path"));
-  // Pinning Node changes a sealed resource, so finish the installed signature
-  // before registering or launching the application. Sign with the same
-  // stable identity logic as the build so TCC grants survive reinstalls.
-  const identity = macSigningIdentity(src);
-  signMacCode(dest, identity);
+  const { backup } = replaceMacBundle(src, dest, { prepare: staged => {
+    // Production bundles carry Node and retain their exact notarized seal.
+    // Developer builds can pin the local runtime before signing the stage.
+    if (!fs.existsSync(path.join(staged, "Contents", "MacOS", "node"))) {
+      pinNode(path.join(staged, "Contents", "Resources", "node-path"));
+      signMacCode(staged, macSigningIdentity(src));
+    }
+  } });
   if (fs.existsSync(LS_REGISTER)) sh(LS_REGISTER, ["-f", dest]);
   const launch = defaultLaunch(dest, "darwin");
   if (login) {
@@ -77,7 +77,7 @@ function installMac({ dist, login }) {
     fs.writeFileSync(agent, plist);
     sh("launchctl", ["bootstrap", `gui/${process.getuid()}`, agent]);
   }
-  return { path: dest, launch, extras: login ? [agent] : [] };
+  return { path: dest, launch, backup, extras: login ? [agent] : [] };
 }
 function removeMac() {
   const { dest, agent } = macPaths();
@@ -89,11 +89,11 @@ function removeMac() {
 
 // ---------- Linux ----------
 function linuxPaths() {
-  const data = process.env.XDG_DATA_HOME || path.join(HOME, ".local", "share");
-  const config = process.env.XDG_CONFIG_HOME || path.join(HOME, ".config");
+  const data = process.env.XDG_DATA_HOME || path.join(INSTALL_HOME, ".local", "share");
+  const config = process.env.XDG_CONFIG_HOME || path.join(INSTALL_HOME, ".config");
   return {
     dest: path.join(data, LINUX_DIR),
-    bin: path.join(HOME, ".local", "bin", "codewhale-computer-use"),
+    bin: path.join(INSTALL_HOME, ".local", "bin", "codewhale-computer-use"),
     desktop: path.join(data, "applications", `${APP_ID}.desktop`),
     autostart: path.join(config, "autostart", `${APP_ID}.desktop`),
     icons: path.join(data, "icons", "hicolor"),
@@ -135,8 +135,8 @@ function isSymlink(f) { try { return fs.lstatSync(f).isSymbolicLink(); } catch {
 
 // ---------- Windows ----------
 function winPaths() {
-  const programs = path.join(process.env.LOCALAPPDATA || path.join(HOME, "AppData", "Local"), "Programs");
-  const startMenu = path.join(process.env.APPDATA || path.join(HOME, "AppData", "Roaming"), "Microsoft", "Windows", "Start Menu", "Programs");
+  const programs = path.join(process.env.LOCALAPPDATA || path.join(INSTALL_HOME, "AppData", "Local"), "Programs");
+  const startMenu = path.join(process.env.APPDATA || path.join(INSTALL_HOME, "AppData", "Roaming"), "Microsoft", "Windows", "Start Menu", "Programs");
   return {
     dest: path.join(programs, WIN_DIR),
     shortcut: path.join(startMenu, `${APP_NAME}.lnk`),
@@ -234,16 +234,17 @@ export function removeApp({ platform = process.platform } = {}) {
   return removed;
 }
 
-function mcpSnippets(serverPath) {
+function mcpSnippets(serverPath, nodePath = "node") {
   const q = JSON.stringify(serverPath);
+  const executable = JSON.stringify(nodePath);
   return `
 Point any MCP host at the installed server (any harness, any model):
 
-  Claude Code    claude mcp add computer -- node ${q}
-  Codex CLI      [mcp_servers.computer]  command = "node"  args = [${q}]      (~/.codex/config.toml)
-  Cursor/others  {"mcpServers":{"computer":{"command":"node","args":[${q}]}}}
-  Gemini CLI     {"mcpServers":{"computer":{"command":"node","args":[${q}]}}}  (~/.gemini/settings.json)
-  opencode       {"mcp":{"computer":{"type":"local","command":["node",${q}]}}} (opencode.json)
+  Claude Code    claude mcp add computer -- ${executable} ${q}
+  Codex CLI      [mcp_servers.computer]  command = ${executable}  args = [${q}]      (~/.codex/config.toml)
+  Cursor/others  {"mcpServers":{"computer":{"command":${executable},"args":[${q}]}}}
+  Gemini CLI     {"mcpServers":{"computer":{"command":${executable},"args":[${q}]}}}  (~/.gemini/settings.json)
+  opencode       {"mcp":{"computer":{"type":"local","command":[${executable},${q}]}}} (opencode.json)
   Codewhale      already discovers the plugin bundle; nothing to configure.
 `;
 }
@@ -260,9 +261,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
       console.log(`installed ${APP_NAME}\n  app:          ${r.path}\n  plugin root:  ${r.pluginRoot}\n  registration: ${r.registration}`);
       for (const e of r.extras) console.log(`  also:         ${e}`);
       if (r.replaced) console.log(r.replaced.stopped ? `  replaced:     stopped previous instance (pid ${r.replaced.pid})` : `  replaced:     WARNING — ${r.replaced.reason}; the old build may still be answering`);
-      console.log(r.running ? `  running:      pid ${r.running.pid} on ${r.running.socket}` : "  running:      not yet — open the app once so the OS can ask for its permissions");
-      if (process.platform === "darwin") console.log(`\nGrant it: System Settings → Privacy & Security → Accessibility and Screen & System Audio Recording → enable "${APP_NAME}".`);
-      console.log(mcpSnippets(path.join(r.pluginRoot, "mcp", "server.mjs")));
+      console.log(r.running ? `  running:      pid ${r.running.pid} on ${r.running.socket}` : "  running:      not yet — open the app to start its helper");
+      if (r.backup) console.log(`  previous app: ${r.backup}`);
+      if (process.platform === "darwin") console.log(`\nOpen ${APP_NAME} from its whale menu to review permissions and run the background check.`);
+      const bundledNode = path.join(r.path, "Contents", "MacOS", "node");
+      console.log(mcpSnippets(path.join(r.pluginRoot, "mcp", "server.mjs"), fs.existsSync(bundledNode) ? bundledNode : "node"));
     }
   } catch (err) {
     console.error(`install-app: ${err.message}`);

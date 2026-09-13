@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const script = path.resolve("scripts/check-receipts.mjs");
 
@@ -59,4 +60,23 @@ test("sanitized JSONL receipts pass the release hygiene gate", (t) => {
   const result = scan(dir);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "check-receipts: clean");
+});
+
+test("generic CI account prose passes while home paths and credentials still fail", t => {
+  const dir = fixture(t), file = path.join(dir, "notes.md");
+  const run = () => spawnSync(process.execPath, ["--input-type=module", "-e", `
+    import os from "node:os";
+    os.userInfo = () => ({ username: "runner" });
+    os.homedir = () => "/home/runner";
+    process.argv = [process.execPath, ${JSON.stringify(script)}, ${JSON.stringify(dir)}];
+    await import(${JSON.stringify(pathToFileURL(script).href)});
+  `], { encoding: "utf8" });
+  fs.writeFileSync(file, "The parity runner records a fixture result.\n");
+  assert.equal(run().status, 0);
+  for (const evidence of ["/home/runner/private/file", "sk-synthetic-ci-canary"]) {
+    fs.writeFileSync(file, evidence);
+    const result = run();
+    assert.equal(result.status, 1);
+    assert.ok(!result.stdout.includes(evidence));
+  }
 });

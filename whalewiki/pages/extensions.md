@@ -5,6 +5,14 @@ Cloudflare docs and the bundled Codewhale skills. The catalog declares their
 relative sources and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
+Computer Use 0.3.0 includes a whale icon, publisher and platform labels. The
+[official download and setup page](https://codewhale.net/computer-use) links
+to qualified GitHub release assets. The native macOS helper provides
+permission setup, a background check, human
+Pause/Stop and on-demand verified updates. Its signed local build is not yet
+a notarized public installer. Catalog artwork is inline PNG, bounded to
+32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
+
 ## Choose a home
 
 | Surface | Responsibility | Example |

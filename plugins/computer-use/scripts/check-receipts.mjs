@@ -7,12 +7,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const USER = os.userInfo().username;
-const HOME = os.homedir();
+const SCANNED_USERNAME = os.userInfo().username;
+const SCANNED_HOME = os.homedir();
 
 const RULES = [
-  { name: "absolute home path", re: new RegExp(`${escapeRe(HOME)}|/(home|Users)/${escapeRe(USER)}\\b`, "g") },
-  { name: "username", re: new RegExp(`\\b${escapeRe(USER)}\\b`, "g") },
+  { name: "absolute home path", re: new RegExp(`${escapeRe(SCANNED_HOME)}|/(home|Users)/${escapeRe(SCANNED_USERNAME)}\\b`, "g") },
+  // Generic system accounts also occur as ordinary prose (a test runner,
+  // a source root). Their absolute home paths remain checked above.
+  ...(["runner", "root", "user"].includes(SCANNED_USERNAME) ? [] : [
+    { name: "username", re: new RegExp(`\\b${escapeRe(SCANNED_USERNAME)}\\b`, "g") },
+  ]),
   { name: "PEM block", re: /-----BEGIN/g },
   { name: "api key (sk-…)", re: /\bsk-[A-Za-z0-9_-]{3,}/g },
   { name: "github token (ghp_…)", re: /\bghp_[A-Za-z0-9]+/g },

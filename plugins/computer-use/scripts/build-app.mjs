@@ -64,8 +64,8 @@ export function timestampArg(identity) {
 }
 
 /** Sign native code inside-out, with the hardened runtime required by Apple. */
-export function signMacCode(target, identity) {
-  const signed = spawnSync("codesign", ["--force", "--options", "runtime", timestampArg(identity), "--sign", identity, target], { encoding: "utf8" });
+export function signMacCode(target, identity, { entitlements } = {}) {
+  const signed = spawnSync("codesign", ["--force", "--options", "runtime", timestampArg(identity), ...(entitlements ? ["--entitlements", entitlements] : []), "--sign", identity, target], { encoding: "utf8" });
   if (signed.status !== 0) throw new Error(`codesign failed for ${target}: ${signed.stderr}`);
   const verified = spawnSync("codesign", ["--verify", "--strict", target], { encoding: "utf8" });
   if (verified.status !== 0) throw new Error(`invalid signature for ${target}: ${verified.stderr}`);
@@ -111,7 +111,7 @@ export function macLauncher({ rebuild = false, output = LAUNCHER_PREBUILT } = {}
   return LAUNCHER_PREBUILT;
 }
 
-function infoPlist() {
+function infoPlist({ nodeRuntime } = {}) {
   const kv = [
     ["CFBundleDevelopmentRegion", "en"],
     ["CFBundleDisplayName", APP_NAME],
@@ -124,7 +124,7 @@ function infoPlist() {
     ["CFBundleShortVersionString", APP_VERSION],
     ["CFBundleVersion", APP_VERSION],
     ["LSApplicationCategoryType", "public.app-category.utilities"],
-    ["LSMinimumSystemVersion", "13.0"],
+    ["LSMinimumSystemVersion", nodeRuntime ? "13.5" : "13.0"],
     ["NSAppleEventsUsageDescription", `${APP_NAME} reads and drives application windows through System Events so an agent can operate this Mac.`],
     ["NSHumanReadableCopyright", "MIT License — Codewhale contributors"],
   ];
@@ -143,12 +143,12 @@ ${body}
 `;
 }
 
-export function buildMac(out, { rebuildLauncher = false } = {}) {
+export function buildMac(out, { rebuildLauncher = false, nodeRuntime } = {}) {
   const app = path.join(out, "macos", MAC_BUNDLE);
   fs.rmSync(app, { recursive: true, force: true });
   const contents = path.join(app, "Contents");
   fs.mkdirSync(path.join(contents, "Resources"), { recursive: true });
-  fs.writeFileSync(path.join(contents, "Info.plist"), infoPlist());
+  fs.writeFileSync(path.join(contents, "Info.plist"), infoPlist({ nodeRuntime }));
   fs.writeFileSync(path.join(contents, "PkgInfo"), "APPL????");
   fs.mkdirSync(path.join(contents, "MacOS"), { recursive: true });
   const launcher = path.join(contents, "MacOS", "codewhale-cu");
@@ -156,13 +156,32 @@ export function buildMac(out, { rebuildLauncher = false } = {}) {
   if (builtLauncher !== launcher) fs.copyFileSync(builtLauncher, launcher);
   fs.chmodSync(path.join(contents, "MacOS", "codewhale-cu"), 0o755);
   fs.copyFileSync(path.join(ROOT, "assets", "icon.icns"), path.join(contents, "Resources", "AppIcon.icns"));
+  const menuIcon = path.join(ROOT, "assets", "icon-menubar.png");
+  if (fs.existsSync(menuIcon)) fs.copyFileSync(menuIcon, path.join(contents, "Resources", "MenuBarIcon.png"));
   copyRuntime(path.join(contents, "Resources", "plugin"));
   if (process.platform === "darwin") {
     const identity = macSigningIdentity();
+    if (nodeRuntime) {
+      const node = path.join(contents, "MacOS", "node");
+      fs.copyFileSync(path.join(nodeRuntime, "node"), node);
+      fs.chmodSync(node, 0o755);
+      fs.copyFileSync(path.join(nodeRuntime, "LICENSE"), path.join(contents, "Resources", "Node-LICENSE"));
+      fs.copyFileSync(path.join(nodeRuntime, "receipt.json"), path.join(contents, "Resources", "node-receipt.json"));
+      signMacCode(node, identity, { entitlements: path.join(ROOT, "app", "macos", "node-entitlements.plist") });
+      const check = spawnSync(node, ["--version"], { encoding: "utf8" });
+      if (check.status !== 0 || !/^v(?:2[2-9]|[3-9]\d)\./.test(check.stdout.trim())) throw new Error("The bundled Node runtime did not start or is unsupported.");
+    }
     const helper = path.join(contents, "MacOS", "accessibility");
     const compiled = spawnSync("clang", ["-fobjc-arc", "-Os", "-arch", "arm64", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-framework", "Cocoa", "-framework", "ApplicationServices", "-framework", "ScreenCaptureKit", "-framework", "AVFoundation", "-framework", "CoreMedia", "-framework", "Vision", path.join(ROOT, "src", "backends", "darwin-accessibility.m"), "-o", helper], { encoding: "utf8" });
     if (compiled.status !== 0) throw new Error(`accessibility helper build failed: ${compiled.stderr}`);
     signMacCode(helper, identity);
+    const practiceApp = path.join(contents, "Resources", "Practice.app");
+    fs.mkdirSync(path.join(practiceApp, "Contents", "MacOS"), { recursive: true });
+    fs.writeFileSync(path.join(practiceApp, "Contents", "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${APP_ID}.practice</string><key>CFBundleExecutable</key><string>practice</string><key>CFBundleName</key><string>Codewhale Practice</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/></dict></plist>`);
+    const practice = path.join(practiceApp, "Contents", "MacOS", "practice");
+    const checked = spawnSync("clang", ["-fobjc-arc", "-Os", "-arch", "arm64", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-framework", "Cocoa", "-framework", "CoreGraphics", path.join(ROOT, "app", "macos", "practice.m"), "-o", practice], { encoding: "utf8" });
+    if (checked.status !== 0) throw new Error(`practice window build failed: ${checked.stderr}`);
+    signMacCode(practiceApp, identity);
     // Sign the complete bundle: a bare executable signature does not bind the
     // Info.plist and is rejected by TCC when evaluated as an application.
     signMacCode(app, identity);
@@ -274,10 +293,10 @@ export function ensureIcons() {
   return true;
 }
 
-export function buildApp({ out = path.join(ROOT, "dist"), platform = "all", rebuildLauncher = false } = {}) {
+export function buildApp({ out = path.join(ROOT, "dist"), platform = "all", rebuildLauncher = false, nodeRuntime } = {}) {
   ensureIcons();
   const built = {};
-  if (platform === "all" || platform === "macos") built.macos = buildMac(out, { rebuildLauncher });
+  if (platform === "all" || platform === "macos") built.macos = buildMac(out, { rebuildLauncher, nodeRuntime });
   if (platform === "all" || platform === "linux") built.linux = buildLinux(out);
   if (platform === "all" || platform === "windows") built.windows = buildWindows(out);
   return built;
@@ -286,6 +305,6 @@ export function buildApp({ out = path.join(ROOT, "dist"), platform = "all", rebu
 if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2);
   const opt = (flag, dflt) => { const i = argv.indexOf(flag); return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt; };
-  const built = buildApp({ out: path.resolve(opt("--out", path.join(ROOT, "dist"))), platform: opt("--platform", "all"), rebuildLauncher: argv.includes("--rebuild-launcher") });
+  const built = buildApp({ out: path.resolve(opt("--out", path.join(ROOT, "dist"))), platform: opt("--platform", "all"), rebuildLauncher: argv.includes("--rebuild-launcher"), nodeRuntime: opt("--node-runtime") });
   for (const [k, v] of Object.entries(built)) console.log(`${k.padEnd(8)} ${v}`);
 }

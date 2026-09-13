@@ -26,6 +26,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include "control-panel.h"
 
 extern char **environ;
 
@@ -59,6 +61,8 @@ static int newest_glob(const char *pattern, char *out, size_t cap) {
 }
 
 static int find_node(const char *contents, const char *home, char *out, size_t cap) {
+  snprintf(out, cap, "%s/MacOS/node", contents);
+  if (executable(out)) return 1;
   char pinned[PATH_MAX];
   snprintf(pinned, sizeof pinned, "%s/Resources/node-path", contents);
   FILE *f = fopen(pinned, "r");
@@ -90,27 +94,6 @@ static int find_node(const char *contents, const char *home, char *out, size_t c
   }
   out[0] = 0;
   return 0;
-}
-
-/*
- * Ask for the app's own grants. This is what puts "Codewhale Computer Use"
- * into System Settings → Privacy & Security → Accessibility and Screen &
- * System Audio Recording, with its icon; macOS prompts once per grant until
- * the user decides. Skipped when CODEWHALE_CU_APP_WARM=off.
- */
-static void request_permissions(void) {
-  const char *warm = getenv("CODEWHALE_CU_APP_WARM");
-  if (warm && strcmp(warm, "off") == 0) return;
-  CFStringRef keys[] = { kAXTrustedCheckOptionPrompt };
-  CFTypeRef values[] = { kCFBooleanTrue };
-  CFDictionaryRef opts = CFDictionaryCreate(NULL, (const void **)keys, (const void **)values, 1,
-                                            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-  Boolean ax = AXIsProcessTrustedWithOptions(opts);
-  CFRelease(opts);
-  Boolean sc = CGPreflightScreenCaptureAccess();
-  if (!sc) sc = CGRequestScreenCaptureAccess();
-  fprintf(stderr, "Codewhale Computer Use: launcher permissions accessibility=%s screen_recording=%s\n",
-          ax ? "granted" : "not yet", sc ? "granted" : "not yet");
 }
 
 static void alert(const char *message) {
@@ -157,8 +140,15 @@ static void alert(const char *message) {
 - (void)updatePreview:(NSNotification *)notification;
 @property(retain) CUPreviewPanel *previewPanel;
 @property(retain) CUPreviewView *previewView;
+@property(retain) CUControlPanel *controls;
 @end
 @implementation CUAppDelegate
+- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+  self.controls=[CUControlPanel new]; [self.controls start];
+}
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)visible {
+  [self.controls show:nil]; return YES;
+}
 - (void)updatePreview:(NSNotification *)notification {
   NSDictionary *data=notification.userInfo;
   if (![data[@"enabled"] boolValue]) { [self.previewPanel orderOut:nil]; return; }
@@ -214,7 +204,8 @@ int main(void) {
   int log = open(logfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
   if (log >= 0) { dup2(log, STDOUT_FILENO); dup2(log, STDERR_FILENO); close(log); }
 
-  request_permissions();
+  // Permission prompts are attached to the person's setup buttons. An MCP
+  // background launch must not interrupt them with System Settings dialogs.
 
   char node[PATH_MAX];
   if (!find_node(contents, home, node, sizeof node)) {
@@ -230,7 +221,21 @@ int main(void) {
   char *argv[] = { node, daemon, NULL };
   posix_spawnattr_t attr;
   posix_spawnattr_init(&attr);
-  int rc = posix_spawn(&child, node, NULL, &attr, argv, environ);
+  int control[2];
+  if(socketpair(AF_UNIX,SOCK_STREAM,0,control)!=0) { alert("Could not create the local safety controls. Reopen the app to retry."); return 1; }
+  cuControlFD=control[0];
+  fcntl(cuControlFD,F_SETFL,fcntl(cuControlFD,F_GETFL)|O_NONBLOCK);
+  fcntl(cuControlFD,F_SETFD,FD_CLOEXEC);
+  int noSigpipe=1; setsockopt(cuControlFD,SOL_SOCKET,SO_NOSIGPIPE,&noSigpipe,sizeof noSigpipe);
+  posix_spawn_file_actions_t actions; posix_spawn_file_actions_init(&actions);
+  // Close the parent's end before dup2; it can itself be descriptor 3.
+  posix_spawn_file_actions_addclose(&actions,control[0]);
+  posix_spawn_file_actions_adddup2(&actions,control[1],3);
+  if(control[1]!=3) posix_spawn_file_actions_addclose(&actions,control[1]);
+  setenv("CODEWHALE_CU_CONTROL_FD","3",1);
+  int rc = posix_spawn(&child, node, &actions, &attr, argv, environ);
+  unsetenv("CODEWHALE_CU_CONTROL_FD");
+  posix_spawn_file_actions_destroy(&actions); close(control[1]);
   posix_spawnattr_destroy(&attr);
   if (rc != 0) {
     fprintf(stderr, "Codewhale Computer Use: could not start %s: %s\n", node, strerror(rc));
