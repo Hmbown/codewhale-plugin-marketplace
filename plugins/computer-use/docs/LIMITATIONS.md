@@ -64,7 +64,7 @@ Measured on macOS 26.1 (arm64), and the reason the macOS pointer path looks the
 way it does. Receipts: `parity/results/darwin-aqua-2026-09-07.json`,
 `parity/results/background-input-darwin-2026-09-07.json`.
 
-- **Keyboard is process-scoped and quiet.** `type`, `key` and `hold_key` post
+- **Keyboard is process-scoped and quiet.** `type` prefers writable accessibility selection; otherwise text and keys post
   to the process chosen by `open_application(activate:false)`. They do not move
   the pointer and do not change the foreground.
 - **The measured raw pointer path did not deliver to the tested AppKit app.**
@@ -80,16 +80,18 @@ way it does. Receipts: `parity/results/darwin-aqua-2026-09-07.json`,
   (`AXUIElementCopyElementAtPosition`, then a bounded geometric search for the
   smallest pressable element containing the point, because Chromium answers the
   hit test with the window rather than the control). A hit performs the
-  element's `AXPress`: no pointer motion, no activation. The receipt says
+  element's supported click, focus or selection action: no pointer motion, no activation. The receipt says
   `strategy: "a11y"`.
 - **Background mode refuses shared pointer gestures.** With no pressable
-  element, and for double/triple/right/middle click, drag, hover and scroll,
+  element, and for raw double/triple/middle click, drag and hover,
   the default `activate:false` binding returns `shared_pointer_required`.
+  Context menus and scrolling now use supported accessibility operations;
+  unavailable semantic operations fail without a raw pointer fallback.
   Only explicit `activate:true` shared-desktop control permits the event tap.
   That moves the user's cursor (it is put back
   afterwards: `pointer_restored: true`; observed displacement is reported in
-  the matrix and can be nonzero on the shared desktop) and it brings the target application
-  forward. The receipt carries `strategy: "event"`, `pointer_moved: true`,
+  the matrix and can be nonzero on the shared desktop) and requires the target application to remain
+  frontmost. Gestures stop on focus loss and never reactivate the target. The receipt carries `strategy: "event"`, `pointer_moved: true`,
   `foreground_taken`, `foreground_before` and `foreground_after`.
 - **The foreground cannot be given back.** macOS 14+ ignores activation
   requests from a process that is not itself frontmost — measured for both
@@ -133,17 +135,26 @@ must be restarted or upgraded together for session protocol 2.
 
 ## Background input, per application family
 
-Verified live by `node scripts/background-input.mjs`, each against a disposable
+Historical observations from `node scripts/background-input.mjs`, each against a disposable
 instance the script launches and kills — never an application the user already
 has open. "Background" means bound with `open_application(activate:false)` and
-never activated; the oracle is outside the tool surface in every row (a file on
-disk, the fixture's own state file, the page's loopback beacon).
+not explicitly activated by a tool. However, the old harness did not ensure
+that the target was inactive, compared app names rather than PIDs, and sampled
+only before/after. In the Chrome and Chromium receipts the target was already
+frontmost. Those rows establish effects, not background isolation.
+
+The new `scripts/verify-background-macos.mjs` keeps a disposable native AppKit
+window behind the user, checks the fixture file for text/button/scroll effects,
+and samples foreground PID and cursor through an independent 100 Hz observer.
+It also checks that an unqualified observation and capture stay app-scoped.
+A physical cursor move or any focus change invalidates that trial's isolation
+verdict. This is a direct-source MCP test, not packaged Engine/model parity.
 
 | family | observable (AX elements) | keyboard in background | accessibility press in background | window stays behind | verdict |
 |---|---|---|---|---|---|
 | AppKit (`parity/fixtures/native-macos.m`) | 101 | yes | yes | yes | **verified live** |
-| Browser — Google Chrome | 85 | yes | yes | yes | **verified live** |
-| Chromium-based — Chromium | 122 | yes | yes | yes | **verified live** |
+| Browser — Google Chrome | 85 | target was frontmost | effect observed | not established | **background unqualified** |
+| Chromium-based — Chromium | 122 | target was frontmost | effect observed | not established | **background unqualified** |
 | Electron — Visual Studio Code | 12 | **no** | no oracle-backed control to press | yes | **verified failed** |
 | Tk — python3 tkinter | 6 | **no** | **no** (no pressable element exists) | yes | **verified failed** |
 | Java — Swing/AWT | — | — | — | — | **untested** (no Java runtime on this host) |
@@ -261,10 +272,10 @@ listing remain available.
   child rasters remain untested.
 - **macOS has an opt-in agent preview** with a drawn cursor. Other platforms
   have no equivalent preview.
-- **The desktop app keeps its input binding across MCP sessions.** The bound
-  application lives in the long-running daemon, so a new server session
-  inherits the previous session's `open_application` choice until it calls
-  `open_application` again. Bind explicitly at the start of a task.
+- **Each MCP session has its own input binding.** Session protocol 2 separates
+  backend state in the long-running daemon. New clients also require background
+  protocol 1 so an older app cannot silently serve the preemption/scoping fixes.
+  Bind explicitly at the start of a task.
 - **`request_access` cannot read macOS Screen Recording TCC state** — the probe
   can attempt a capture but cannot query the TCC database directly.
 - **`request_access` / `probe` now fail closed on Linux**: `no_session` when no

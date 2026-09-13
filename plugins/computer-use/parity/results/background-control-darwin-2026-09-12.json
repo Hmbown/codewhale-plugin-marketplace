@@ -1,0 +1,98 @@
+{
+  "version": "0.2.2",
+  "source_baseline": "cd56260f24c626e3fa472410b46963434f61843d",
+  "gate": {
+    "tests": 389,
+    "passed": 374,
+    "failed": 0,
+    "skipped": 15,
+    "browser_passed": 4
+  },
+  "packaged_trials": [
+    {
+      "startedAt": "2026-09-13T03:45:16.129Z",
+      "finishedAt": "2026-09-13T03:45:47.231Z",
+      "route": "packaged-daemon-mcp",
+      "ok": false,
+      "checks": [
+        "unqualified observation follows the selected background app",
+        "background field focus, Unicode typing and Apply button confirmed by fixture file",
+        "background scroll confirmed by native scroll-view offset",
+        "default screenshot captures the background app window"
+      ],
+      "sourceHashes": {
+        "mcp/server.mjs": "016b103a0081f3b32b96ef30b12ced39a5f3b30bb44b1db75fdfc538fb647a68",
+        "src/backends/darwin.mjs": "d41036ad087e5186902dda1edb1e0a10d8d0d28404d45786a210e81b8288ddde",
+        "src/backends/darwin-accessibility.m": "f59942ecccd6213472882e8f0f6878a4ebd3113c31a290841c3b83194b7a596c"
+      },
+      "sampleCount": 1106,
+      "interferenceSamples": 1105,
+      "foregroundChanges": 0
+    },
+    {
+      "startedAt": "2026-09-13T03:46:50.903Z",
+      "finishedAt": "2026-09-13T03:47:03.850Z",
+      "route": "packaged-daemon-mcp",
+      "ok": true,
+      "checks": [
+        "unqualified observation follows the selected background app",
+        "background field focus, Unicode typing and Apply button confirmed by fixture file",
+        "background scroll confirmed by native scroll-view offset",
+        "default screenshot captures the background app window",
+        "independent 100 Hz observer saw no foreground or pointer change"
+      ],
+      "sourceHashes": {
+        "mcp/server.mjs": "016b103a0081f3b32b96ef30b12ced39a5f3b30bb44b1db75fdfc538fb647a68",
+        "src/backends/darwin.mjs": "d41036ad087e5186902dda1edb1e0a10d8d0d28404d45786a210e81b8288ddde",
+        "src/backends/darwin-accessibility.m": "f59942ecccd6213472882e8f0f6878a4ebd3113c31a290841c3b83194b7a596c"
+      },
+      "sampleCount": 400,
+      "interferenceSamples": 0,
+      "foregroundChanges": 0
+    },
+    {
+      "startedAt": "2026-09-13T03:48:51.488Z",
+      "finishedAt": "2026-09-13T03:48:58.071Z",
+      "route": "packaged-daemon-mcp",
+      "ok": false,
+      "checks": [],
+      "sourceHashes": {
+        "mcp/server.mjs": "016b103a0081f3b32b96ef30b12ced39a5f3b30bb44b1db75fdfc538fb647a68",
+        "src/backends/darwin.mjs": "d41036ad087e5186902dda1edb1e0a10d8d0d28404d45786a210e81b8288ddde",
+        "src/backends/darwin-accessibility.m": "f59942ecccd6213472882e8f0f6878a4ebd3113c31a290841c3b83194b7a596c"
+      }
+    },
+    {
+      "startedAt": "2026-09-13T03:50:27.663Z",
+      "finishedAt": "2026-09-13T03:50:32.499Z",
+      "route": "packaged-daemon-mcp",
+      "ok": true,
+      "checks": [
+        "unqualified observation follows the selected background app",
+        "background field focus, Unicode typing and Apply button confirmed by fixture file",
+        "background scroll confirmed by native scroll-view offset",
+        "default screenshot captures the background app window",
+        "independent 100 Hz observer saw no foreground or pointer change"
+      ],
+      "sourceHashes": {
+        "mcp/server.mjs": "016b103a0081f3b32b96ef30b12ced39a5f3b30bb44b1db75fdfc538fb647a68",
+        "src/backends/darwin.mjs": "d41036ad087e5186902dda1edb1e0a10d8d0d28404d45786a210e81b8288ddde",
+        "src/backends/darwin-accessibility.m": "f59942ecccd6213472882e8f0f6878a4ebd3113c31a290841c3b83194b7a596c"
+      },
+      "sampleCount": 195,
+      "interferenceSamples": 0,
+      "foregroundChanges": 0
+    }
+  ],
+  "native_sha256": "5e73737065fad7a816a9906a22a4448dd1069c0af6d8141a2ee232c331ad7b99",
+  "native_foreground_negative_control": {
+    "baseline": "cd56260f24c626e3fa472410b46963434f61843d",
+    "route": "synthetic native negative control; OS writes replaced by counters",
+    "old_behavior": {
+      "refusal": null,
+      "posts": 2,
+      "activations": 1
+    },
+    "old_code_fails_new_foreground_guard": true
+  }
+}

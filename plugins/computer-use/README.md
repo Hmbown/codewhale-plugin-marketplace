@@ -51,9 +51,9 @@ Screenshots and zoom remain available to models that support images.
 platform-neutral engine plus per-platform drivers and have not been re-run
 since; see [docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
 
-**Background input is verified per application family** (AppKit, Chrome,
-Chromium: live; Electron and Tk: verified failing; Java: untested) by
-`node scripts/background-input.mjs` — table in
+**Background input has a native AppKit verification harness** with an independent
+foreground/cursor observer: `node scripts/verify-background-macos.mjs`.
+Older per-family receipts do not establish background isolation — details in
 [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 **Not live-verified:** macOS non-Retina and mixed-DPI, Windows, Wayland,
@@ -173,22 +173,28 @@ the compiled helper. Do not edit installed resources without re-signing.
 Use `open_application` with `activate: false` to select the input destination
 without bringing it forward. Keyboard events go to that process and semantic
 actions use Accessibility — both are quiet: no cursor movement, no activation.
-`screenshot` accepts `app_ref` to capture that app's window even behind other
-windows. For a workflow that requires keyboard focus, explicitly select
+Unqualified `get_app_state`, `list_windows`, and `screenshot` follow that app,
+including behind other windows. Explicit display/region captures remain available.
+Text insertion prefers writable accessibility selection over process key events.
+For an authorized workflow that requires keyboard focus, explicitly select
 `activate: true`; receipts then say `keyboard_delivery: "foreground-guarded"`.
-Keystrokes stop if another app takes focus. Select `activate: false` again to
+Keystrokes and raw mouse gestures stop if another app takes focus; gestures never
+reactivate it. Select `activate: false` again to
 return to process-bound delivery. In either mode, verify the application
 result: a successful dispatch alone does not prove the app handled it.
 
 Coordinate `left_click` first resolves the bound application's accessibility
-control and performs its press action (`strategy: "a11y"`). In background mode,
-an unavailable press or a raw gesture returns `shared_pointer_required` before
-moving the pointer. This includes double/triple/right/middle click, drag, hover
-and scroll. There is no automatic foreground fallback.
+control and uses accessibility (`strategy: "a11y"`). Text fields focus directly,
+rows can select, and menu items can use their advertised pick action. Right-click
+uses an advertised context-menu action. Background scrolling uses the selected
+scrollbar: native increments when advertised, otherwise normalized 5% steps,
+with the actual unit and value change in the receipt. Unsupported gestures,
+including raw double/triple/middle click, drag and hover, remain unavailable in
+background mode. There is no automatic foreground fallback.
 
 When the user authorizes exclusive desktop use, select `activate: true` for
-shared-desktop control. Pointer gestures move the real cursor and may bring the
-app forward; restoring the cursor afterward is not isolation. The receipt
+shared-desktop control. Pointer gestures move the real cursor while the selected
+app stays frontmost; restoring the cursor afterward is not isolation. The receipt
 reports `strategy: "event"`, `pointer_moved` and `foreground_taken`. A point
 covered by another application's window is still refused. Return to
 `activate: false` when the shared-desktop step ends.

@@ -1,6 +1,6 @@
 {
   "name": "codewhale-cu-plugin",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Codewhale Computer Use: an MCP server that sees the screen and operates it (accessibility-first control, screenshots, zoom, recording) on macOS, Windows, Linux, and HarmonyOS, with multi-computer switching and a desktop app that owns the OS permissions. Works with any MCP host and any model. Zero runtime dependencies.",
   "license": "MIT",
   "repository": "github:Hmbown/codewhale-cu-plugin",

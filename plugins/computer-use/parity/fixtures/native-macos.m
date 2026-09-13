@@ -324,7 +324,8 @@ int main(int argc, const char **argv) { @autoreleasepool {
   // applications' windows so coordinate targets actually land on it, but the
   // fixture must not take the user's foreground — that is the property the
   // parity run measures.
-  [gWindow orderFrontRegardless];
+  if(argc>2 && strcmp(argv[2],"--background")==0) [gWindow orderBack:nil];
+  else [gWindow orderFrontRegardless];
   writeState();
   [NSApp run];
 } return 0; }

@@ -6,7 +6,7 @@
 // with src/backends/darwin*. Prints one JSON line.
 #import <Cocoa/Cocoa.h>
 
-int main(void) { @autoreleasepool {
+int main(int argc, const char **argv) { do { @autoreleasepool {
   CGEventRef event = CGEventCreate(NULL);
   CGPoint p = CGEventGetLocation(event);
   CFRelease(event);
@@ -32,4 +32,5 @@ int main(void) { @autoreleasepool {
   };
   NSData *data = [NSJSONSerialization dataWithJSONObject:out options:0 error:nil];
   puts([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding].UTF8String);
-} return 0; }
+  fflush(stdout);
+} if(argc<2 || strcmp(argv[1],"--watch")!=0) break; usleep(10000); } while(1); return 0; }
