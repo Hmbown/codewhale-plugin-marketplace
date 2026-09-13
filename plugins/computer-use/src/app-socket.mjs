@@ -167,6 +167,9 @@ export async function ensureApp({ launch = true } = {}) {
       : "Using the Computer Use helper included with Codewhale. Input and screen permissions belong to the current host app; grant them in your operating system's privacy settings when requested." };
 
   }
+  if (typeof reg.path === "string" && !fs.existsSync(reg.path)) {
+    throw Object.assign(new ExecError(`${APP_NAME} is registered at ${reg.path}, but that app is missing. Reinstall it and open it once to refresh ${registrationPath()}.`), { code: "app_missing" });
+  }
   if (!launch || Date.now() - lastLaunchAt < 15_000) {
     throw Object.assign(new ExecError(`${APP_NAME} is installed but not responding. Open it from Applications and retry; its controls must remain in charge of input.`), { code: "app_unavailable" });
   }

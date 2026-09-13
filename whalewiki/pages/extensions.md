@@ -5,13 +5,16 @@ Cloudflare docs and the bundled Codewhale skills. The catalog declares their
 relative sources and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use 0.3.0 includes a whale icon, publisher and platform labels. The
+Computer Use source 0.3.1 includes owner-recovery and update-status fixes, and
+the marketplace currently enables it on macOS only. Windows and Linux remain
+development backends. The
 [official download and setup page](https://codewhale.net/computer-use) links
 to qualified GitHub release assets. The native macOS helper provides
 permission setup, a background check, human
 Pause/Stop and on-demand verified updates. Its universal Mac archive has
 passed Apple notarization, stapling and Gatekeeper; the versioned receipt
-records its size, digest and accepted submission. Windows remains unqualified.
+records its size, digest and accepted submission. That published app remains
+0.3.0; the new source candidate still needs a newly qualified app release.
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
 
@@ -60,3 +63,4 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
 - `package.json`: executable repository gates.
 - `plugins/computer-use/docs/releases/0.3.0.json`: exact qualified Mac archive receipt.
+- `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.

@@ -8,8 +8,8 @@ import * as registry from "../src/registry.mjs";
 import { backendFor, installRemoteAgent, executorFor, closeAppSession, routeFingerprint } from "../src/transport.mjs";
 import { TOOLS, TOOL_NAMES, READ_ONLY_TOOLS, REMOTE_TOOLS, BACKEND_METHOD } from "../src/tools.mjs";
 import { tryJson, withSignal, throwIfAborted, wait } from "../src/exec.mjs";
+import { APP_VERSION } from "../src/app-socket.mjs";
 
-const VERSION = "0.2.1";
 const SERVER_NAME = "codewhale-cu";
 
 // ---------- per-session runtime state ----------
@@ -541,7 +541,7 @@ const HANDLERS = {
     return {
       protocolVersion: params?.protocolVersion ?? "2025-06-18",
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: SERVER_NAME, version: VERSION, platforms: ["darwin", "win32", "linux", "harmonyos"], transports: ["local", "ssh", "hdc"] },
+      serverInfo: { name: SERVER_NAME, version: APP_VERSION, platforms: ["darwin", "win32", "linux", "harmonyos"], transports: ["local", "ssh", "hdc"] },
     };
   },
   "tools/list"() {

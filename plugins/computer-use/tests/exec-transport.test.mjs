@@ -7,6 +7,21 @@ import path from "node:path";
 import net from "node:net";
 import { run, runOk, runInputLease, ExecError, have, trim, withSignal } from "../src/exec.mjs";
 import { safeRemotePath, b64, localExec, hdcExec, executorFor } from "../src/transport.mjs";
+import { ensureApp, writeRegistration } from "../src/app-socket.mjs";
+
+test("a missing registered bundle gives a repair path without falling back to host input",async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),"cu-missing-app-"));
+  const keys=["CODEWHALE_CU_STATE_DIR","CODEWHALE_CU_APP_SOCKET","CODEWHALE_CU_APP"];
+  const previous=keys.map(key=>process.env[key]);
+  process.env.CODEWHALE_CU_STATE_DIR=directory;
+  delete process.env.CODEWHALE_CU_APP_SOCKET; delete process.env.CODEWHALE_CU_APP;
+  t.after(()=>{
+    keys.forEach((key,index)=>{if(previous[index]===undefined) delete process.env[key]; else process.env[key]=previous[index];});
+    fs.rmSync(directory,{recursive:true,force:true});
+  });
+  writeRegistration({path:path.join(directory,"missing.app"),launch:["must-not-launch"]});
+  await assert.rejects(ensureApp({launch:false}),error=>error.code==="app_missing"&&/Reinstall/.test(error.message)&&/app\.json/.test(error.message));
+});
 
 test("macOS refuses a helper that lacks the background-control contract before any input", {skip:process.platform!=="darwin"}, async t => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),"cu-old-helper-"));

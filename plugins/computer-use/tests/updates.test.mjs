@@ -4,7 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { deflateRawSync } from "node:zlib";
-import { newerVersion, releaseUpdate, validateReleaseZip } from "../app/updates.mjs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { newerVersion, releaseUpdate, validateReleaseZip, readUpdateResult } from "../app/updates.mjs";
 import { replaceMacBundle } from "../app/install-macos.mjs";
 
 const release = () => ({ tag_name:"v0.4.0",assets:[{name:"Codewhale-Computer-Use-0.4.0-macos-universal.zip",browser_download_url:"https://github.com/Hmbown/codewhale-cu-plugin/releases/download/v0.4.0/Codewhale-Computer-Use-0.4.0-macos-universal.zip",digest:`sha256:${"a".repeat(64)}`,size:1024}] });
@@ -45,4 +47,33 @@ test("failed update preparation or verification preserves the complete previous 
   const result=replaceMacBundle(source,destination,{verify:()=>{}});
   assert.equal(fs.readFileSync(path.join(destination,relative),"utf8"),"new");
   assert.equal(fs.readFileSync(path.join(result.backup,relative),"utf8"),"old");
+});
+
+test("a rejected apply leaves a readable result for the next launch without changing control consent",t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),"cu-update-result-"));
+  const previous=process.env.CODEWHALE_CU_STATE_DIR;
+  process.env.CODEWHALE_CU_STATE_DIR=directory;
+  t.after(()=>{
+    if(previous===undefined) delete process.env.CODEWHALE_CU_STATE_DIR; else process.env.CODEWHALE_CU_STATE_DIR=previous;
+    fs.rmSync(directory,{recursive:true,force:true});
+  });
+  const controls=path.join(directory,"control.json");
+  fs.writeFileSync(controls,JSON.stringify({mode:"stopped"}));
+  assert.equal(readUpdateResult(),null);
+  // Verification of a nonexistent bundle fails before either PID is used;
+  // a nonexistent destination also prevents opening any real application.
+  const result=spawnSync(process.execPath,[fileURLToPath(new URL("../app/updates.mjs",import.meta.url)),"--apply",path.join(directory,"missing-source.app"),path.join(directory,"missing-destination.app"),String(process.pid),String(process.pid)],{encoding:"utf8",env:process.env,timeout:10_000});
+  assert.equal(result.status,1,result.stderr);
+  const status=readUpdateResult();
+  assert.equal(status.available,false);
+  assert.match(status.message,/update could not be completed/i);
+  assert.match(status.message,/sessions remain stopped/i);
+  assert.deepEqual(JSON.parse(fs.readFileSync(controls)),{mode:"stopped"});
+  const resultFile=path.join(directory,"update-result.json");
+  assert.equal(JSON.parse(fs.readFileSync(resultFile)).ok,false);
+  if(process.platform!=="win32") assert.equal(fs.statSync(resultFile).mode&0o777,0o600);
+  for(const invalid of ["not JSON",JSON.stringify({ok:true,message:123}),JSON.stringify({ok:true,message:"x".repeat(5000)})]) {
+    fs.writeFileSync(resultFile,invalid);
+    assert.equal(readUpdateResult(),null);
+  }
 });

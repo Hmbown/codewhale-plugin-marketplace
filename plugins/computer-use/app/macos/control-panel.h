@@ -147,7 +147,7 @@ static NSView *cuSeparator(void) {
     if(lines.count<4) [lines addObject:[NSString stringWithFormat:@"%@ · %@",session[@"target"][@"name"]?:@"Application",shared?@"Foreground":@"Background"]];
   }
   if(sessions.count>4) [lines addObject:[NSString stringWithFormat:@"And %lu more sessions",(unsigned long)sessions.count-4]];
-  self.activity.stringValue=pending?@"Releasing input…":!ready?([mode isEqual:@"paused"]?@"Paused by you":@"Stopped by you"):running?@"Working":@"Ready when you are";
+  self.activity.stringValue=pending?@"Releasing input…":!ready?([mode isEqual:@"paused"]?@"Paused by you":@"Computer control is stopped"):running?@"Working":@"Ready when you are";
   self.targets.stringValue=lines.count?[lines componentsJoinedByString:@"\n"]:@"Choose an app in a Codewhale task to begin.";
   self.targets.textColor=foreground?NSColor.systemOrangeColor:NSColor.secondaryLabelColor;
   NSString *pauseTitle=ready?@"Pause":[mode isEqual:@"paused"]?@"Resume":@"Allow new sessions";

@@ -54,7 +54,10 @@ Observe once, act once, then verify.
    or values mean unknown content, not something to guess.
 4. If the tree contains the target, act on the element: `perform_action`
    (AXPress/Invoke/click…), `set_value` for editable fields, element click.
-   The element path is background-safe on macOS and UIA platforms.
+   macOS provides background element actions; Linux AT-SPI support depends
+   on the control. Windows currently refuses scoped semantic mutations.
+   Windows and Linux are development backends: do not assume their raw
+   input is background-safe or that native Pause/Stop controls are available.
 5. When accessibility cannot read visible text, macOS supports
    `get_app_state({app_ref, include_ocr:true})`. This explicitly captures the
    selected app window and recognizes text locally, without a vision model or

@@ -7,9 +7,19 @@ import { fileURLToPath } from "node:url";
 import { inflateRawSync } from "node:zlib";
 import { replaceMacBundle, verifyReleaseBundle } from "./install-macos.mjs";
 import { APP_VERSION, APP_NAME } from "../src/app-socket.mjs";
+import { stateDir } from "../src/registry.mjs";
 
 const repository="https://github.com/Hmbown/codewhale-cu-plugin";
 const limit=256*1024*1024;
+const updateResultPath=()=>path.join(stateDir(),"update-result.json");
+export function readUpdateResult() {
+  try {
+    if(fs.statSync(updateResultPath()).size>4096) return null;
+    const result=JSON.parse(fs.readFileSync(updateResultPath(),"utf8"));
+    if(typeof result.ok!=="boolean"||typeof result.message!=="string"||result.message.length>1000) return null;
+    return {available:false,message:result.message};
+  } catch { return null; }
+}
 async function responseBytes(response, maximum) {
   const chunks=[]; let size=0;
   for await(const chunk of response.body) { size+=chunk.length; if(size>maximum) throw new Error("The update service exceeded its response size limit."); chunks.push(chunk); }
@@ -109,6 +119,7 @@ export async function restartWithUpdate(prepared,destination) {
 
 if(process.argv[1]===fileURLToPath(import.meta.url)&&process.argv[2]==="--apply") {
   const [source,destination,owner,launcher]=process.argv.slice(3);
+  let result;
   try {
     verifyReleaseBundle(source);
     process.kill(Number(owner),"SIGTERM");
@@ -119,7 +130,21 @@ if(process.argv[1]===fileURLToPath(import.meta.url)&&process.argv[2]==="--apply"
     try { process.kill(Number(launcher),0); throw new Error("The menu-bar app did not exit; update cancelled."); } catch(error) { if(error.code!=="ESRCH") throw error; }
     const receipt=replaceMacBundle(source,destination,{verify:verifyReleaseBundle});
     const installed=spawnSync("/usr/libexec/PlistBuddy",["-c","Print :CFBundleShortVersionString",path.join(destination,"Contents","Info.plist")],{encoding:"utf8"});
+    if(installed.status!==0) throw new Error("The installed version could not be read.");
     console.log(JSON.stringify({version:installed.stdout.trim(),...receipt,installedAt:new Date().toISOString()}));
-  } catch(error) { console.error(error.message); process.exitCode=1; }
-  finally { spawnSync("open",["-g","-a",destination]); }
+    result={ok:true,message:`Updated to ${installed.stdout.trim()}. Choose Allow new sessions when you are ready.`};
+  } catch(error) {
+    console.error(error.message); process.exitCode=1;
+    result={ok:false,message:`The update could not be completed: ${String(error.message).slice(0,600)} Computer sessions remain stopped.`};
+  } finally {
+    // The apply process outlives the menu app. Carry its result into the next
+    // launch so a failed install is visible without hunting for update.log.
+    try {
+      fs.mkdirSync(stateDir(),{recursive:true});
+      const temporary=`${updateResultPath()}.${process.pid}.tmp`;
+      fs.writeFileSync(temporary,JSON.stringify({...result,completedAt:new Date().toISOString()})+"\n",{mode:0o600});
+      fs.renameSync(temporary,updateResultPath());
+    } catch(error) { console.error(`Could not save the update result: ${error.message}`); }
+    if(destination&&fs.existsSync(destination)) spawnSync("open",["-g","-a",destination]);
+  }
 }

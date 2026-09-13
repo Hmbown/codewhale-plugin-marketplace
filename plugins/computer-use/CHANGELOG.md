@@ -1,5 +1,20 @@
 # Release notes
 
+## 0.3.1 — source candidate; app release pending
+
+- Retire the helper when its menu-bar owner disconnects, so reopening the app
+  restores human controls with input still stopped.
+- Preserve a replacement helper's socket and run receipt during old-session
+  cleanup.
+- Show the result of an update after relaunch, including failed installs.
+- Report the manifest version to MCP hosts and explain how to repair a missing
+  registered app without bypassing it.
+- Limit the public marketplace listing to macOS. Windows and Linux remain
+  development backends pending targeting, human controls and native qualification.
+
+The published notarized app remains 0.3.0. These changes require a newly built,
+signed and qualified app; a source update does not modify an installed bundle.
+
 ## 0.3.0
 
 - Whale-and-pointer identity with light, dark, small and monochrome assets.

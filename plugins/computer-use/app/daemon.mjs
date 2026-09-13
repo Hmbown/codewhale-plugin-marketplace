@@ -19,16 +19,17 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { handle, closeSession, closeAllSessions, releaseSessionInput, reopenSession, ALLOWED, controlStatus, setControlMode } from "../src/app-handler.mjs";
 import { runBackgroundCheck } from "./background-check.mjs";
-import { checkForUpdate, prepareUpdate, restartWithUpdate } from "./updates.mjs";
+import { checkForUpdate, prepareUpdate, restartWithUpdate, readUpdateResult } from "./updates.mjs";
 import { APP_ID, APP_NAME, APP_VERSION, socketPath, runInfoPath, writeRegistration, defaultLaunch, hello } from "../src/app-socket.mjs";
 import { stateDir } from "../src/registry.mjs";
 
 const startedAt = new Date().toISOString();
 const bundle = process.env.CODEWHALE_CU_APP_BUNDLE || null;
+let controlOwner = false;
 const log = (msg) => process.stderr.write(`${new Date().toISOString()} ${APP_NAME}: ${msg}\n`);
 
 function appInfo() {
-  return { id: APP_ID, name: APP_NAME, version: APP_VERSION, sessionProtocol: 2, backgroundProtocol: 1, controlProtocol: 1, pid: process.pid, platform: process.platform, node: process.version, bundle, startedAt, socket: socketPath() };
+  return { id: APP_ID, name: APP_NAME, version: APP_VERSION, sessionProtocol: 2, backgroundProtocol: 1, controlProtocol: 1, controlOwner, pid: process.pid, platform: process.platform, node: process.version, bundle, startedAt, socket: socketPath() };
 }
 
 if (await hello({ timeoutMs: 1_500 })) {
@@ -46,7 +47,7 @@ const leases = new Map();
 let shuttingDown = false;
 let backgroundCheck = null;
 let checking = false;
-let update = null;
+let update = readUpdateResult();
 let updating = false;
 let controlError = null;
 const controlFile = path.join(stateDir(), "control.json");
@@ -73,6 +74,7 @@ try {
 // Losing the human control process fails closed before accepting more work.
 if (process.env.CODEWHALE_CU_CONTROL_FD === "3") {
   const control = new net.Socket({ fd: 3, readable: true, writable: true });
+  controlOwner = true;
   delete process.env.CODEWHALE_CU_CONTROL_FD;
   let input = "";
   control.setEncoding("utf8");
@@ -123,7 +125,13 @@ if (process.env.CODEWHALE_CU_CONTROL_FD === "3") {
     }
   });
   control.on("error", () => {});
-  control.on("close", () => { userControl("stopped").catch(error => log(`control owner cleanup: ${error.message}`)); });
+  control.on("close", () => {
+    controlOwner = false;
+    // Persist the stop and abort active input synchronously, then retire the
+    // listener. Reopening the menu app must be able to start a new owner.
+    userControl("stopped").catch(error => log(`control owner cleanup: ${error.message}`));
+    shutdown("control owner disconnected");
+  });
 }
 async function serve(conn) {
   let buf = "";
@@ -213,8 +221,11 @@ async function shutdown(signal) {
   for (const result of results) {
     if (result.status === "rejected") log(`input cleanup failed: ${result.reason?.message ?? result.reason}`);
   }
-  try { fs.unlinkSync(runInfoPath()); } catch {}
-  if (process.platform !== "win32") { try { fs.unlinkSync(sock); } catch {} }
+  try {
+    if (JSON.parse(fs.readFileSync(runInfoPath(), "utf8")).pid === process.pid) fs.unlinkSync(runInfoPath());
+  } catch {}
+  // net.Server owns its Unix socket and removes it on close. Cleanup may
+  // finish after a replacement has bound the path; never unlink its socket.
   process.exit(0);
 }
 for (const s of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(s, () => shutdown(s));

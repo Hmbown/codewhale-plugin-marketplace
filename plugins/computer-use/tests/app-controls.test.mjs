@@ -55,17 +55,22 @@ function controlClient(stream, { timeoutMs = 5_000, signal, diagnostics = () => 
 }
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-test("human Pause cancels queued input; Stop invalidates owners; MCP cannot resume", { timeout: 20_000 }, async t => {
+test("human Pause and Stop cannot be bypassed; a lost owner exits and can reopen stopped", { timeout: 20_000 }, async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-control-"));
   const log = path.join(dir, "calls.jsonl");
   const endpoint = process.platform === "win32"
     ? `\\\\.\\pipe\\cu-control-${process.pid}-${path.basename(dir)}`
     : path.join(dir, "app.sock");
-  const daemon = spawn(process.execPath, [path.join(root, "app/daemon.mjs")], { env: { ...process.env,
+  const daemonOptions = { env: { ...process.env,
     CODEWHALE_CU_STATE_DIR: dir, CODEWHALE_CU_APP_SOCKET: endpoint, CODEWHALE_CU_APP_WARM: "off",
-    CODEWHALE_CU_TEST_BACKEND: path.join(root, "tests/fixtures/session-backend.mjs"), CU_SESSION_CALLS: log, CODEWHALE_CU_CONTROL_FD: "3" }, stdio: ["ignore", "ignore", "pipe", "pipe"] });
-  let errors = ""; daemon.stderr.on("data", chunk => { errors += chunk; });
-  const exited = new Promise(resolve => { daemon.once("exit", resolve); daemon.once("error", error => { errors += error.message; resolve(); }); });
+    CODEWHALE_CU_TEST_BACKEND: path.join(root, "tests/fixtures/session-backend.mjs"), CU_SESSION_CALLS: log, CODEWHALE_CU_CONTROL_FD: "3" }, stdio: ["ignore", "ignore", "pipe", "pipe"] };
+  let errors = "", daemon, exited;
+  function launch() {
+    daemon = spawn(process.execPath, [path.join(root, "app/daemon.mjs")], daemonOptions);
+    daemon.stderr.on("data", chunk => { errors += chunk; });
+    exited = new Promise(resolve => { daemon.once("exit", resolve); daemon.once("error", error => { errors += error.message; resolve(); }); });
+  }
+  launch();
   const sockets = [];
   const previousSocket = process.env.CODEWHALE_CU_APP_SOCKET;
   process.env.CODEWHALE_CU_APP_SOCKET = endpoint;
@@ -92,6 +97,7 @@ test("human Pause cancels queued input; Stop invalidates owners; MCP cannot resu
   }
   const control = controlClient(daemon.stdio[3], { signal: t.signal, diagnostics: () => errors });
   assert.equal((await control("status")).mode, "ready", "human-control channel responds before input starts");
+  assert.equal((await request({tool:"hello"})).app.controlOwner,true);
   const sessionId="human-controls";
   const { leaseToken }=await request({tool:"open_session",sessionId},true);
   const call=(tool,args={})=>request({tool,args,sessionId,leaseToken});
@@ -114,10 +120,24 @@ test("human Pause cancels queued input; Stop invalidates owners; MCP cannot resu
   const records=fs.readFileSync(log,"utf8").trim().split("\n").map(JSON.parse);
   assert.ok(records.some(record=>record.method==="child_released"));
   assert.deepEqual(records.filter(record=>record.method==="type").map(record=>record.text),["allowed again"]);
-  // Losing the only human-control owner stops a new session too.
-  daemon.stdio[3].destroy(); await delay(100);
+  // Owner loss must release input and retire the listener, so relaunching
+  // restores the menu controls without silently authorizing new input.
+  daemon.stdio[3].destroy();
+  await until(() => daemon.exitCode !== null);
+  assert.equal(daemon.exitCode,0,errors);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir,"control.json"))).mode,"stopped");
+  assert.equal(fs.existsSync(path.join(dir,"app-run.json")),false);
+  await assert.rejects(request({tool:"hello"}),error=>error.code==="app_unavailable");
+  launch();
+  await until(() => fs.existsSync(path.join(dir,"app-run.json")));
+  const reopened = controlClient(daemon.stdio[3], { signal: t.signal, diagnostics: () => errors });
+  assert.equal((await reopened("status")).mode,"stopped");
+  assert.equal((await request({tool:"hello"})).app.controlOwner,true);
   const fresh=await request({tool:"open_session",sessionId:"fresh"},true);
   assert.equal((await request({tool:"get_app_state",sessionId:"fresh",leaseToken:fresh.leaseToken})).error.code,"control_stopped");
+  assert.equal((await reopened("resume")).mode,"ready");
+  assert.equal((await request({tool:"get_app_state",args:{app_ref:{name:"Reopened"}},sessionId:"fresh",leaseToken:fresh.leaseToken})).ok,true);
+  assert.equal((await call("type",{text:"old lease after reopen"})).error.code,"session_owner_required");
 });
 
 test("silent FD3 peer rejects every pending command and closes the channel", { timeout: 2_000 }, async () => {

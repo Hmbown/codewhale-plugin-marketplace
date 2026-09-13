@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "3f4792c7cb6b240d9169ab667a4d3325d2d2d8f3a90bae4837f376edebc3f8b9",
+      "page_sha256": "255c1e6521b4e06ebd33ef49c5e7314356594e027135966b0e818c023a5eb245",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "0c435d927af46f2cb9d22b02777af42b75d5b4eebbae0f1c33d86121a08ac0e1",
-          "bytes": 4941
+          "sha256": "b5f23cd643390807ca5f04a93f4dee74f2c3c0027715c11f759499e600451950",
+          "bytes": 4964
         },
         {
           "path": "CONTRIBUTING.md",
@@ -53,9 +53,15 @@
           "root": "repo",
           "sha256": "7732ff1dfdab8f7c17faed6ccb980b840a0f318e68e01da5bebf2b6fa575d451",
           "bytes": 358
+        },
+        {
+          "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
+          "root": "repo",
+          "sha256": "05941f9fda9b07cdff35e22c0d0dc506c2e65c0fdd80d1875a509bdadfab8350",
+          "bytes": 4977
         }
       ],
-      "sealed_at": "2026-09-13T07:55:33.828Z"
+      "sealed_at": "2026-09-13T08:44:15.244Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -168,5 +174,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-13T07:55:33.846Z"
+  "updated_at": "2026-09-13T08:44:15.251Z"
 }

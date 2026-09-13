@@ -38,9 +38,11 @@ resume the helper through MCP or operate its own safety panel.
 | Run background check is disabled | Grant both permissions, allow control and wait for the current action to finish. |
 | Check is inconclusive | Keep the pointer still and stay in the same app for the next check. The previous trial is not counted as passing isolation. |
 | Helper unavailable | Open Computer Use from Applications. Check its panel and log. Reinstall if its path no longer exists. The client will not bypass an installed helper. |
+| The menu icon disappeared and reopening 0.3.0 does nothing | Quit the orphaned Computer Use helper in Activity Monitor, then reopen the app and allow new sessions yourself. The 0.3.1 source candidate fixes this recovery path; it is not yet a published app update. |
 | App needs shared pointer input | Prefer an advertised accessibility action. Otherwise explicitly authorize foreground use or choose a separate computer. |
 | No stable installer available | A release has not yet published a verified macOS download. This is distinct from being on the newest source commit. |
 | Update verification failed | Keep using the installed version. Recheck later; do not disable signature or notarization checks. |
+| An update stopped computer sessions | Read the update result in the panel, resolve any installation error and choose Allow new sessions when ready. Updates never resume stopped input automatically. Showing the apply result after relaunch requires the 0.3.1 app candidate. |
 
 App log: `~/Library/Logs/Codewhale Computer Use/app.log`.
 Update log: `~/Library/Logs/Codewhale Computer Use/update.log`.

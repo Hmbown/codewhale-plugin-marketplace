@@ -5,7 +5,7 @@
 
 # Computer Use
 
-**By Codewhale · macOS · Windows · Linux**
+**By Codewhale · macOS download · Windows and Linux in development**
 
 Let Codewhale see and operate your apps. Read accessible controls, enter
 text, click, scroll and capture the selected app through the same MCP tools.
@@ -29,9 +29,14 @@ The macOS helper keeps permissions and human controls in one menu-bar app.
 [Background demo](docs/DEMO.md)
 
 The native setup panel, background check and updater require **macOS 13.5+**
-for the self-contained download. The source MCP server supports macOS,
-Windows and Linux, with HarmonyOS devices over hdc. Windows and Linux use
-host-side setup and controls; they do not yet have this native panel.
+for the self-contained download. The source MCP server includes experimental
+Windows and Linux backends, with HarmonyOS devices over hdc. Windows and
+Linux do not yet have the native human controls or qualified installers.
+Their raw input uses the shared desktop and must not be treated as background
+control. Windows semantic mutations currently refuse scoped element targets.
+The marketplace enables the plugin on macOS only while these ports are being
+qualified. See the [publication review](docs/PUBLICATION_REVIEW.md) and
+[porting plan](docs/PORTING.md).
 The SSH route remains experimental. See the platform-specific
 [limitations](docs/LIMITATIONS.md).
 
