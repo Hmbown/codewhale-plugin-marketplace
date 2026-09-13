@@ -7,5 +7,12 @@
   "sha256": "76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a",
   "notarized": true,
   "submissionId": "769ff14d-ee5c-4db5-a3b9-f733c2743e6e",
-  "createdAt": "2026-09-13T20:56:30.759Z"
+  "createdAt": "2026-09-13T20:56:30.759Z",
+  "dmg": {
+    "archive": "Codewhale-Computer-Use-0.3.1-macos-universal.dmg",
+    "size": 88246026,
+    "sha256": "91491faa6d44b8e4b52113fea1831c07c402fdd8f673323c8125468d0d89be3a",
+    "notarized": true,
+    "submissionId": "a24464ec-f3ed-4670-b873-fcacb8a1bef3"
+  }
 }

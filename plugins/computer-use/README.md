@@ -121,10 +121,12 @@ the suite is in [docs/PARITY.md](docs/PARITY.md).
 The Mac app is distributed through
 [codewhale.net/computer-use](https://codewhale.net/computer-use), also linked
 from Codewhale’s install page and plugin marketplace. That page offers the
-notarized universal app only from a published stable
+notarized universal app as a drag-to-Applications disk image, only from a
+published stable
 [GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases) of
-this repository whose `release.json` receipt qualifies; release status is
-recorded in [CHANGELOG.md](CHANGELOG.md). To build and install from source
+this repository whose `release.json` receipt qualifies; the ZIP archive on the
+same release is what the in-app updater installs. Release status is recorded
+in [CHANGELOG.md](CHANGELOG.md). To build and install from source
 instead, use the developer quick start below, which requires a Mac with Xcode
 Command Line Tools. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the
 packaging, notarization and release procedure.

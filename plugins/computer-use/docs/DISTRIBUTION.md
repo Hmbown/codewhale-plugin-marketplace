@@ -29,7 +29,17 @@ npm test
 node scripts/prepare-node-runtime.mjs
 node scripts/build-app.mjs --platform macos --node-runtime dist/node
 node scripts/package-macos.mjs --notary-profile YOUR_SAVED_KEYCHAIN_PROFILE
+node scripts/package-dmg.mjs --notary-profile YOUR_SAVED_KEYCHAIN_PROFILE
 ```
+
+`package-dmg.mjs` builds the drag-to-Applications disk image from the stapled
+app: a branded window (`assets/macos/dmg-background.svg`, rendered to the
+tracked 1x and 2x PNGs), the app icon and an Applications shortcut. It needs
+[dmgbuild](https://github.com/dmgbuild/dmgbuild) on the build Mac (`pip install
+dmgbuild`, or pass `--dmgbuild <path>`), which writes the Finder layout
+directly instead of scripting Finder. The image is Developer ID signed,
+notarized as its own submission, stapled, checked with Gatekeeper, mounted
+and inspected, then recorded under `dmg` in `release.json`.
 
 `npm run build:branding` rewrites the tracked PNG assets and is only for
 artwork changes; it is not part of the release sequence. `npm ci` is only
@@ -50,14 +60,17 @@ Omitting `--notary-profile` re-packages an already stapled candidate without a
 new submission and writes `submissionId: null`; a published release must be
 packaged with `--notary-profile` so the receipt names the accepted submission.
 
-The archive is named `Codewhale-Computer-Use-VERSION-macos-universal.zip`.
-Publish the archive, `release.json` and `SHA256SUMS.txt` together with a stable
-`vVERSION` release in this repository after every applicable gate in
+The archive is named `Codewhale-Computer-Use-VERSION-macos-universal.zip` and
+the disk image `Codewhale-Computer-Use-VERSION-macos-universal.dmg`. Publish
+both, `release.json` and `SHA256SUMS.txt` together with a stable `vVERSION`
+release in this repository after every applicable gate in
 [the release checklist](RELEASE_CHECKLIST.md) has a recorded result. The
-website checks `release.json` against GitHub's SHA-256 asset digest; the
-updater verifies the downloaded archive against that digest and does not read
-`release.json`; `SHA256SUMS.txt` is a human-readable receipt that no code
-consumes. Keep the release draft until all three assets have uploaded. The website refreshes
+website offers the disk image as the download when `release.json`'s `dmg`
+entry and GitHub's SHA-256 asset digest agree, and the archive otherwise; the
+updater always downloads the archive, verifies it against GitHub's digest and
+does not read `release.json`; `SHA256SUMS.txt` is a human-readable receipt
+that no code consumes. Keep the release draft until all four assets have
+uploaded. The website refreshes
 availability within five minutes of publication; no hard-coded website version
 needs to change. Packaging does not tag, publish, or change
 the separate Codewhale Engine release. Windows/Linux distribution remains
@@ -65,8 +78,9 @@ source-based until those installers have their own device/signing receipts.
 
 ## Installation and updates
 
-For a download, expand the archive and move the app to Applications. Open it
-once to register the helper, then use its setup panel.
+For a download, open the disk image and drag the app into Applications. Open
+it once to register the helper, then use its setup panel. The archive on the
+same release is what **Check for updates…** installs.
 
 For a developer build, `npm run install:app` installs in `~/Applications`.
 It stages and verifies the complete app before replacement and retains the

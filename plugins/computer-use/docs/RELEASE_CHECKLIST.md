@@ -115,6 +115,7 @@ receipts belong in a public issue.
 | Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | 9f6c39f: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
 | Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | 9f6c39f: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
 | Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | 9f6c39f: notarized:true, submission 769ff14d-ee5c-4db5-a3b9-f733c2743e6e Accepted, stapled; archive 79,720,031 bytes, sha256 76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a |
+| Disk image | `node scripts/package-dmg.mjs --notary-profile <profile>` | 9f6c39f app, 2026-09-13: dmgbuild layout (app, Applications shortcut, branded background), Developer ID signed, submission a24464ec-f3ed-4670-b873-fcacb8a1bef3 Accepted, stapled, `spctl --type open` accepted (Notarized Developer ID), mounted contents verified; 88,246,026 bytes, sha256 91491faa6d44b8e4b52113fea1831c07c402fdd8f673323c8125468d0d89be3a |
 
 ## 3. Permission flow (manual on macOS)
 

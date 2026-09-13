@@ -27,7 +27,14 @@ macOS 13.5+. Apple notarization submission
 `codesign --verify --deep --strict` passes, and `spctl` accepts the app with
 source "Notarized Developer ID". The source suite at that commit passes
 (240 passed, 0 failed, 15 platform skips). The build scripts ran with Node
-v25.8.0 on the maintainer Mac; hosted CI pins Node 22. Earlier on the same
+v25.8.0 on the maintainer Mac; hosted CI pins Node 22. Later on 2026-09-13 the
+drag-to-Applications disk image
+`Codewhale-Computer-Use-0.3.1-macos-universal.dmg` (88,246,026 bytes, SHA-256
+`91491faa6d44b8e4b52113fea1831c07c402fdd8f673323c8125468d0d89be3a`) was built
+from that same stapled app by `scripts/package-dmg.mjs`, signed, notarized
+(submission `a24464ec-f3ed-4670-b873-fcacb8a1bef3` Accepted), stapled and
+added to the v0.3.1 release as the human download; the archive is unchanged
+and remains the updater's input. Earlier on the same
 Mac, a signed 0.3.1 candidate passed the menu-bar owner crash and reopen check
 with isolated state, and the updater's apply step replaced an installed
 notarized 0.3.0 with that notarized 0.3.1 build, kept the previous bundle and

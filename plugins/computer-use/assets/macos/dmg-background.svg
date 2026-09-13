@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <!-- Disk-image window background: 660x400 points. The app icon sits centred at
+       (165,190) and the Applications shortcut at (495,190); both are 128pt icons
+       placed by scripts/package-dmg.mjs. Keep the arrow between those anchors. -->
+  <rect width="660" height="400" fill="#F6F2E8"/>
+  <text x="330" y="72" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#142352">Drag Codewhale Computer Use into Applications</text>
+  <text x="330" y="100" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" fill="#5B6474">Then open it from Applications and choose Computer Use from the whale in your menu bar.</text>
+  <g fill="none" stroke="#142352" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+    <path d="M262 190 H392"/>
+    <path d="M366 166 L392 190 L366 214"/>
+  </g>
+  <text x="330" y="362" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" fill="#8A8F99">macOS 13.5 or later · Apple silicon and Intel · Signed and notarized by Codewhale</text>
+</svg>
