@@ -1,14 +1,8 @@
 # Release notes
 
-This repository's public history starts at the 0.3.1 source snapshot. Earlier
-versions were developed privately; their notes are kept below for context. No
-version has been published as a signed download yet. 0.3.0 was notarized and
-qualified on one maintainer Mac only, and 0.3.1 is the macOS beta candidate.
-A source checkout never modifies an installed app. The developer installer
-can install a locally signed build; in-app updates require a signed,
-notarized build from this repository's GitHub Releases.
+0.3.1 is the first public macOS build: a Developer ID-signed, notarized universal app built from commit 9f6c39f738c0d8e8dcc93af11af5e00d19081b60, with its packaging receipt in [docs/releases/0.3.1.json](docs/releases/0.3.1.json). It is released through GitHub Releases as [v0.3.1](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.3.1); until a human publishes that release, the setup page at https://codewhale.net/computer-use reports the download as pending, and afterwards it offers the download. Earlier versions were developed privately; their notes are kept below for context.
 
-## 0.3.1 — macOS beta candidate (unreleased)
+## 0.3.1 — macOS beta
 
 - Retire the helper when its menu-bar owner disconnects, so reopening the app
   restores human controls with input still stopped.
@@ -21,17 +15,32 @@ notarized build from this repository's GitHub Releases.
   experimental source-only backends pending targeting, human controls and
   native qualification.
 
-Qualification so far, all on one maintainer Mac: the source suite passes
-(240 passed, 0 failed, 15 platform skips); a signed 0.3.1 build passed the
-menu-bar owner crash and reopen check with isolated state; the updater's
-apply step replaced an installed notarized 0.3.0 with the notarized 0.3.1
-build, kept the previous bundle, restarted with controls stopped, and every
-installed runtime file and native executable matched the build. A
-clean-machine install with fresh permission grants and a model-driven task
-through an installed Codewhale Engine remain open. See
+Qualification record. The public build was produced on 2026-09-13 from commit
+`9f6c39f738c0d8e8dcc93af11af5e00d19081b60` (clean `main`); all 33 packaged
+runtime files are byte-identical to that commit. The archive
+`Codewhale-Computer-Use-0.3.1-macos-universal.zip` (79,720,031 bytes, SHA-256
+`76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a`) is signed
+with "Developer ID Application: Hunter Bown (5RDNSHA5TY)" under the hardened
+runtime, is universal (arm64 and x86_64), bundles Node 24.21.0 and requires
+macOS 13.5+. Apple notarization submission
+`769ff14d-ee5c-4db5-a3b9-f733c2743e6e` was Accepted; the ticket is stapled,
+`codesign --verify --deep --strict` passes, and `spctl` accepts the app with
+source "Notarized Developer ID". The source suite at that commit passes
+(240 passed, 0 failed, 15 platform skips). The build scripts ran with Node
+v25.8.0 on the maintainer Mac; hosted CI pins Node 22. Earlier on the same
+Mac, a signed 0.3.1 candidate passed the menu-bar owner crash and reopen check
+with isolated state, and the updater's apply step replaced an installed
+notarized 0.3.0 with that notarized 0.3.1 build, kept the previous bundle and
+restarted with controls stopped.
+
+Still open, recorded as open and not as done: a clean-machine install with
+fresh Accessibility and Screen Recording grants; a model-driven task through
+an installed Codewhale Engine; the non-admin Applications-directory update;
+and the real post-publication **Check for updates…** path from an installed
+older notarized build. See
 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
-## 0.3.0 — notarized locally, not published
+## 0.3.0 — notarized locally, never published
 
 - Whale-and-pointer identity with light, dark, small and monochrome assets.
 - Marketplace artwork, publisher and host-platform labels.

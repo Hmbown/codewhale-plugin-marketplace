@@ -4,30 +4,46 @@ Keyed to the release commit. Fill in results as steps run; a release is only
 publishable when every applicable row has a recorded result. Steps marked
 **human-only** are never performed by scripts.
 
-Release commit: `<sha>` — date: `<date>` — operator: `<name>`
+Release commit: `9f6c39f738c0d8e8dcc93af11af5e00d19081b60` — date: `2026-09-13` — operator: `Hunter Bown (build and packaging run by Claude Fable 5.1)`
 
 ## Qualification record
 
-No release has been published from this repository. The records below come
-from one maintainer Mac (arm64, Retina) and are kept as evidence, not as a
+Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
+come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
 
-### 0.3.1 — macOS beta candidate, unpublished
+### 0.3.1 — macOS beta
 
-- Source suite: **240 passed, 0 failed, 15 platform skips**. The hosted CI
-  workflow runs the same suite and the receipt hygiene check on macOS and
-  Ubuntu runners.
-- Signed native build: the menu-bar owner crash and reopen check passed with
-  isolated state. The human-control fixture has request deadlines,
-  channel-error handling and bounded teardown; its focused checks pass on
-  macOS. Windows execution remains unqualified.
-- Updater apply: the notarized 0.3.1 build replaced an installed notarized
-  0.3.0 app through the real apply step. The previous bundle was retained, the
-  helper restarted with controls stopped, and all 33 runtime files plus the 3
-  native executables in the installed bundle matched the build.
-- Open gates: clean-machine install with fresh Accessibility and Screen
-  Recording grants; a model-driven task through an installed Codewhale Engine;
-  the non-admin Applications-directory update scenario.
+- Source suite at commit `9f6c39f738c0d8e8dcc93af11af5e00d19081b60`:
+  **240 passed, 0 failed, 15 platform skips**. The hosted CI workflow runs the
+  same suite and the receipt hygiene check on macOS and Ubuntu runners.
+- Public build: produced 2026-09-13 from that commit on clean `main`; all 33
+  packaged runtime files are byte-identical to it. Signed with
+  "Developer ID Application: Hunter Bown (5RDNSHA5TY)" under the hardened
+  runtime; universal (arm64 and x86_64); bundled Node 24.21.0; macOS 13.5+.
+  The build scripts ran with Node v25.8.0 on the maintainer Mac, while CI pins
+  Node 22.
+- Notarization: submission `769ff14d-ee5c-4db5-a3b9-f733c2743e6e` Accepted;
+  ticket stapled; `codesign --verify --deep --strict` ok; `spctl` accepted with
+  source "Notarized Developer ID". Receipt:
+  [releases/0.3.1.json](releases/0.3.1.json).
+- Archive: `Codewhale-Computer-Use-0.3.1-macos-universal.zip`, 79,720,031
+  bytes, SHA-256
+  `76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a`.
+- Signed native build (earlier 0.3.1 candidate on the same Mac): the menu-bar
+  owner crash and reopen check passed with isolated state. The human-control
+  fixture has request deadlines, channel-error handling and bounded teardown;
+  its focused checks pass on macOS. Windows execution remains unqualified.
+- Updater apply (earlier 0.3.1 candidate on the same Mac): the notarized 0.3.1
+  build replaced an installed notarized 0.3.0 app through the real apply step.
+  The previous bundle was retained, the helper restarted with controls
+  stopped, and all 33 runtime files plus the 3 native executables in the
+  installed bundle matched the build.
+- Open gates, recorded as open: clean-machine install with fresh Accessibility
+  and Screen Recording grants; a model-driven task through an installed
+  Codewhale Engine; the non-admin Applications-directory update; the real
+  post-publication **Check for updates…** path from an installed older
+  notarized build.
 
 ### 0.3.0 — notarized locally, never published
 
@@ -84,7 +100,7 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Unit tests | `npm test` | `<count>` passing |
+| Unit tests | `npm test` | 9f6c39f on macOS: 240 passed, 0 failed, 15 platform skips |
 | Parity suite | `npm run parity` (each supported platform) | run dir recorded below |
 | Parity suite, isolated | `npm run parity -- --isolated` | run dir recorded below |
 | Matrix regenerated | `npm run parity:matrix -- --run <dir> [--run <dir>...]` | `docs/PARITY_MATRIX.md` current |
@@ -96,9 +112,9 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Build app bundle | `npm run build:app` | |
-| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | |
-| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | `dist/release/release.json` reports `notarized: true` |
+| Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | 9f6c39f: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
+| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | 9f6c39f: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
+| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | 9f6c39f: notarized:true, submission 769ff14d-ee5c-4db5-a3b9-f733c2743e6e Accepted, stapled; archive 79,720,031 bytes, sha256 76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a |
 
 ## 3. Permission flow (manual on macOS)
 
@@ -107,7 +123,7 @@ receipts belong in a public issue.
 | Clean install: install app, connect host, `request_access` shows Accessibility + Screen Recording granted to the app | |
 | Upgrade: rebuild/reinstall over a granted install, verify TCC grants persist for the same bundle identity | |
 | Revoke + re-grant: remove grants in System Settings, verify `request_access` reports them missing and the next call fails closed | |
-| Notarized update: **Check for updates…** installs the published release, keeps the previous bundle, restarts with controls stopped | |
+| Notarized update: after publication, from an installed older notarized build, **Check for updates…** offers exactly **Install 0.3.1…**, downloads the GitHub asset, verifies the digest, keeps the previous bundle and restarts with controls stopped | |
 | Model-driven task: a Codewhale Engine task observes, acts and verifies through the installed helper | |
 
 ## 4. Cross-references
@@ -123,7 +139,7 @@ receipts belong in a public issue.
 
 ## 5. Final actions — human-only, never scripted
 
-- [ ] **Repository visibility change** — performed by a human, by hand.
+- [x] **Repository visibility change** — public since 2026-09-13 (human).
 - [ ] **Publish release** — performed by a human, by hand.
 
 ---

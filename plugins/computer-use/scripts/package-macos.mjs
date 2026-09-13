@@ -28,12 +28,19 @@ if(!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("Invalid release version.")
 fs.mkdirSync(output,{recursive:true});
 const name=`Codewhale-Computer-Use-${version}-macos-universal.zip`;
 const archive=path.join(output,name);
-const zip=()=>{ if(fs.existsSync(archive)) throw new Error("This archive already exists. Choose a fresh output directory to preserve the prior receipt."); run("ditto",["-c","-k","--keepParent","--norsrc",app,archive]); validateReleaseZip(fs.readFileSync(archive)); };
+// Refuse to overwrite a prior receipt before any notary submission happens.
+for(const existing of [archive,...["notarization.json","release.json","SHA256SUMS.txt"].map(file=>path.join(output,file))]) {
+  if(fs.existsSync(existing)) throw new Error(`${path.basename(existing)} already exists in ${output}. Choose a fresh output directory to preserve the prior receipt.`);
+}
+const zip=()=>{ run("ditto",["-c","-k","--keepParent","--norsrc",app,archive]); validateReleaseZip(fs.readFileSync(archive)); };
 let notarization=null;
 if(profile) {
   const submission=path.join(output,`notary-submission-${Date.now()}.zip`);
   run("ditto",["-c","-k","--keepParent","--norsrc",app,submission]);
-  notarization=JSON.parse(run("xcrun",["notarytool","submit",submission,"--keychain-profile",profile,"--wait","--timeout","20m","--output-format","json"]));
+  let submitted;
+  try { submitted=run("xcrun",["notarytool","submit",submission,"--keychain-profile",profile,"--wait","--timeout","20m","--output-format","json"]); }
+  finally { fs.rmSync(submission,{force:true}); }
+  notarization=JSON.parse(submitted);
   fs.writeFileSync(path.join(output,"notarization.json"),JSON.stringify(notarization,null,2)+"\n");
   if(notarization.status!=="Accepted") throw new Error(`Apple returned ${notarization.status}; no release archive produced.`);
   run("xcrun",["stapler","staple",app]);

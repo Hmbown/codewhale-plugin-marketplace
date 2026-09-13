@@ -8,12 +8,11 @@ is clear without the private history. Test and native evidence are recorded in
 
 ## Decision
 
-- Publish source at 0.3.1 as a macOS beta candidate. The plugin manifest's
-  public host eligibility is macOS only.
-- Publish no signed download yet. The 0.3.0 archive was notarized and
-  qualified on one maintainer Mac and was never released publicly. A notarized
-  0.3.1 build is installed on that Mac and passed the update path, but stays
-  unpublished until the remaining gates pass.
+- Publish source at 0.3.1 as a macOS beta. The plugin manifest's public host
+  eligibility is macOS only.
+- Signed download: status is recorded in [CHANGELOG.md](../CHANGELOG.md). The
+  0.3.0 archive was notarized and qualified on one maintainer Mac and was
+  never released publicly.
 - Keep Windows and Linux as experimental, source-only backends until exact
   targeting, native human controls and per-platform native gates pass. Linux
   GTK/background work is in progress on a separate branch and is not part of
@@ -58,8 +57,8 @@ Not yet verified:
   grants.
 - A model-driven task through an installed Codewhale Engine, as opposed to
   direct MCP calls.
-- Any public distribution path: no GitHub release, package publication or
-  signed download exists in this repository yet.
+- The post-publication update path and the other open gates listed in
+  [CHANGELOG.md](../CHANGELOG.md) and [the release checklist](RELEASE_CHECKLIST.md).
 
 Source tests do not stand in for native or distribution qualification.
 

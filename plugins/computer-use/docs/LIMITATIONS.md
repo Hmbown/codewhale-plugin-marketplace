@@ -39,7 +39,7 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 | HarmonyOS (hdc) | code-complete, no receipts (no device) |
 | SSH remote | experimental one-shot transport; no remote device receipts; see session limitation below |
 | Codex / Claude Desktop host registration | full registration/restart flow untested; one native Codex editing baseline is recorded below |
-| signed-update permission persistence | demonstrated — a Developer-ID-signed reinstall over a granted install kept its grants, and a notarized 0.3.0 → 0.3.1 update applied on the same Mac; a clean-machine install with fresh grants is still open |
+| signed-update permission persistence | untested in the matrix (no parity run covers it). Grant retention was demonstrated once for a Developer ID reinstall over a granted install (2026-09-06, below); the notarized 0.3.0 → 0.3.1 updater apply on the same Mac ran with no recorded grant check and is described in [the release checklist](RELEASE_CHECKLIST.md); a clean-machine install with fresh grants is still open |
 
 **The Linux X11 rows in the matrix predate this repo's parity-runner refactor.**
 `scripts/parity-run.mjs` was split into a platform-neutral engine plus

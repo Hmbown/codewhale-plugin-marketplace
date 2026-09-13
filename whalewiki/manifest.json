@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "1b06b97820529a045d92dfea50531b8b36d9e69834506f8dfd05ae53a38220d5",
+      "page_sha256": "0c4dda3c75053cafdc8404c3ea0a17cf614a631be4f3b8da6cfab246a35794e5",
       "sources": [
         {
           "path": "marketplace.json",
@@ -39,29 +39,35 @@
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
           "root": "repo",
-          "sha256": "3bbd526ba045fb6d57448397fba2276c3e5a24275217c03dd118d9e2516b85af",
-          "bytes": 4385
+          "sha256": "52ffe10afa1647bfcfd27dcefc0f69a5003ada55e5906858b93c469c8e5d863a",
+          "bytes": 5114
         },
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "26046d540e1f285d1cf0f9ad9c709515c5e3ea995d9ab3d8d312cf5331f7f76c",
-          "bytes": 7789
+          "sha256": "93e41f1fd8bffc3b1c727289e8c99b2f705aeea242c71e6933e0ab40922bde58",
+          "bytes": 9512
         },
         {
-          "path": "plugins/computer-use/docs/releases/0.3.0.json",
+          "path": "plugins/computer-use/docs/releases/0.3.1.json",
           "root": "repo",
-          "sha256": "7732ff1dfdab8f7c17faed6ccb980b840a0f318e68e01da5bebf2b6fa575d451",
+          "sha256": "11be9f920369b3f744a5d9f6fe6d48cb843e44b4997f4f390f98f8c54b09147d",
           "bytes": 358
+        },
+        {
+          "path": "plugins/computer-use/CHANGELOG.md",
+          "root": "repo",
+          "sha256": "41cdf972bc13d44c61e30a433aa240cc7302d1996eacaaee1617cdf990260040",
+          "bytes": 4161
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
           "root": "repo",
-          "sha256": "f43e674e9c5c75a671b5b12c7cf4fe92441e3bd3ac6e3bbcadacd7f8a1415cc8",
-          "bytes": 6310
+          "sha256": "f580d04b2aee9948b79f8a6192daf39ad687498f0bda05d9f5b33aae660b886e",
+          "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-13T09:24:11.675Z"
+      "sealed_at": "2026-09-13T21:52:03.309Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -174,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-13T09:24:11.679Z"
+  "updated_at": "2026-09-13T21:52:03.310Z"
 }

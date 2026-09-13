@@ -5,7 +5,7 @@
 
 # Computer Use
 
-**By Codewhale · macOS beta (source) · Windows and Linux experimental, source only**
+**By Codewhale · macOS beta (notarized app and source) · Windows and Linux experimental, source only**
 
 Let Codewhale see and operate your apps. Read accessible controls, enter
 text, click, scroll and capture the selected app through the same MCP tools.
@@ -29,12 +29,13 @@ The macOS helper keeps permissions and human controls in one menu-bar app.
 [Background demo](docs/DEMO.md) · [Contributing](CONTRIBUTING.md) ·
 [Security](SECURITY.md)
 
-**Status.** This repository starts at the 0.3.1 source snapshot, a macOS beta
-candidate. No signed download has been published yet: the macOS app is built
-from source today, and the first public release will appear under this
-repository's GitHub Releases only after the remaining qualification gates in
-[the release checklist](docs/RELEASE_CHECKLIST.md) pass. Earlier versions were
-developed privately; their notes and receipts are kept for context.
+**Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
+macOS app is downloaded from
+[codewhale.net/computer-use](https://codewhale.net/computer-use), which serves
+the latest stable
+[GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases) of
+this repository; remaining qualification gates are tracked in
+[the release checklist](docs/RELEASE_CHECKLIST.md).
 
 The native setup panel, background check and updater require **macOS 13.5+**
 for the self-contained bundle. The source MCP server includes experimental
@@ -63,14 +64,15 @@ receipt hygiene check on macOS and Ubuntu runners. Source tests exercise the
 protocol, routing, session and injected-runner paths; they perform no native
 input and do not qualify a distributed app.
 
-**Native macOS 0.3.1 candidate (one maintainer Mac, arm64).** A signed 0.3.1
-build passed the menu-bar owner crash and reopen check with isolated state.
-The updater's apply step replaced an installed notarized 0.3.0 app with the
-notarized 0.3.1 build: the previous bundle was retained for rollback, the
-helper restarted with controls stopped, and all 33 runtime files plus the 3
-native executables in the installed bundle matched the build. Still unproven:
-a clean-machine install with fresh OS permission grants, and a model-driven
-task through an installed Codewhale Engine. The 0.3.1 app is not published.
+**Native macOS 0.3.1 (one maintainer Mac, arm64).** An earlier signed
+0.3.1 candidate passed the menu-bar owner crash and reopen check with
+isolated state. The updater's apply step replaced an installed notarized
+0.3.0 app with that candidate: the previous bundle was retained for rollback,
+the helper restarted with controls stopped, and all 33 runtime files plus the
+3 native executables in the installed bundle matched the build. The open
+qualification gates, and the build, signing and notarization facts for the
+public 0.3.1 archive, are in [CHANGELOG.md](CHANGELOG.md) and
+[docs/releases/0.3.1.json](docs/releases/0.3.1.json).
 
 **Live-verified during development: macOS (arm64, single Retina display,
 macOS 26.1).** Each of the 27 fixture workflows has a five-trial passing run.
@@ -114,19 +116,18 @@ release gating checklist are in
 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
 the suite is in [docs/PARITY.md](docs/PARITY.md).
 
-## The Mac app: beta, not yet downloadable
+## The Mac app
 
-The setup page is
+The Mac app is distributed through
 [codewhale.net/computer-use](https://codewhale.net/computer-use), also linked
-from Codewhale’s install page and plugin marketplace. A download becomes
-available only when a stable GitHub release in this repository includes the
-notarized universal app and its matching qualification receipt. No such
-release exists yet, so the page reports availability without offering an
-installer, and the app's **Check for updates…** reports that no stable
-installer has been published. Until then, build and install from source with
-the developer quick start below, which requires a Mac with Xcode Command Line
-Tools. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the packaging,
-notarization and release procedure.
+from Codewhale’s install page and plugin marketplace. That page offers the
+notarized universal app only from a published stable
+[GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases) of
+this repository whose `release.json` receipt qualifies; release status is
+recorded in [CHANGELOG.md](CHANGELOG.md). To build and install from source
+instead, use the developer quick start below, which requires a Mac with Xcode
+Command Line Tools. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the
+packaging, notarization and release procedure.
 
 ## Developer quick start
 

@@ -7,14 +7,17 @@ capabilities or establish a service login.
 
 Computer Use source 0.3.1 includes owner-recovery and update-status fixes, and
 the marketplace currently enables it on macOS only. Windows and Linux remain
-experimental source-only backends. The
-[official setup page](https://codewhale.net/computer-use) will offer a download
-when a qualified signed release is published. The native macOS helper provides
+experimental source-only backends. The native macOS helper provides
 permission setup, a background check, human Pause/Stop and on-demand verified
-updates. A notarized 0.3.1 candidate passed local owner-recovery and update
-checks; no signed app download has been released publicly. Clean-machine and
-installed-Engine qualification remain open. The source repository starts with
-a clean initial commit and preserves the MIT license and attribution.
+updates. A Developer ID-signed, notarized 0.3.1 macOS build exists with its
+packaging receipt in `plugins/computer-use/docs/releases/0.3.1.json`; the
+[official setup page](https://codewhale.net/computer-use) reports whether the
+download is available, and the
+[Computer Use CHANGELOG](../../plugins/computer-use/CHANGELOG.md) records the
+release and qualification status. Clean-machine, installed-Engine, non-admin
+update and post-publication update-check qualification remain open. The
+source repository starts with a clean initial commit and preserves the MIT
+license and attribution.
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
 
@@ -62,5 +65,8 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
 - `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
 - `package.json`: executable repository gates.
-- `plugins/computer-use/docs/releases/0.3.0.json`: notarization receipt for an unpublished development archive.
+- `plugins/computer-use/docs/DISTRIBUTION.md`: build, notarization and website qualification procedure.
+- `plugins/computer-use/docs/RELEASE_CHECKLIST.md`: qualification record and the human-only publication steps.
+- `plugins/computer-use/docs/releases/0.3.1.json`: packaging and notarization receipt for the signed 0.3.1 macOS build.
+- `plugins/computer-use/CHANGELOG.md`: release record and open qualification gates.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
