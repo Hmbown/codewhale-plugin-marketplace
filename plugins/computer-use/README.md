@@ -5,7 +5,7 @@
 
 # Computer Use
 
-**By Codewhale · macOS download · Windows and Linux in development**
+**By Codewhale · macOS beta (source) · Windows and Linux experimental, source only**
 
 Let Codewhale see and operate your apps. Read accessible controls, enter
 text, click, scroll and capture the selected app through the same MCP tools.
@@ -23,19 +23,28 @@ The macOS helper keeps permissions and human controls in one menu-bar app.
   Updates verify the digest, Codewhale signature and Apple notarization before
   replacing the app, and retain the previous install for rollback.
 
-[Download and setup](https://codewhale.net/computer-use) ·
+[Setup page](https://codewhale.net/computer-use) ·
 [Setup and troubleshooting](docs/TROUBLESHOOTING.md) ·
 [Release notes](CHANGELOG.md) · [Distribution](docs/DISTRIBUTION.md) ·
-[Background demo](docs/DEMO.md)
+[Background demo](docs/DEMO.md) · [Contributing](CONTRIBUTING.md) ·
+[Security](SECURITY.md)
+
+**Status.** This repository starts at the 0.3.1 source snapshot, a macOS beta
+candidate. No signed download has been published yet: the macOS app is built
+from source today, and the first public release will appear under this
+repository's GitHub Releases only after the remaining qualification gates in
+[the release checklist](docs/RELEASE_CHECKLIST.md) pass. Earlier versions were
+developed privately; their notes and receipts are kept for context.
 
 The native setup panel, background check and updater require **macOS 13.5+**
-for the self-contained download. The source MCP server includes experimental
+for the self-contained bundle. The source MCP server includes experimental
 Windows and Linux backends, with HarmonyOS devices over hdc. Windows and
-Linux do not yet have the native human controls or qualified installers.
-Their raw input uses the shared desktop and must not be treated as background
-control. Windows semantic mutations currently refuse scoped element targets.
-The marketplace enables the plugin on macOS only while these ports are being
-qualified. See the [publication review](docs/PUBLICATION_REVIEW.md) and
+Linux are source-only: they do not yet have the native human controls,
+exact-window targeting or qualified installers, and they are excluded from the
+plugin's public host eligibility until those gates pass. Their raw input uses
+the shared desktop and must not be treated as background control. Windows
+semantic mutations currently refuse scoped element targets. See the
+[publication review](docs/PUBLICATION_REVIEW.md) and
 [porting plan](docs/PORTING.md).
 The SSH route remains experimental. See the platform-specific
 [limitations](docs/LIMITATIONS.md).
@@ -48,14 +57,31 @@ existing Engine authority before the model can use it.
 
 ## Verification status
 
-**Live-verified: macOS (arm64, single Retina display, macOS 26.1).**
-Each of the 27 fixture workflows has a five-trial passing run. The broad
-26-task run passed 129/130 trials; its dynamic-page failure was a fixture
-clock race, corrected and repeated 5/5. The repaired file-picker flow also
-passed 5/5 separately. The matrix retains the broad failure and both focused
-runs; these are local 0.2.1 development receipts, not full Codex parity or
+**Source (this snapshot).** `npm test` on macOS: 240 passed, 0 failed,
+15 platform skips. The GitHub Actions workflow runs the same suite plus the
+receipt hygiene check on macOS and Ubuntu runners. Source tests exercise the
+protocol, routing, session and injected-runner paths; they perform no native
+input and do not qualify a distributed app.
+
+**Native macOS 0.3.1 candidate (one maintainer Mac, arm64).** A signed 0.3.1
+build passed the menu-bar owner crash and reopen check with isolated state.
+The updater's apply step replaced an installed notarized 0.3.0 app with the
+notarized 0.3.1 build: the previous bundle was retained for rollback, the
+helper restarted with controls stopped, and all 33 runtime files plus the 3
+native executables in the installed bundle matched the build. Still unproven:
+a clean-machine install with fresh OS permission grants, and a model-driven
+task through an installed Codewhale Engine. The 0.3.1 app is not published.
+
+**Live-verified during development: macOS (arm64, single Retina display,
+macOS 26.1).** Each of the 27 fixture workflows has a five-trial passing run.
+The broad 26-task run passed 129/130 trials; its dynamic-page failure was a
+fixture clock race, corrected and repeated 5/5. The repaired file-picker flow
+also passed 5/5 separately. The matrix retains the broad failure and both
+focused runs; these are 0.2.1 development receipts, not full Codex parity or
 final release qualification. Shared-desktop pointer displacement is measured
-and sometimes nonzero. OS permissions survived the signed 0.2.1 update.
+and sometimes nonzero. OS permissions survived the signed 0.2.1 update. Commit
+identifiers inside the matrix and result files refer to the private
+pre-publication history, not to commits in this repository.
 
 **Text and vision use the same actions.** App observations default to a text
 summary containing controls, values, actions and layout. `detail:"full"`
@@ -88,14 +114,19 @@ release gating checklist are in
 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
 the suite is in [docs/PARITY.md](docs/PARITY.md).
 
-## Download for Mac
+## The Mac app: beta, not yet downloadable
 
-The official download and setup page is
+The setup page is
 [codewhale.net/computer-use](https://codewhale.net/computer-use), also linked
-from Codewhale’s install page and plugin marketplace. The download becomes
-available only when a stable release includes the notarized universal app and
-its matching qualification receipt. Until then, the page reports availability
-without offering an unqualified installer.
+from Codewhale’s install page and plugin marketplace. A download becomes
+available only when a stable GitHub release in this repository includes the
+notarized universal app and its matching qualification receipt. No such
+release exists yet, so the page reports availability without offering an
+installer, and the app's **Check for updates…** reports that no stable
+installer has been published. Until then, build and install from source with
+the developer quick start below, which requires a Mac with Xcode Command Line
+Tools. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the packaging,
+notarization and release procedure.
 
 ## Developer quick start
 
@@ -265,9 +296,9 @@ process disappears, including in direct mode. On macOS, session exit stops a
 recording started by that session; cancelling an ordinary request leaves an explicitly
 started recording running until stopped or the session exits.
 
-Version 0.2.1 requires session protocol 2: upgrade the helper and restart
-existing MCP connections together. An old client or helper is refused with
-an upgrade error instead of sharing another client's input state.
+Session protocol 2 (introduced in 0.2.1) is required: upgrade the helper and
+restart existing MCP connections together. An old client or helper is refused
+with an upgrade error instead of sharing another client's input state.
 
 ## Frontier ability set
 
@@ -373,9 +404,21 @@ Proven levels are separated: local live (this Mac: darwin) > mocked transport
 implemented to their documented tool interfaces but only verifiable on those
 platforms).
 
-The Codewhale monorepo vendors the runtime tree of this repository at
-`crates/tui/plugins/computer-use` and embeds it in the TUI as the built-in
-computer-use bundle; this repository is the upstream.
+Codewhale embeds a copy of this repository's runtime tree as its built-in
+Computer Use plugin; this repository is the upstream source. Changing this
+checkout or the standalone helper does not update an installed Codewhale
+binary.
+
+## Support and contributing
+
+Use [GitHub issues](https://github.com/Hmbown/codewhale-cu-plugin/issues) for
+bugs and questions. Include the plugin version, macOS version, the failed
+action and the error text, with private app contents and credentials removed
+from any log excerpt. [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+covers the common setup problems first. Contribution expectations are in
+[CONTRIBUTING.md](CONTRIBUTING.md); vulnerability reporting and the security
+model are in [SECURITY.md](SECURITY.md). This is a beta maintained on a
+best-effort basis; there is no support commitment or response-time promise.
 
 ## License
 

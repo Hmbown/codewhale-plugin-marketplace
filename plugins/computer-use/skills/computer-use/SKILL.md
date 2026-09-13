@@ -1,6 +1,6 @@
 ---
 name: computer-use
-description: Full desktop control on macOS, Windows, Linux, and HarmonyOS — accessibility-first observation and actions with pixel fallback, screenshots, zoom, screen recording, and switching between registered computers as a default.
+description: Desktop control with accessibility-first observation and actions, pixel fallback, screenshots, zoom, screen recording, and switching between registered computers. Qualified on macOS; Windows, Linux and HarmonyOS backends are experimental.
 ---
 
 # Codewhale Computer Use

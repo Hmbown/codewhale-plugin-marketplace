@@ -196,4 +196,3 @@
 | SSH remote | untested — see docs/LIMITATIONS.md |
 | Codex / Claude Desktop fresh session | untested — see docs/LIMITATIONS.md |
 | signed-update permission persistence | untested — see docs/LIMITATIONS.md |
-

@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "255c1e6521b4e06ebd33ef49c5e7314356594e027135966b0e818c023a5eb245",
+      "page_sha256": "1b06b97820529a045d92dfea50531b8b36d9e69834506f8dfd05ae53a38220d5",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "b5f23cd643390807ca5f04a93f4dee74f2c3c0027715c11f759499e600451950",
-          "bytes": 4964
+          "sha256": "9018dce2b69ccaa9cb4ac5590d62e8a492e9baf8d1a43377e948a3e99df4f0f8",
+          "bytes": 4966
         },
         {
           "path": "CONTRIBUTING.md",
@@ -39,14 +39,14 @@
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
           "root": "repo",
-          "sha256": "9c9399e9c8808e9c850ff45458f63d17a134c3b2145520b9178379b7302f2711",
-          "bytes": 3917
+          "sha256": "3bbd526ba045fb6d57448397fba2276c3e5a24275217c03dd118d9e2516b85af",
+          "bytes": 4385
         },
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "edfb7fc46b61adae21ee204b273cf9050cbb01cba432d164227f434fc12dfa6f",
-          "bytes": 7717
+          "sha256": "26046d540e1f285d1cf0f9ad9c709515c5e3ea995d9ab3d8d312cf5331f7f76c",
+          "bytes": 7789
         },
         {
           "path": "plugins/computer-use/docs/releases/0.3.0.json",
@@ -57,11 +57,11 @@
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
           "root": "repo",
-          "sha256": "05941f9fda9b07cdff35e22c0d0dc506c2e65c0fdd80d1875a509bdadfab8350",
-          "bytes": 4977
+          "sha256": "f43e674e9c5c75a671b5b12c7cf4fe92441e3bd3ac6e3bbcadacd7f8a1415cc8",
+          "bytes": 6310
         }
       ],
-      "sealed_at": "2026-09-13T08:44:15.244Z"
+      "sealed_at": "2026-09-13T09:24:11.675Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -174,5 +174,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-13T08:44:15.251Z"
+  "updated_at": "2026-09-13T09:24:11.679Z"
 }

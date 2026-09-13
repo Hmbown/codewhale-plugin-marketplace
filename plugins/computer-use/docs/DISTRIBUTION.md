@@ -1,11 +1,18 @@
 # macOS distribution
 
+**Status:** no release has been published from this repository yet. The
+latest-release endpoint answers 404 to anonymous requests, the setup page
+reports the download as pending, and the app's **Check for updates…** reports
+that no stable installer has been published. The procedure below is how the
+first release will be produced; it is not evidence that one exists.
+
 The public entry point is [codewhale.net/computer-use](https://codewhale.net/computer-use).
-The plugin marketplace links there; GitHub Releases stores the versioned files.
-The website resolves the latest stable release and offers a download only when
-`release.json` confirms notarization and matches the archive name, platform,
-architecture, size, and GitHub SHA-256 asset digest. Missing qualification leaves
-the download pending; a network failure reports that availability is unknown.
+The plugin marketplace links there; this repository's GitHub Releases stores
+the versioned files. The website resolves the latest stable release and offers
+a download only when `release.json` confirms notarization and matches the
+archive name, platform, architecture, size, and GitHub SHA-256 asset digest.
+Missing qualification leaves the download pending; a network failure reports
+that availability is unknown.
 
 The standalone download carries its native launcher, accessibility helper,
 practice app and Node 24.21.0 for Apple silicon and Intel. It requires macOS
@@ -38,7 +45,8 @@ not produce a release archive. Keep `notarization.json`, `release.json` and
 
 The archive is named `Codewhale-Computer-Use-VERSION-macos-universal.zip`.
 Publish the archive, `SHA256SUMS.txt`, and `release.json` together with a stable
-`vVERSION` release in the canonical repository after qualification. Keep the
+`vVERSION` release in this repository after every applicable gate in
+[the release checklist](RELEASE_CHECKLIST.md) has a recorded result. Keep the
 release draft until all three assets have uploaded. The website refreshes
 availability within five minutes of publication; no hard-coded website version
 needs to change. Packaging does not tag, publish, or change
@@ -56,7 +64,8 @@ previous bundle. A self-contained bundle is copied without changing its
 notarized resource seal. Developer builds without bundled Node pin the local
 runtime and are signed again before installation.
 
-**Check for updates…** contacts the canonical repository only when clicked.
+**Check for updates…** contacts this repository's GitHub Releases only when
+clicked.
 The updater offers stable, newer versions with an exact asset name and a
 [GitHub SHA-256 asset digest](https://docs.github.com/en/rest/releases/assets).
 Choosing **Install VERSION…** downloads a bounded archive, validates its

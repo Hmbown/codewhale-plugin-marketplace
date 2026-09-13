@@ -6,68 +6,79 @@ publishable when every applicable row has a recorded result. Steps marked
 
 Release commit: `<sha>` — date: `<date>` — operator: `<name>`
 
-## 0.3.0 macOS qualification — 2026-09-13 UTC
+## Qualification record
+
+No release has been published from this repository. The records below come
+from one maintainer Mac (arm64, Retina) and are kept as evidence, not as a
+publication verdict.
+
+### 0.3.1 — macOS beta candidate, unpublished
+
+- Source suite: **240 passed, 0 failed, 15 platform skips**. The hosted CI
+  workflow runs the same suite and the receipt hygiene check on macOS and
+  Ubuntu runners.
+- Signed native build: the menu-bar owner crash and reopen check passed with
+  isolated state. The human-control fixture has request deadlines,
+  channel-error handling and bounded teardown; its focused checks pass on
+  macOS. Windows execution remains unqualified.
+- Updater apply: the notarized 0.3.1 build replaced an installed notarized
+  0.3.0 app through the real apply step. The previous bundle was retained, the
+  helper restarted with controls stopped, and all 33 runtime files plus the 3
+  native executables in the installed bundle matched the build.
+- Open gates: clean-machine install with fresh Accessibility and Screen
+  Recording grants; a model-driven task through an installed Codewhale Engine;
+  the non-admin Applications-directory update scenario.
+
+### 0.3.0 — notarized locally, never published
 
 The whale identity, native setup panel, permission actions, background check,
-human Pause/Stop, bundled Node and verified-update path are implemented.
-Local source tests: **237 passed, 0 failed, 15 platform skips** (252 total).
-The human-control fixture has request deadlines, channel-error handling and
-bounded teardown; its 11 focused checks pass on macOS. Windows execution
-remains unqualified and was not rerun for these fixes.
-The owned practice workflow verified the edit, Apply result and app screenshot;
-720 samples recorded zero foreground-app changes and zero pointer changes.
-The installed setup-panel trial also verified edit/capture, but reported
-background isolation as inconclusive when movement occurred. Both outcomes
-are retained; see [the reproducible demo](DEMO.md).
+human Pause/Stop, bundled Node and verified-update path were implemented here.
+The universal macOS archive was Developer ID signed and **Apple notarization
+was accepted**; stapling, signature verification and Gatekeeper assessment
+passed. The archive name, size, digest and notary submission are recorded in
+[releases/0.3.0.json](releases/0.3.0.json). Verification accepts the notarized
+Codewhale app and rejects a differently signed app.
 
-The universal macOS app is Developer ID signed and **Apple notarization was
-accepted** for submission `652ab09d-6dc6-4f7a-b4f6-b3058d709df2`. Stapling,
-signature verification and Gatekeeper assessment pass. The runtime includes
-the inline-code-signing-requirement correction from `6d1b2d8`; verification
-accepts the notarized Codewhale app and rejects a differently signed app.
-
-Qualified archive: `Codewhale-Computer-Use-0.3.0-macos-universal.zip`,
-79,719,093 bytes, SHA-256
-`f0a3d2b9365370578746729a493a6c0ac3d08a7b64947c0b66bc579003084952`.
-Publication is a separate action recorded by the GitHub release. A
-clean-machine update, fresh permission grants and a model-driven task are
-still separate acceptance gates.
+The owned practice workflow verified the edit, Apply result and app
+screenshot; 720 samples recorded zero foreground-app changes and zero pointer
+changes. The installed setup-panel trial also verified edit/capture but
+reported background isolation as inconclusive when movement occurred. Both
+outcomes are retained; see [the reproducible demo](DEMO.md).
 
 The installed notarized helper also passed the two-trial MCP check: 173
 samples without foreground/pointer interference, then 212 samples around a
 deliberate app switch during held input. The original target received key-up
 after the switch; the decoy's contents/input counters and the pointer stayed
-unchanged, with no focus reclaim. The standalone observer now services the
-NSWorkspace run loop so foreground changes are live. Earlier watch-probe
-receipts without that fix are superseded; the practice app's own timer-based
-demo above is separate. See [the opt-in command](DEMO.md#verify-an-installed-helper-through-mcp).
+unchanged, with no focus reclaim. The standalone observer services the
+NSWorkspace run loop so foreground changes are live; earlier watch-probe
+receipts without that fix are superseded. See
+[the opt-in command](DEMO.md#verify-an-installed-helper-through-mcp).
+
+### Earlier development candidate (0.2.1)
+
+- macOS repeated tasks: broad 26-task run 129/130; corrected dynamic fixture
+  5/5; file upload 5/5; all three runs preserved in the matrix.
+- Native and public-browser comparisons: 5/5 on each tool surface for each
+  named workflow; different response shapes and browser engines, so no general
+  speed or full parity claim.
+- Installed helper: session protocol 2, Developer ID identity and hardened
+  runtime verified; existing Accessibility and screen capture grants retained
+  across a signed reinstall.
+- Gatekeeper rejected that candidate; it had no notarization acceptance.
+- Text observations: saved app-state payload 67% smaller with all app nodes
+  and nonempty values retained. Local OCR passed on a generated image and a
+  real background app-window capture, with no remote inference.
+- Codewhale's built-in plugin review, trust, enable and task navigation were
+  observed in a packaged internal build; a release-host model-triggered
+  look/act/verify turn remains open.
+- Non-Retina/mixed displays, Windows, Wayland, HarmonyOS, SSH and fresh
+  external MCP hosts remain explicitly unqualified.
 
 Use [the distribution workflow](DISTRIBUTION.md) to qualify the exact signed
 bundle with an existing Apple notary Keychain profile. Do not describe a
-signed local installation as a notarized public release.
-
-## Local candidate qualification — 2026-09-07
-
-Execution and skill source: `6657399` (local commit, not a published release).
-Harness/documentation changes are recorded separately in git. Public release
-remains blocked until the applicable device, host and artifact gates below pass.
-
-| evidence | result |
-|---|---|
-| `npm test` | 136 passed, 0 failed, 0 skipped; `check:web` is not defined in this standalone package |
-| macOS repeated tasks | broad 26-task run 129/130; corrected dynamic fixture 5/5; file upload 5/5; all three runs preserved in the matrix |
-| Native and public-browser comparisons | 5/5 on each tool surface for each named workflow; different response shapes/browser engines, no general speed or full parity claim |
-| Installed helper | version 0.2.1, session protocol 2, Developer ID identity and hardened runtime verified; existing Accessibility and screen capture grants retained |
-| Gatekeeper / notarization | Gatekeeper rejected the candidate; no notarization acceptance or public installer qualification; bundle verifier exits nonzero |
-| Text observations | saved app-state payload 67% smaller, all app nodes and nonempty values retained; semantic targets remain validated against full cached state |
-| Local OCR | generated-image recognition and a real background Codewhale app-window capture passed; recognized text and confidence are explicit; no remote inference |
-| App inclusion | packaged Dogfood app with bundled Node and embedded Engine helper; actual folder selection, built-in review, trust, enable and Start a task navigation observed |
-| Engine model turn | release-host model-triggered look/act/verify remains open; tool listing and direct MCP calls are separate proofs |
-| Release pairing | production App still requires its exact published Engine version and manifest; local candidate overrides are Dogfood-only |
-| Other devices and hosts | non-Retina/mixed displays, Windows, Wayland, HarmonyOS, SSH and fresh external MCP hosts remain explicitly unqualified |
-
-Track remaining acceptance in GitHub issues #1–8 and the linked Engine/App
-issues. No private screenshots or raw desktop receipts belong in a public issue.
+signed local installation as a notarized public release. Track remaining
+acceptance in this repository's issues; no private screenshots or raw desktop
+receipts belong in a public issue.
 
 ## 1. Automated verification (all hosts that release)
 
@@ -87,6 +98,7 @@ issues. No private screenshots or raw desktop receipts belong in a public issue.
 |---|---|---|
 | Build app bundle | `npm run build:app` | |
 | Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | |
+| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | `dist/release/release.json` reports `notarized: true` |
 
 ## 3. Permission flow (manual on macOS)
 
@@ -95,13 +107,16 @@ issues. No private screenshots or raw desktop receipts belong in a public issue.
 | Clean install: install app, connect host, `request_access` shows Accessibility + Screen Recording granted to the app | |
 | Upgrade: rebuild/reinstall over a granted install, verify TCC grants persist for the same bundle identity | |
 | Revoke + re-grant: remove grants in System Settings, verify `request_access` reports them missing and the next call fails closed | |
+| Notarized update: **Check for updates…** installs the published release, keeps the previous bundle, restarts with controls stopped | |
+| Model-driven task: a Codewhale Engine task observes, acts and verifies through the installed helper | |
 
 ## 4. Cross-references
 
-- Issues covered by this release: #1 (reproducible parity evidence), #2
-  (coordinate/element targeting), #3 (input fidelity), #4 (raster binding),
-  #5 (cancellation/stop), #6 (permission probe + fail-closed), #7 (this
-  checklist), #8 (docs).
+- The `issue` tags in `parity/tasks.json` group acceptance themes: #1
+  reproducible parity evidence, #2 coordinate/element targeting, #3 input
+  fidelity, #4 raster binding, #5 cancellation/stop, #6 permission probe and
+  fail-closed behaviour, #7 this checklist, #8 documentation. They are theme
+  labels, not links to issues in this repository.
 - Matrix: `docs/PARITY_MATRIX.md` — every "untested" platform row must also
   appear in `docs/LIMITATIONS.md`.
 - Suite usage: `docs/PARITY.md`.
@@ -113,7 +128,7 @@ issues. No private screenshots or raw desktop receipts belong in a public issue.
 
 ---
 
-## Filled example — commit `9e6fd39` (this branch, linux-x11 host)
+## Filled example — a pre-publication linux-x11 run
 
 | step | result |
 |---|---|

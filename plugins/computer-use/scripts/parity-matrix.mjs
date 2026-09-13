@@ -229,6 +229,6 @@ lines.push("");
 
 const md = path.join(outputRoot, "docs", "PARITY_MATRIX.md");
 fs.mkdirSync(path.dirname(md), { recursive: true });
-fs.writeFileSync(md, lines.join("\n") + "\n");
+fs.writeFileSync(md, lines.join("\n").trimEnd() + "\n");
 console.log(`wrote ${md}`);
 for (const s of summaries) console.log(`wrote ${s}`);

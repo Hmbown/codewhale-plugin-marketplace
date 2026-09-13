@@ -38,16 +38,23 @@ resume the helper through MCP or operate its own safety panel.
 | Run background check is disabled | Grant both permissions, allow control and wait for the current action to finish. |
 | Check is inconclusive | Keep the pointer still and stay in the same app for the next check. The previous trial is not counted as passing isolation. |
 | Helper unavailable | Open Computer Use from Applications. Check its panel and log. Reinstall if its path no longer exists. The client will not bypass an installed helper. |
-| The menu icon disappeared and reopening 0.3.0 does nothing | Quit the orphaned Computer Use helper in Activity Monitor, then reopen the app and allow new sessions yourself. The 0.3.1 source candidate fixes this recovery path; it is not yet a published app update. |
+| The menu icon disappeared and reopening a 0.3.0 build does nothing | Quit the orphaned Computer Use helper in Activity Monitor, then reopen the app and allow new sessions yourself. Builds from 0.3.1 source retire the helper and recover on reopen; no published app update carries this fix yet. |
 | App needs shared pointer input | Prefer an advertised accessibility action. Otherwise explicitly authorize foreground use or choose a separate computer. |
-| No stable installer available | A release has not yet published a verified macOS download. This is distinct from being on the newest source commit. |
+| No stable installer available | No verified macOS download has been published yet; this is expected during the beta. Build and install from source, or wait for the first GitHub release. Being on the newest source commit is not the same as having a published app. |
 | Update verification failed | Keep using the installed version. Recheck later; do not disable signature or notarization checks. |
-| An update stopped computer sessions | Read the update result in the panel, resolve any installation error and choose Allow new sessions when ready. Updates never resume stopped input automatically. Showing the apply result after relaunch requires the 0.3.1 app candidate. |
+| An update stopped computer sessions | Read the update result in the panel, resolve any installation error and choose Allow new sessions when ready. Updates never resume stopped input automatically. Builds from 0.3.1 source show the apply result after relaunch. |
 
 App log: `~/Library/Logs/Codewhale Computer Use/app.log`.
 Update log: `~/Library/Logs/Codewhale Computer Use/update.log`.
-When reporting an issue, include the version, macOS version, the failed action
-and the error text. Remove private app contents and credentials from logs.
+
+## Getting help
+
+Open an issue at
+[github.com/Hmbown/codewhale-cu-plugin/issues](https://github.com/Hmbown/codewhale-cu-plugin/issues)
+with the plugin version, macOS version, the failed action and the error text.
+Remove private app contents, document text and credentials from any log
+excerpt. For a suspected vulnerability, follow [SECURITY.md](../SECURITY.md)
+instead of filing a public issue. Support is best-effort during the beta.
 
 ## Roll back
 

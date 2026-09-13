@@ -39,7 +39,7 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 | HarmonyOS (hdc) | code-complete, no receipts (no device) |
 | SSH remote | experimental one-shot transport; no remote device receipts; see session limitation below |
 | Codex / Claude Desktop host registration | full registration/restart flow untested; one native Codex editing baseline is recorded below |
-| signed-update permission persistence | demonstrated — Developer-ID-signed reinstall over a granted install keeps grants (receipt `macos-1788754241429`); notarized-release upgrade path still open |
+| signed-update permission persistence | demonstrated — a Developer-ID-signed reinstall over a granted install kept its grants, and a notarized 0.3.0 → 0.3.1 update applied on the same Mac; a clean-machine install with fresh grants is still open |
 
 **The Linux X11 rows in the matrix predate this repo's parity-runner refactor.**
 `scripts/parity-run.mjs` was split into a platform-neutral engine plus
@@ -321,13 +321,14 @@ every install and lose them (the build prints a warning when this happens).
 
 `install:app` stops a running daemon before launching the new bundle. A daemon
 that is already up keeps the modules it loaded at start, so leaving it running
-made every later check report the *previous* build's behaviour — which is how
-one round of macOS receipts in this repo's history was produced against stale
-code.
+makes every later check report the *previous* build's behaviour — which is how
+one round of development receipts was once produced against stale code.
 
 Demonstrated 2026-09-06 (arm64, macOS): after a one-time grant, killing the
-daemon and reinstalling a Developer-ID-signed bundle (team 5RDNSHA5TY) over
-the granted install kept `probe.permissions.accessibility === "granted"`
-with no System Settings action — the full `scripts/verify-macos.mjs` run
-passed immediately after reinstall (receipt `macos-1788754241429`). Not
-covered: the notarized public-release upgrade path.
+daemon and reinstalling a Developer-ID-signed bundle over the granted install
+kept `probe.permissions.accessibility === "granted"` with no System Settings
+action — the full `scripts/verify-macos.mjs` run passed immediately after
+reinstall. The updater's apply path later replaced an installed notarized
+0.3.0 with a notarized 0.3.1 build on the same Mac. Not covered: a
+clean-machine install with fresh grants, and an update installed from a
+published GitHub release, since none has been published.

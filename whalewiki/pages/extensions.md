@@ -7,14 +7,14 @@ capabilities or establish a service login.
 
 Computer Use source 0.3.1 includes owner-recovery and update-status fixes, and
 the marketplace currently enables it on macOS only. Windows and Linux remain
-development backends. The
-[official download and setup page](https://codewhale.net/computer-use) links
-to qualified GitHub release assets. The native macOS helper provides
-permission setup, a background check, human
-Pause/Stop and on-demand verified updates. Its universal Mac archive has
-passed Apple notarization, stapling and Gatekeeper; the versioned receipt
-records its size, digest and accepted submission. That published app remains
-0.3.0; the new source candidate still needs a newly qualified app release.
+experimental source-only backends. The
+[official setup page](https://codewhale.net/computer-use) will offer a download
+when a qualified signed release is published. The native macOS helper provides
+permission setup, a background check, human Pause/Stop and on-demand verified
+updates. A notarized 0.3.1 candidate passed local owner-recovery and update
+checks; no signed app download has been released publicly. Clean-machine and
+installed-Engine qualification remain open. The source repository starts with
+a clean initial commit and preserves the MIT license and attribution.
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
 
@@ -62,5 +62,5 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
 - `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
 - `package.json`: executable repository gates.
-- `plugins/computer-use/docs/releases/0.3.0.json`: exact qualified Mac archive receipt.
+- `plugins/computer-use/docs/releases/0.3.0.json`: notarization receipt for an unpublished development archive.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
