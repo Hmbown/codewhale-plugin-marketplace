@@ -15,7 +15,7 @@ open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
 | Job | Start here | What is available |
 | --- | --- | --- |
 | Understand and maintain a repository wiki | [WhaleWiki](plugins/whalewiki/README.md) | Source and page seals, freshness checks, five read tools, searchable offline reader |
-| Operate a computer | [Computer Use](https://codewhale.net/computer-use) | Marketplace source is v0.4.0 (Return keys, filtered state, app-scoped clicks). The notarized Mac download remains v0.3.1 until the next signed release ([GitHub Releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)); [source and platform support](plugins/computer-use/README.md) |
+| Operate a computer | [Computer Use](https://codewhale.net/computer-use) | v0.4.0: Return keys, filtered state, app-scoped clicks. The notarized Mac app is published as the [v0.4.0 GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.4.0); [source and platform support](plugins/computer-use/README.md) |
 | Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
 | Add workflows to an agent | [Skills](skills/) | Codewhale's bundled skills as one reviewed plugin |
 | Connect Linear, GitHub or another service | [Connections](docs/CONNECTIONS.md) | Official endpoints and honest setup/qualification status; no empty connector plugins |

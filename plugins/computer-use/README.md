@@ -58,11 +58,19 @@ existing Engine authority before the model can use it.
 
 ## Verification status
 
-**Source (this snapshot).** `npm test` on macOS: 240 passed, 0 failed,
+**Source (this snapshot).** `npm test` on macOS: 245 passed, 0 failed,
 15 platform skips. The GitHub Actions workflow runs the same suite plus the
 receipt hygiene check on macOS and Ubuntu runners. Source tests exercise the
 protocol, routing, session and injected-runner paths; they perform no native
 input and do not qualify a distributed app.
+
+**Native macOS 0.4.0 (one maintainer Mac, arm64).** The 0.4.0 universal
+app was Developer ID signed and Apple-notarized from commit `249ae77`, then
+installed over the notarized 0.3.1 app on the maintainer Mac; the packaging
+facts are in [docs/releases/0.4.0.json](docs/releases/0.4.0.json). The AX
+primitives it adds (Return from `type`, filtered `get_app_state`, `focus`,
+`get_value`, `strategy:"app"`) are covered by the source suite; their native
+qualification on an installed build is still open.
 
 **Native macOS 0.3.1 (one maintainer Mac, arm64).** An earlier signed
 0.3.1 candidate passed the menu-bar owner crash and reopen check with

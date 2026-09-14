@@ -4,13 +4,44 @@ Keyed to the release commit. Fill in results as steps run; a release is only
 publishable when every applicable row has a recorded result. Steps marked
 **human-only** are never performed by scripts.
 
-Release commit: `9f6c39f738c0d8e8dcc93af11af5e00d19081b60` — date: `2026-09-13` — operator: `Hunter Bown (build and packaging run by Claude Fable 5.1)`
+Release commit: `249ae77fad9162c2af11d5460d91b2b5b909c06c` — date: `2026-09-13` — operator: `Hunter Bown (build and packaging run by Claude Fable 5.1)`
 
 ## Qualification record
 
 Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
+
+### 0.4.0 — macOS beta
+
+- Source suite at commit `249ae77fad9162c2af11d5460d91b2b5b909c06c`:
+  **245 passed, 0 failed, 15 platform skips**. The hosted CI workflow runs the
+  same suite and the receipt hygiene check on macOS and Ubuntu runners.
+- Public build: produced 2026-09-13 from that commit on clean `main`. Signed
+  with "Developer ID Application: Hunter Bown (5RDNSHA5TY)" under the hardened
+  runtime; universal (arm64 and x86_64); bundled Node 24.21.0; macOS 13.5+.
+  The build scripts ran with Node v25.8.0 on the maintainer Mac, while CI pins
+  Node 22.
+- Notarization: submission `08f574c9-e4d7-4ff7-b7e1-431136fd4262` Accepted;
+  ticket stapled; `codesign --verify --deep --strict` ok; `spctl` accepted with
+  source "Notarized Developer ID". Receipt:
+  [releases/0.4.0.json](releases/0.4.0.json).
+- Archive: `Codewhale-Computer-Use-0.4.0-macos-universal.zip`, 79,725,412
+  bytes, SHA-256
+  `753565134e9fa36ac1435b64af0613d4df8195503bad56b93c80fdee0df6a637`.
+- Disk image: `Codewhale-Computer-Use-0.4.0-macos-universal.dmg`, 88,254,027
+  bytes, SHA-256
+  `3ee12be851a9f7a2feb43fa55eea0abbd5ea9ffc83472b20ccb2d0dab7aae4d8`;
+  submission `0416455e-1798-4397-b0d0-c9b1bf5cb8dd` Accepted, stapled,
+  `spctl --type open` accepted.
+- Local install: the notarized 0.4.0 app was installed over the notarized
+  0.3.1 app in the maintainer's `~/Applications` through `install-app.mjs`;
+  Gatekeeper assessed the installed bundle as Notarized Developer ID.
+- Open gates, carried forward from 0.3.1 and recorded as open: clean-machine
+  install with fresh Accessibility and Screen Recording grants; a model-driven
+  task through an installed Codewhale Engine; the non-admin
+  Applications-directory update; the real post-publication
+  **Check for updates…** path from an installed older notarized build.
 
 ### 0.3.1 — macOS beta
 
@@ -100,7 +131,7 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Unit tests | `npm test` | 9f6c39f on macOS: 240 passed, 0 failed, 15 platform skips |
+| Unit tests | `npm test` | 249ae77 on macOS: 245 passed, 0 failed, 15 platform skips |
 | Parity suite | `npm run parity` (each supported platform) | run dir recorded below |
 | Parity suite, isolated | `npm run parity -- --isolated` | run dir recorded below |
 | Matrix regenerated | `npm run parity:matrix -- --run <dir> [--run <dir>...]` | `docs/PARITY_MATRIX.md` current |
@@ -112,10 +143,10 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | 9f6c39f: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
-| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | 9f6c39f: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
-| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | 9f6c39f: notarized:true, submission 769ff14d-ee5c-4db5-a3b9-f733c2743e6e Accepted, stapled; archive 79,720,031 bytes, sha256 76752d33fff60d62b5445452e5a7f21396eb5aace6dbf632fc2a172f75e4720a |
-| Disk image | `node scripts/package-dmg.mjs --notary-profile <profile>` | 9f6c39f app, 2026-09-13: dmgbuild layout (app, Applications shortcut, branded background), Developer ID signed, submission a24464ec-f3ed-4670-b873-fcacb8a1bef3 Accepted, stapled, `spctl --type open` accepted (Notarized Developer ID), mounted contents verified; 88,246,026 bytes, sha256 91491faa6d44b8e4b52113fea1831c07c402fdd8f673323c8125468d0d89be3a |
+| Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | 249ae77: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
+| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | 249ae77: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
+| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | 249ae77: notarized:true, submission 08f574c9-e4d7-4ff7-b7e1-431136fd4262 Accepted, stapled; archive 79,725,412 bytes, sha256 753565134e9fa36ac1435b64af0613d4df8195503bad56b93c80fdee0df6a637 |
+| Disk image | `node scripts/package-dmg.mjs --notary-profile <profile>` | 249ae77 app, 2026-09-13: dmgbuild layout (app, Applications shortcut, branded background), Developer ID signed, submission 0416455e-1798-4397-b0d0-c9b1bf5cb8dd Accepted, stapled, `spctl --type open` accepted (Notarized Developer ID), mounted contents verified; 88,254,027 bytes, sha256 3ee12be851a9f7a2feb43fa55eea0abbd5ea9ffc83472b20ccb2d0dab7aae4d8 |
 
 ## 3. Permission flow (manual on macOS)
 
@@ -141,6 +172,7 @@ receipts belong in a public issue.
 
 - [x] **Repository visibility change** — public since 2026-09-13 (human).
 - [x] **Publish release** — v0.3.1 published 2026-09-13 by Hunter Bown (human); tag on `44bf9fcde4bebacf3d69d03d08972ba02b0d1bc5`; anonymous download verified (size 79,720,031, SHA-256 match, Gatekeeper accepted as Notarized Developer ID, stapled ticket valid).
+- [x] **Publish release** — v0.4.0 published 2026-09-13 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Fable 5.1 from the human's authenticated `gh` session); tag on `e03e206b50ca5e52e72042e126d7afd08e85d49e`; GitHub's asset digests match the receipt (zip 753565134e9f…, dmg 3ee12be851a9…); anonymous download of `release.json` verified.
 
 ---
 

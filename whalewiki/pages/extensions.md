@@ -5,12 +5,14 @@ Cloudflare docs and the bundled Codewhale skills. The catalog declares their
 relative sources and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.3.1 includes owner-recovery and update-status fixes, and
-the marketplace currently enables it on macOS only. Windows and Linux remain
-experimental source-only backends. The native macOS helper provides
-permission setup, a background check, human Pause/Stop and on-demand verified
-updates. A Developer ID-signed, notarized 0.3.1 macOS build exists with its
-packaging receipt in `plugins/computer-use/docs/releases/0.3.1.json`; the
+Computer Use source 0.4.0 adds Return/Enter from `type`, a filtered and
+paginated `get_app_state`, `focus` and `get_value`, and an `app` click
+strategy scoped to the bound app's window; the marketplace enables it on
+macOS only. Windows and Linux remain experimental source-only backends. The
+native macOS helper provides permission setup, a background check, human
+Pause/Stop and on-demand verified updates. The Developer ID-signed, notarized
+0.4.0 macOS build is published as the v0.4.0 GitHub release, with its
+packaging receipt in `plugins/computer-use/docs/releases/0.4.0.json`; the
 [official setup page](https://codewhale.net/computer-use) reports whether the
 download is available, and the
 [Computer Use CHANGELOG](../../plugins/computer-use/CHANGELOG.md) records the
@@ -67,6 +69,6 @@ handoff and inspect the current validation receipt before publication.
 - `package.json`: executable repository gates.
 - `plugins/computer-use/docs/DISTRIBUTION.md`: build, notarization and website qualification procedure.
 - `plugins/computer-use/docs/RELEASE_CHECKLIST.md`: qualification record and the human-only publication steps.
-- `plugins/computer-use/docs/releases/0.3.1.json`: packaging and notarization receipt for the signed 0.3.1 macOS build.
+- `plugins/computer-use/docs/releases/0.4.0.json`: packaging and notarization receipt for the signed 0.4.0 macOS build.
 - `plugins/computer-use/CHANGELOG.md`: release record and open qualification gates.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
