@@ -1,5 +1,33 @@
 # Release notes
 
+## 0.4.0 — AX primitives
+
+The session that tried to send a WeChat message could not press Return, could
+not read a truncated tree, and had no click path for a non-AXPressable
+control. This version adds those primitives without weakening the
+shared-pointer gate.
+
+- `type` treats newlines and `press_enter` as Return/Enter instead of
+  inserting a literal character (the WeChat composer U+FFFC failure).
+- `key` remains the named key-press tool (`return`, `backspace`, chords).
+- `get_app_state` filters (`query`, `role`), paginates (`limit`, `offset`),
+  and truncates oversized dumps instead of eating the middle of the JSON.
+  `detail:"compact"` is actually smaller. `find_elements` searches a cached
+  `state_id`.
+- `focus` and `get_value` act on observed elements; text-field values stay
+  in the state dump.
+- Accessibility clicks will focus a field that exposes AXFocused even when
+  it is not AXPressable (Qt search boxes).
+- `strategy:"app"` is the missing middle: a pointer event allowed only when
+  the point is inside the bound app's window, then the cursor is restored.
+  `strategy:"event"` still requires shared-desktop authorization.
+- Coordinate targets accept `space:"screen"` so AX screen points do not need
+  a hand conversion through the latest raster.
+- `ocr_region` limits OCR to a screen rect. `run_actions` batches up to 8
+  steps.
+- Receipts no longer tell the model to use tools that are not in this
+  catalog.
+
 0.3.1 is the first public macOS build: a Developer ID-signed, notarized universal app built from commit 9f6c39f738c0d8e8dcc93af11af5e00d19081b60, with its packaging receipt in [docs/releases/0.3.1.json](docs/releases/0.3.1.json). It was published on 2026-09-13 as the [v0.3.1 GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.3.1); the setup page at https://codewhale.net/computer-use offers the download. Earlier versions were developed privately; their notes are kept below for context.
 
 ## 0.3.1 — macOS beta

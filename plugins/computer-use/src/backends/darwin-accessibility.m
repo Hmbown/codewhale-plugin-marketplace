@@ -232,6 +232,10 @@ static NSString *cuClickAction(AXUIElementRef el, BOOL context) {
   if([actions containsObject:@"AXPress"]) return @"AXPress";
   if([role isEqual:@"AXMenuItem"] && [actions containsObject:@"AXPick"]) return @"AXPick";
   if([@[@"AXRow",@"AXCell"] containsObject:role] && cuSettable(el,@"AXSelected")) return @"AXSelected";
+  // Qt and other custom composers often expose AXFocused without AXTextField
+  // or AXPress. Focusing is the missing middle between "not pressable" and
+  // a global pointer click.
+  if(cuSettable(el,@"AXFocused")) return @"AXFocused";
   return nil;
 }
 static NSDictionary *cuClick(AXUIElementRef el, BOOL context) {
@@ -457,10 +461,10 @@ static NSDictionary *windowAtPoint(NSArray *windows, CGPoint p) {
 
 static id execute(NSDictionary *p) {
   NSString *tool=p[@"tool"]; NSDictionary *args=p[@"args"]?:@{};
-  if([tool isEqual:@"pointer_sequence"] && ![args[@"foreground_input"] boolValue])
-    @throw [NSException exceptionWithName:@"shared_pointer_required" reason:@"shared macOS pointer input is unavailable in background mode; use an accessibility action or a separate computer" userInfo:nil];
+  if([tool isEqual:@"pointer_sequence"] && ![args[@"foreground_input"] boolValue] && ![args[@"app_scoped"] boolValue])
+    @throw [NSException exceptionWithName:@"shared_pointer_required" reason:@"shared macOS pointer input is unavailable in background mode; use an accessibility action, strategy 'app' for a click inside the bound window, or a separate computer" userInfo:nil];
   cuOwnerPipe=[args[@"owner_pipe"] boolValue];
-  BOOL mutates=[@[@"type",@"key_event",@"mouse_event",@"scroll",@"pointer_sequence",@"release_input",@"set_value",@"select_text",@"perform_action",@"click_element",@"scroll_element"] containsObject:tool]
+  BOOL mutates=[@[@"type",@"key_event",@"mouse_event",@"scroll",@"pointer_sequence",@"release_input",@"set_value",@"focus_element",@"select_text",@"perform_action",@"click_element",@"scroll_element"] containsObject:tool]
     || ([tool isEqual:@"hit_test"] && [args[@"perform"] boolValue])
     || ([tool isEqual:@"app_info"] && [args[@"activate"] boolValue]);
   if([tool isEqual:@"release_input"]) {
@@ -707,7 +711,9 @@ static id execute(NSDictionary *p) {
     cuCheckCancelled();
     // Activation is a separate, explicit operation. A stale foreground mode
     // must never reclaim focus after the user has switched applications.
-    cuRequireForeground(inputApp);
+    // App-scoped clicks stay inside the bound window and do not steal the
+    // foreground; they still move the real cursor and restore it.
+    if([args[@"foreground_input"] boolValue]) cuRequireForeground(inputApp);
     // AppKit only assembles a drag out of events that look like they came from
     // the input hardware; a NULL-source stream delivers down and up but drops
     // every mouseDragged in between.
@@ -715,7 +721,7 @@ static id execute(NSDictionary *p) {
     BOOL held[3]={NO,NO,NO};
     CGPoint last=home;
     for(NSDictionary *step in args[@"steps"]) {
-      @try { cuCheckCancelled(); cuRequireForeground(inputApp); } @catch(NSException *e) { cuCancelled=1; break; }
+      @try { cuCheckCancelled(); if([args[@"foreground_input"] boolValue]) cuRequireForeground(inputApp); } @catch(NSException *e) { cuCancelled=1; break; }
       CGEventRef event;
       if(step[@"scroll"]) {
         NSArray *d=step[@"scroll"];
@@ -808,11 +814,23 @@ static id execute(NSDictionary *p) {
     if([tool isEqual:@"click_element"]) return cuClick((__bridge AXUIElementRef)el,[args[@"context"] boolValue]);
     if([tool isEqual:@"scroll_element"]) return cuScroll((__bridge AXUIElementRef)el,args);
     AXError e=kAXErrorFailure;
+    if([tool isEqual:@"get_value"]) {
+      id v=attr((__bridge AXUIElementRef)el,@"AXValue");
+      return @{@"ok":@YES,@"strategy":@"a11y",@"value":v?:[NSNull null],@"role":attr((__bridge AXUIElementRef)el,@"AXRole")?:[NSNull null]};
+    }
     if([tool isEqual:@"set_value"]) e=AXUIElementSetAttributeValue((__bridge AXUIElementRef)el,kAXValueAttribute,(__bridge CFTypeRef)args[@"value"]);
+    else if([tool isEqual:@"focus_element"]) e=AXUIElementSetAttributeValue((__bridge AXUIElementRef)el,kAXFocusedAttribute,kCFBooleanTrue);
     else if([tool isEqual:@"select_text"]){ NSArray *r=args[@"text_range"]?:@[@0,@0]; if(r.count!=2 || [r[0] longValue]<0 || [r[1] longValue]<0) @throw [NSException exceptionWithName:@"range" reason:@"text_range must be [start, length], both nonnegative" userInfo:nil]; CFRange range=CFRangeMake([r[0] longValue],[r[1] longValue]); AXValueRef v=AXValueCreate(kAXValueCFRangeType,&range); e=AXUIElementSetAttributeValue((__bridge AXUIElementRef)el,kAXSelectedTextRangeAttribute,v); CFRelease(v); }
     else if([tool isEqual:@"perform_action"]){ CFArrayRef actions=NULL; AXUIElementCopyActionNames((__bridge AXUIElementRef)el,&actions); NSArray *names=CFBridgingRelease(actions); if(![names containsObject:args[@"action"]]) @throw [NSException exceptionWithName:@"action" reason:@"action is not advertised by this element" userInfo:nil]; cuCheckCancelled(); e=AXUIElementPerformAction((__bridge AXUIElementRef)el,(__bridge CFStringRef)args[@"action"]); }
     if(e!=kAXErrorSuccess) @throw [NSException exceptionWithName:@"action" reason:[NSString stringWithFormat:@"accessibility action failed: %d",e] userInfo:nil];
-    return @{@"action_sent":@YES,@"strategy":@"a11y"};
+    NSMutableDictionary *done=[@{@"action_sent":@YES,@"strategy":@"a11y"} mutableCopy];
+    if([tool isEqual:@"focus_element"]) done[@"focused"]=@YES;
+    if([tool isEqual:@"set_value"]) {
+      id after=attr((__bridge AXUIElementRef)el,@"AXValue");
+      done[@"after"]=after?:[NSNull null];
+      done[@"verified"]=@([after isKindOfClass:NSString.class] && [after isEqual:args[@"value"]]);
+    }
+    return done;
   } @finally { CFRelease(app); }
 }
 int main(int argc, const char **argv){ @autoreleasepool {

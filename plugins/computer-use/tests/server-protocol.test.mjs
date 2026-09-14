@@ -114,7 +114,7 @@ test("tools/list exposes the full frontier surface with valid schemas", async ()
   const names = new Set(tools.map((t) => t.name));
   for (const required of ["screenshot", "zoom", "left_click", "double_click", "triple_click", "right_click", "middle_click",
     "mouse_move", "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll", "type", "key", "hold_key",
-    "set_value", "select_text", "perform_action", "get_app_state", "list_apps", "list_windows", "list_displays",
+    "set_value", "focus", "get_value", "find_elements", "run_actions", "select_text", "perform_action", "get_app_state", "list_apps", "list_windows", "list_displays",
     "switch_display", "open_application", "read_clipboard", "write_clipboard", "cursor_position", "wait",
     "recording_start", "recording_stop", "recording_status", "recording_list",
     "computer_list", "computer_switch", "computer_register", "computer_remove", "request_access", "stop_computer_control"]) {

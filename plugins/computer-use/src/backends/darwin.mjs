@@ -142,7 +142,7 @@ export function create({ exec }) {
   }
 
   async function native(tool, args = {}) {
-    if (tool === "pointer_sequence") requireSharedPointer();
+    if (tool === "pointer_sequence" && !args.app_scoped) requireSharedPointer();
     const helper = await nativeHelper();
     const r = await runL(helper, [JSON.stringify({ tool, args: { ...args, input_app_ref: state.inputApp, foreground_input: state.foregroundInput, owner_pipe: true } })], { timeoutMs: 20_000, ownerPipe: true });
     if (r.aborted || r.timedOut || r.code !== 0) {
@@ -150,7 +150,7 @@ export function create({ exec }) {
       if (r.aborted) error.code = "cancelled";
       // A deterministic native refusal sent no input. A killed/timed-out
       // helper may have posted the press before losing its response.
-      const postsPress = (tool === "key_event" && args.down) || ["type", "perform_action", "click_element", "scroll_element", "set_value", "select_text"].includes(tool) || (tool === "hit_test" && args.perform) || (tool === "pointer_sequence" && args.steps?.some((step) => [1, 3, 25].includes(step.type)));
+      const postsPress = (tool === "key_event" && args.down) || ["type", "perform_action", "click_element", "scroll_element", "set_value", "focus_element", "select_text"].includes(tool) || (tool === "hit_test" && args.perform) || (tool === "pointer_sequence" && args.steps?.some((step) => [1, 3, 25].includes(step.type)));
       error.inputMayHaveBeenSent = postsPress && r.spawned === true && (r.aborted || r.timedOut);
       if (error.inputMayHaveBeenSent) error.message += "; input may already have been sent — observe the target before doing anything else";
       throw error;
@@ -266,7 +266,7 @@ export function create({ exec }) {
    */
   async function pointerClick(button, x, y, clicks, strategy = "auto") {
     assertInScreen(x, y);
-    if (!["auto", "a11y", "event"].includes(strategy)) throw new ExecError(`strategy must be auto, a11y or event (got ${JSON.stringify(strategy)})`);
+    if (!["auto", "a11y", "event", "app"].includes(strategy)) throw new ExecError(`strategy must be auto, a11y, app or event (got ${JSON.stringify(strategy)})`);
     let a11yReason = null;
     if (strategy !== "event" && ["left", "right"].includes(button) && clicks === 1) {
       if (button === "right") await requireBackgroundActions();
@@ -277,10 +277,24 @@ export function create({ exec }) {
       }
       a11yReason = hit?.reason ?? "not_found";
       if (strategy === "a11y") {
-        throw new ExecError(`no supported accessibility click at (${x}, ${y}) in the bound application (${a11yReason}) — observe the available actions or use a separate computer`);
+        throw new ExecError(`no supported accessibility click at (${x}, ${y}) in the bound application (${a11yReason}) — observe the available actions, use strategy "app" for a window-scoped pointer click, or a separate computer`);
       }
     } else if (strategy === "a11y") {
       throw new ExecError(`strategy "a11y" is only available for a left single click on this backend; ${mouseName(button)} x${clicks} has no accessibility equivalent`);
+    }
+    if (strategy === "app" || (strategy === "auto" && !state.foregroundInput)) {
+      if (strategy !== "app") {
+        // auto in background still fails closed for raw pointer; app is the
+        // explicit missing middle.
+        requireSharedPointer();
+      }
+      const owner = await assertOwnsPoint(x, y);
+      const r = await native("pointer_sequence", { steps: clickSteps(button, x, y, clicks), restore: true, app_scoped: true });
+      const last = { x, y };
+      state.pointer = last;
+      return { action_sent: true, strategy: "app-pointer", input_scope: "application-window",
+               at: last, button, clicks, window: { id: owner.window_id, owner_pid: owner.owner_pid },
+               ...pointerCost(r), ...(a11yReason ? { a11y_reason: a11yReason } : {}) };
     }
     const r = await gesture(clickSteps(button, x, y, clicks), { restore: true, guard: { x, y } });
     return { action_sent: true, strategy: "event", at: { x, y }, button, clicks, ...pointerCost(r),
@@ -613,7 +627,7 @@ export function create({ exec }) {
     list_apps: listApps,
     list_windows: listWindows,
     open_application: openApplication,
-    get_app_state: async ({ app_ref, detail, depth, window_id, include_ocr = false }) => {
+    get_app_state: async ({ app_ref, detail, depth, window_id, include_ocr = false, ocr_region } = {}) => {
       const t = await native("get_app_state", { app_ref: app_ref === undefined ? state.inputApp ?? undefined : app_ref, detail, window_id });
       if (!t.found) throw new ExecError("application not found — call list_apps for exact names/pids");
       if (include_ocr) {
@@ -630,8 +644,9 @@ export function create({ exec }) {
           const ocrDir = path.join(recordingsDir(), "captures");
           fs.mkdirSync(ocrDir, { recursive: true });
           raster = await screenshot({
-            app_ref: { pid: t.pid, ...(t.bundle_id ? { bundle_id: t.bundle_id } : {}) },
-            window_id,
+            ...(ocr_region
+              ? { region: ocr_region }
+              : { app_ref: { pid: t.pid, ...(t.bundle_id ? { bundle_id: t.bundle_id } : {}) }, window_id }),
             path: path.join(ocrDir, `ocr-${crypto.randomBytes(4).toString("hex")}.png`),
           });
           const ocr = await native("recognize_text", { file: raster.file });
@@ -663,8 +678,8 @@ export function create({ exec }) {
     screenshot,
     zoom,
     left_click: async ({ target, strategy = "auto" }) => {
-      if (target.type !== "element" || strategy === "event") return pointerClick("left", target.x, target.y, 1, strategy);
-      if (!["auto", "a11y"].includes(strategy)) throw new ExecError(`strategy must be auto, a11y or event (got ${JSON.stringify(strategy)})`);
+      if (target.type !== "element" || strategy === "event" || strategy === "app") return pointerClick("left", target.x, target.y, 1, strategy);
+      if (!["auto", "a11y"].includes(strategy)) throw new ExecError(`strategy must be auto, a11y, app or event (got ${JSON.stringify(strategy)})`);
       try {
         assertBoundElement(target);
         if ((await native("input_capabilities"))?.element_identity !== 1) throw new ExecError("native helper needs an update for element identity validation");
@@ -784,6 +799,8 @@ export function create({ exec }) {
       return { action_sent: true, key, keyboard_delivery: state.foregroundInput ? "foreground-guarded" : "process", heldSec: d };
     },
     set_value: (args) => native("set_value", args),
+    focus: (args) => native("focus_element", args),
+    get_value: (args) => native("get_value", args),
     select_text: (args) => native("select_text", args),
     perform_action: (args) => native("perform_action", args),
     read_clipboard: readClipboard,

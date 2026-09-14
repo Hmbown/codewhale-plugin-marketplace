@@ -7,8 +7,8 @@ const computerParam = {
 };
 
 const strategyParam = {
-  enum: ["auto", "a11y", "event"],
-  description: "macOS auto (default): element targets press that exact revalidated element and fail closed, with no coordinate fallback; coordinate targets hit-test the point for an accessibility press, falling back to a guarded raw event. a11y: require an accessibility press and fail closed otherwise. event: force the guarded raw pointer event. Other platforms use raw events. action_sent confirms dispatch, not the effect; observe again before deciding another action.",
+  enum: ["auto", "a11y", "event", "app"],
+  description: "macOS auto (default): element targets press that exact revalidated element and fail closed, with no coordinate fallback; coordinate targets hit-test the point for an accessibility press, including focus of a field that is not AXPressable. a11y: require an accessibility press or focus and fail closed otherwise. app: if accessibility cannot act, post a pointer event only when the point is inside the bound app's window, then restore the cursor — never a global desktop click. event: force the guarded raw pointer event (shared-desktop / activate:true). Other platforms use raw events. action_sent confirms dispatch, not the effect; observe again before deciding another action.",
 };
 
 const targetSchema = {
@@ -30,8 +30,9 @@ const targetSchema = {
       required: ["type", "x", "y"],
       properties: {
         type: { const: "coordinate" },
-        x: { type: "integer", minimum: 0 },
-        y: { type: "integer", minimum: 0 },
+        x: { type: "integer" },
+        y: { type: "integer" },
+        space: { enum: ["raster", "screen"], description: "raster (default): pixels in the latest screenshot/OCR/zoom. screen: absolute screen points; do not convert them yourself." },
       },
       additionalProperties: false,
     },
@@ -122,8 +123,13 @@ export const TOOLS = [
       properties: {
         app_ref: { type: "object", properties: { pid: { type: "integer" }, name: { type: "string" }, bundle_id: { type: "string" } }, additionalProperties: false, description: "macOS accepts PID, name and bundle identity. Linux accepts only a unique exact AT-SPI app name. Windows accepts only a unique exact window title in name (from list_windows.title). HarmonyOS rejects explicit app selectors." },
         window_id: { type: "integer", description: "macOS only: zero-based window index within the app. Other platforms reject this selector." },
-        detail: { enum: ["summary", "compact", "full"], default: "summary", description: "Summary is the concise default; full includes nested menus and internal tree structure. Compact is a compatibility alias for summary." },
-        include_ocr: { type: "boolean", default: false, description: "On macOS, also recognize visible text locally from the selected app window. Requires Screen Recording permission. Returns text, confidence and raster coordinate targets for UI that accessibility cannot read; no vision model is required." },
+        detail: { enum: ["summary", "compact", "full"], default: "summary", description: "Summary is the concise default (controls, values, actions, layout). compact is smaller: same indices, shorter labels, no nested menus. full includes nested menus and tree paths." },
+        query: { type: "string", description: "Case-insensitive substring over label, value and role. Use this instead of downloading the whole tree." },
+        role: { type: "string", description: "Exact accessibility role filter, e.g. AXButton, AXTextField." },
+        limit: { type: "integer", minimum: 1, maximum: 200, description: "Max elements to return after filtering. Prefer this over a second unfiltered dump." },
+        offset: { type: "integer", minimum: 0, description: "Skip this many matching elements (pagination)." },
+        include_ocr: { type: "boolean", default: false, description: "On macOS, also recognize visible text locally from the selected app window. Requires Screen Recording permission. Returns text, confidence and raster coordinate targets for UI that accessibility cannot read; no vision model is required. Do not combine with compact unless you need the blocks." },
+        ocr_region: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[x, y, w, h] in screen points. When include_ocr is true, recognize only this rect instead of the whole window." },
         computer: computerParam,
       },
       additionalProperties: false,
@@ -220,11 +226,11 @@ export const TOOLS = [
   },
   // ---- text & keyboard ----
   {
-    name: "type", description: "Type text into the focused control (unicode). Focus the field first (click/element action). On macOS the receipt carries `verified:true` only when the focused control's value actually reflects the typed text; on `verified:false` the text may have gone nowhere — confirm with a screenshot before relying on it.",
-    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, computer: computerParam }, additionalProperties: false },
+    name: "type", description: "Type unicode text into the focused control. Newlines in `text` are Return/Enter key presses, not literal characters — never put \\n in a composer by hoping it will send. Focus the field first (click, focus, or set_value). On macOS the receipt carries `verified:true` only when the focused control's value actually reflects the typed text; on `verified:false` the text may have gone nowhere — observe again before relying on it.",
+    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, press_enter: { type: "boolean", description: "After typing, press Return/Enter once. Prefer this to putting a newline in `text` when you want to send." }, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "key", description: "Press a key or chord, e.g. 'return', 'cmd+c' (macOS), 'ctrl+c' (Linux/Windows). Repeat with `repeat`.",
+    name: "key", description: "Press a named key or chord. Examples: return, enter, backspace, tab, escape, cmd+c (macOS), ctrl+c (Linux/Windows). This is the key-press tool; type() cannot send modifiers or Return by itself except via newlines/press_enter. Repeat with `repeat`.",
     inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, repeat: { type: "integer", minimum: 1, maximum: 100 }, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -234,6 +240,54 @@ export const TOOLS = [
   {
     name: "set_value", description: "Set an editable element's value through the accessibility layer (background-safe, no keystrokes). Element targets only.",
     inputSchema: { type: "object", required: ["target", "value"], properties: { target: targetSchema, value: { type: "string" }, computer: computerParam }, additionalProperties: false },
+  },
+  {
+    name: "focus", description: "Focus an observed element through the accessibility layer (background-safe). Prefer this before type() on composers that ignore AXPress.",
+    inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, computer: computerParam }, additionalProperties: false },
+  },
+  {
+    name: "get_value", description: "Read the live accessibility value of an observed element (text fields, sliders). Prefer this over dumping the whole tree.",
+    inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, computer: computerParam }, additionalProperties: false },
+  },
+  {
+    name: "find_elements", description: "Search the latest get_app_state (or take a fresh one) for elements matching query/role without returning the full dump.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        role: { type: "string" },
+        state_id: { type: "string", description: "Reuse a previous observation; omit to observe now." },
+        limit: { type: "integer", minimum: 1, maximum: 100 },
+        app_ref: { type: "object", properties: { pid: { type: "integer" }, name: { type: "string" }, bundle_id: { type: "string" } }, additionalProperties: false },
+        computer: computerParam,
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "run_actions", description: "Run up to 8 computer-use tools in order on this computer. Stops on the first failure. Each step is {tool, arguments}. Use for click→type→key(return)→get_value without extra round trips.",
+    inputSchema: {
+      type: "object",
+      required: ["steps"],
+      properties: {
+        steps: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: {
+            type: "object",
+            required: ["tool"],
+            properties: {
+              tool: { type: "string" },
+              arguments: { type: "object" },
+            },
+            additionalProperties: false,
+          },
+        },
+        computer: computerParam,
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "select_text", description: "Select a text range [start, length] in an element, or place the caret when omitted.",
@@ -302,6 +356,7 @@ export const TOOL_NAMES = new Set(TOOLS.map((t) => t.name));
 /** Tools that never touch a computer (available even after kill switch). */
 export const READ_ONLY_TOOLS = new Set([
   "computer_list", "stop_computer_control", "wait", "request_access", "recording_list", "recording_status",
+  "find_elements", "get_value",
 ]);
 
 /** Tools dispatchable to a remote agent over ssh (allow-list must match agent.mjs). */
@@ -310,14 +365,14 @@ export const REMOTE_TOOLS = new Set([
   "open_application", "get_app_state", "resolve_element", "screenshot", "zoom",
   "left_click", "double_click", "triple_click", "right_click", "middle_click",
   "mouse_move", "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll",
-  "type", "key", "hold_key", "set_value", "select_text", "perform_action",
+  "type", "key", "hold_key", "set_value", "focus", "get_value", "select_text", "perform_action",
   "read_clipboard", "write_clipboard", "cursor_position",
   "recordingStart", "recordingStop", "recordingStatus", "recordingList",
 ]);
 
 /** Map public tool name -> backend method name. */
 export const BACKEND_METHOD = Object.fromEntries(
-  TOOLS.filter((t) => !["computer_list", "computer_switch", "computer_register", "computer_remove", "stop_computer_control", "wait"].includes(t.name))
+  TOOLS.filter((t) => !["computer_list", "computer_switch", "computer_register", "computer_remove", "stop_computer_control", "wait", "find_elements", "run_actions"].includes(t.name))
     .map((t) => [t.name, {
       recording_start: "recordingStart",
       recording_stop: "recordingStop",

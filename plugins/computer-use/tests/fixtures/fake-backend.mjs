@@ -73,7 +73,11 @@ export function create() {
     async double_click({ target } = {}) { record("double_click", { target }); return { action_sent: true, at: { x: target?.x, y: target?.y } }; },
     async mouse_move({ target } = {}) { record("mouse_move", { target }); return { action_sent: true, at: { x: target?.x, y: target?.y } }; },
     async perform_action(args) { record("perform_action", args); return { action_sent: true, strategy: "a11y" }; },
-    async set_value(args) { record("set_value", args); return { action_sent: true, strategy: "a11y" }; },
+    async set_value(args) { record("set_value", args); return { action_sent: true, strategy: "a11y", verified: true, after: args.value }; },
+    async type(args) { record("type", args); return { action_sent: true, text: args.text, verified: true }; },
+    async key(args) { record("key", args); return { action_sent: true, key: args.text ?? "return" }; },
+    async focus(args) { record("focus", args); return { action_sent: true, focused: true, strategy: "a11y" }; },
+    async get_value(args) { record("get_value", args); return { value: "Fixture text", strategy: "a11y" }; },
   };
 }
 

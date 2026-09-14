@@ -49,7 +49,7 @@ test('native summary keeps text and top-level menus without spending the UI budg
     [{AXRole:'AXMenuItem',actions:['AXPick']},false,'AXPick'],
     [{AXRole:'AXButton',actions:['AXShowMenu']},true,'AXShowMenu'],
     [{AXRole:'AXButton',AXEnabled:false,actions:['AXPress']},false,null],
-    [{AXRole:'AXGroup',settable:['AXFocused']},false,null],
+    [{AXRole:'AXGroup',settable:['AXFocused']},false,'AXFocused'],
   ]) {
     const r=spawnSync(binary,[JSON.stringify({tool:'inspect_click_action',args:{element,context}})],{encoding:'utf8'});
     assert.equal(r.status,0,r.stderr);
@@ -282,6 +282,19 @@ test('macOS failed activation cannot leave a previous shared-desktop binding arm
   await assert.rejects(backend.open_application({name:'Fixture',activate:true}),e=>e.code==='activation_not_confirmed');
   await assert.rejects(backend.mouse_move({target:{x:10,y:10}}),e=>e.code==='shared_pointer_required');
   assert.ok(!calls.some(r=>r.tool==='pointer_sequence'));
+});
+
+test('macOS strategy app posts a window-scoped pointer after accessibility misses', async t => {
+  const {backend,calls}=stubBackend(t,r=>r.tool==='input_capabilities'?{input_lease:1,element_identity:1,background_actions:1}:r.tool==='hit_test'?NOT_PRESSABLE:null);
+  await backend.open_application({name:'Fixture'});
+  const receipt=await backend.left_click({target:{x:70,y:80},strategy:'app'});
+  assert.equal(receipt.strategy,'app-pointer');
+  assert.equal(receipt.input_scope,'application-window');
+  assert.equal(receipt.action_sent,true);
+  assert.ok(calls.some(r=>r.tool==='window_at_point'));
+  const gesture=calls.find(r=>r.tool==='pointer_sequence');
+  assert.equal(gesture.args.app_scoped,true);
+  assert.equal(gesture.args.foreground_input,false);
 });
 
 test('macOS background control never escalates an unavailable semantic action to shared pointer input', async t => {
@@ -533,7 +546,7 @@ test('macOS click strategies: event skips the tree and a11y fails closed', async
   assert.ok(!calls.some((c) => c.tool === 'hit_test'), 'strategy=event never hit-tests');
 
   await assert.rejects(backend.left_click({ target: { x: 10, y: 20 }, strategy: 'a11y' }), /no supported accessibility click/);
-  await assert.rejects(backend.left_click({ target: { x: 10, y: 20 }, strategy: 'sideways' }), /strategy must be auto, a11y or event/);
+  await assert.rejects(backend.left_click({ target: { x: 10, y: 20 }, strategy: 'sideways' }), /strategy must be auto, a11y, app or event/);
 
   calls.length = 0;
   const dbl = await backend.double_click({ target: { x: 10, y: 20 } });

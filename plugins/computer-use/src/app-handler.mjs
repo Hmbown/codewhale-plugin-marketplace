@@ -11,7 +11,7 @@ export const ALLOWED = new Set([
   "open_application", "get_app_state", "resolve_element", "screenshot", "zoom",
   "left_click", "double_click", "triple_click", "right_click", "middle_click",
   "mouse_move", "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll",
-  "type", "key", "hold_key", "set_value", "select_text", "perform_action",
+  "type", "key", "hold_key", "set_value", "focus", "get_value", "select_text", "perform_action",
   "read_clipboard", "write_clipboard", "cursor_position",
   "recordingStart", "recordingStop", "recordingStatus", "recordingList",
 ]);
@@ -20,7 +20,7 @@ const backends = new Map();
 const heldPointers = new Map();
 const INPUT_MUTATIONS = new Set([
   "open_application", "left_click", "double_click", "triple_click", "right_click", "middle_click", "mouse_move",
-  "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll", "type", "key", "hold_key", "set_value", "select_text", "perform_action",
+  "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll", "type", "key", "hold_key", "set_value", "focus", "select_text", "perform_action",
 ]);
 let queue = Promise.resolve();
 

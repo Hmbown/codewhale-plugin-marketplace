@@ -103,7 +103,7 @@ test("app-state arguments distinguish an omitted reference from an explicit null
 });
 
 test("summary preserves readable UI and original target indices while full retains tree structure", async () => {
-  for (const detail of [undefined, "summary", "compact"]) {
+  for (const detail of [undefined, "summary"]) {
     const state = await tool("get_app_state", { detail });
     assert.equal(state.detail, "summary");
     assert.deepEqual(state.elements.map(e => e.index), [0, 1, 2, 3, 6, 7, 8]);
@@ -132,6 +132,59 @@ test("summary preserves readable UI and original target indices while full retai
   assert.equal((await tool("get_app_state", { include_ocr: "yes" })).error.code, "bad_args");
 });
 
+test("compact and query return a filterable page instead of the whole tree", async () => {
+  const compact = await tool("get_app_state", { detail: "compact" });
+  assert.equal(compact.detail, "compact");
+  assert.equal(compact.ocr, undefined);
+  const field = compact.elements.find(e => e.index === 8);
+  assert.equal(field.role, "AXTextField");
+  assert.equal(field.value, "Fixture text");
+  assert.equal(field.position, undefined);
+  const found = await tool("find_elements", { query: "whale", state_id: compact.state_id });
+  assert.equal(found.ok, true);
+  assert.equal(found.matched, 0);
+  const buttons = await tool("find_elements", { role: "AXButton", state_id: compact.state_id });
+  assert.equal(buttons.matched, 1);
+  assert.equal(buttons.elements[0].label, "OK");
+  const paged = await tool("get_app_state", { limit: 2, offset: 0 });
+  assert.equal(paged.returned, 2);
+  assert.equal(paged.matched, 7);
+  assert.equal(paged.truncated, true);
+});
+
+test("type treats newlines and press_enter as Return rather than unicode", async () => {
+  const typed = await tool("type", { text: "hello\nworld", press_enter: true });
+  assert.equal(typed.ok, true, JSON.stringify(typed.error));
+  assert.equal(typed.newlines_as_return, true);
+  const typeCalls = calls("type");
+  const keyCalls = calls("key");
+  assert.deepEqual(typeCalls.slice(-2).map(c => c.args.text), ["hello", "world"]);
+  assert.ok(keyCalls.filter(c => c.args.text === "return").length >= 2);
+});
+
+test("screen-space coordinates skip raster conversion", async () => {
+  await tool("screenshot");
+  const r = await tool("left_click", { target: { type: "coordinate", x: 400, y: 300, space: "screen" } });
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  const last = calls("left_click").at(-1);
+  assert.deepEqual({ x: last.args.target.x, y: last.args.target.y }, { x: 400, y: 300 });
+  assert.equal(last.args.target.coordinate_space, "screen");
+});
+
+test("run_actions sequences click, type and key then stops on failure", async () => {
+  const shot = await tool("screenshot");
+  assert.equal(shot.ok, true);
+  const batch = await tool("run_actions", { steps: [
+    { tool: "type", arguments: { text: "hi" } },
+    { tool: "key", arguments: { text: "return" } },
+    { tool: "wait", arguments: { seconds: 0 } },
+  ] });
+  assert.equal(batch.ok, true, JSON.stringify(batch.error));
+  assert.equal(batch.steps.length, 3);
+  const nested = await tool("run_actions", { steps: [{ tool: "run_actions", arguments: { steps: [] } }] });
+  assert.equal(nested.ok, false);
+});
+
 test("optional OCR binds its exact raster for coordinate actions while preserving AX state", async () => {
   const state = await tool("get_app_state", { include_ocr: true });
   assert.equal(state.ok, true);
@@ -140,7 +193,7 @@ test("optional OCR binds its exact raster for coordinate actions while preservin
   assert.equal(state.ocr.blocks[0].role, undefined, "recognized text is not a fabricated semantic element");
   const clicked = await tool("left_click", { target: state.ocr.blocks[0].target });
   assert.equal(clicked.ok, true);
-  assert.deepEqual(calls("left_click").at(-1).args.target, { type: "coordinate", x: 140, y: 70, strategy: "event" });
+  assert.deepEqual(calls("left_click").at(-1).args.target, { type: "coordinate", x: 140, y: 70, strategy: "event", coordinate_space: "raster" });
   assert.equal((await tool("left_click", { target: { type: "coordinate", x: 400, y: 0 } })).error.code, "target_outside_raster");
   const unavailable = await tool("get_app_state", { include_ocr: true, app_ref: { name: "OCR unavailable" } });
   assert.equal(unavailable.ok, true);

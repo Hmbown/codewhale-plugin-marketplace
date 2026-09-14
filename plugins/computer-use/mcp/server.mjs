@@ -32,7 +32,11 @@ const backendCache = new Map();
 const ROUTE_INSPECTION_TOOLS = new Set([
   "request_access", "list_displays", "list_apps", "list_windows", "get_app_state", "screenshot",
   "cursor_position", "read_clipboard", "recording_list", "recording_status",
+  "find_elements", "get_value",
 ]);
+const STATE_CHAR_BUDGET = Number(process.env.CODEWHALE_CU_MAX_STATE_CHARS) > 0
+  ? Number(process.env.CODEWHALE_CU_MAX_STATE_CHARS)
+  : 16_000;
 /**
  * Largest base64 image payload we will put in one JSON-RPC message. Hosts cap
  * how much a stdio server may write between message boundaries (Claude Code
@@ -154,8 +158,15 @@ function rasterToPoints(computerId, x, y) {
  */
 async function normalizeTarget(computer, target, kind, resolve, sink) {
   if (target?.type === "coordinate") {
+    if (target.space === "screen") {
+      if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) {
+        throw new ServerError("bad_target", "screen coordinates must be finite numbers");
+      }
+      return { x: Math.round(target.x), y: Math.round(target.y), strategy: "event", coordinate_space: "screen" };
+    }
+    if (target.x < 0 || target.y < 0) throw new ServerError("bad_target", "raster coordinates must be non-negative");
     const pt = rasterToPoints(computer.id, target.x, target.y);
-    return { x: Math.round(pt.x), y: Math.round(pt.y), strategy: "event" };
+    return { x: Math.round(pt.x), y: Math.round(pt.y), strategy: "event", coordinate_space: "raster" };
   }
   if (target?.type === "element") {
     const { state, element } = resolveElement(target);
@@ -240,21 +251,105 @@ function rememberState(computer, app_ref, result) {
   return id;
 }
 
-function observeState(computer, app_ref, result, detail) {
+function filterElements(elements, { detail, query, role, limit, offset, compact }) {
+  const full = detail === "full";
+  let rows = (elements ?? []).map((el, i) => ({ ...el, index: el.index ?? i }));
+  if (!full) {
+    rows = rows.filter((el) => el.windowIndex !== -1 || !Array.isArray(el.path) || el.path.length <= 1);
+  }
+  if (role) rows = rows.filter((el) => el.role === role);
+  if (query) {
+    const q = String(query).toLowerCase();
+    rows = rows.filter((el) => [el.label, el.value, el.role, el.subrole].some((v) => String(v ?? "").toLowerCase().includes(q)));
+  }
+  const matched = rows.length;
+  const start = Math.max(0, Number(offset) || 0);
+  const cap = limit != null ? Math.max(1, Math.min(200, Number(limit))) : null;
+  const sliced = cap != null ? rows.slice(start, start + cap) : rows.slice(start);
+  const view = sliced.map((el) => {
+    if (full) return el;
+    const { path, windowIndex, ...rest } = el;
+    if (!compact) return rest;
+    const label = rest.label != null ? String(rest.label).slice(0, 80) : rest.label;
+    const value = rest.value != null && String(rest.value).length > 200 ? String(rest.value).slice(0, 200) : rest.value;
+    return { index: rest.index, role: rest.role, label, value, focused: rest.focused, enabled: rest.enabled, actions: rest.actions };
+  });
+  return { elements: view, matched, offset: start, returned: view.length, truncated: start + view.length < matched };
+}
+
+function fitStatePayload(data, budget) {
+  let payload = data;
+  let json = JSON.stringify(payload);
+  if (json.length <= budget) return payload;
+  if (payload.ocr) {
+    payload = { ...payload, ocr: { status: payload.ocr.status ?? "omitted", omitted: true, reason: "ocr_too_large", note: "OCR omitted so this observation stays readable. Retry include_ocr with ocr_region, query, or a smaller window." } };
+    json = JSON.stringify(payload);
+    if (json.length <= budget) return { ...payload, truncated: true };
+  }
+  let elements = payload.elements ?? [];
+  const matched = payload.matched ?? elements.length;
+  while (elements.length > 4 && json.length > budget) {
+    elements = elements.slice(0, Math.max(4, Math.floor(elements.length / 2)));
+    payload = {
+      ...payload,
+      elements,
+      truncated: true,
+      matched,
+      returned: elements.length,
+      next_offset: (payload.offset ?? 0) + elements.length,
+      note: "Observation truncated to keep the transport intact. Pass query, role, limit and offset; do not retry an unfiltered dump.",
+    };
+    json = JSON.stringify(payload);
+  }
+  return payload;
+}
+
+async function invokeType(invoke, prepared) {
+  const text = String(prepared.text ?? "");
+  const pressEnter = prepared.press_enter === true;
+  const parts = text.split(/\r\n|\n|\r/);
+  const rest = { ...prepared };
+  delete rest.press_enter;
+  if (parts.length === 1 && !pressEnter) return invoke("type", rest);
+  const steps = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i]) steps.push(await invoke("type", { ...rest, text: parts[i] }));
+    if (i < parts.length - 1 || (pressEnter && i === parts.length - 1)) {
+      steps.push(await invoke("key", { text: "return" }));
+    }
+  }
+  const last = steps.at(-1) ?? { action_sent: true };
+  return { ...last, newlines_as_return: true, typed_parts: steps.length };
+}
+
+function observeState(computer, app_ref, result, args = {}) {
   // Cache the complete backend records before making the model-facing view.
   // Public indices still address those records, including their private AX
   // paths; a compact response must never weaken live target revalidation.
   const state_id = rememberState(computer, app_ref, result);
-  const full = detail === "full";
-  const elements = full ? result.elements : (result.elements ?? [])
-    .filter((el) => el.windowIndex !== -1 || !Array.isArray(el.path) || el.path.length <= 1)
-    .map(({ path, windowIndex, ...el }) => el);
-  return {
-    ...result, state_id, elements, detail: full ? "full" : "summary",
-    note: "Target observed elements with {type:'element', state_id, index}; observe again after UI changes. " +
-      (full ? "" : "Summary keeps app content and top-level menus; use detail:'full' for nested menus and tree structure. ") +
-      "Missing labels or values are unknown; do not guess their contents.",
+  const compact = args.detail === "compact" || args.compact === true;
+  const detail = args.detail === "full" ? "full" : compact ? "compact" : "summary";
+  const filtered = filterElements(result.elements, {
+    detail: args.detail === "full" ? "full" : "summary",
+    query: args.query,
+    role: args.role,
+    limit: args.limit,
+    offset: args.offset,
+    compact,
+  });
+  const data = {
+    ...result,
+    state_id,
+    elements: filtered.elements,
+    detail,
+    matched: filtered.matched,
+    offset: filtered.offset,
+    returned: filtered.returned,
+    truncated: filtered.truncated,
+    note: "Target observed elements with {type:'element', state_id, index}. Indices address the cached tree, including rows omitted from this page. Filter with query/role/limit/offset instead of requesting a larger dump. Missing labels or values are unknown; do not guess.",
   };
+  if (compact && data.ocr && args.include_ocr !== true) delete data.ocr;
+  return fitStatePayload(data, STATE_CHAR_BUDGET);
 }
 
 // ---------- tool dispatch ----------
@@ -361,6 +456,38 @@ async function callTool(params) {
     if (binding.needsObservation && !ROUTE_INSPECTION_TOOLS.has(name)) {
       throw new ServerError("computer_observation_required", "Computer route changed — call screenshot or get_app_state on the registered target before acting");
     }
+    if (name === "run_actions") {
+      const steps = args.steps;
+      if (!Array.isArray(steps) || steps.length < 1 || steps.length > 8) throw new ServerError("bad_args", "run_actions needs 1..8 steps");
+      const results = [];
+      for (const [i, step] of steps.entries()) {
+        if (!step || typeof step.tool !== "string") throw new ServerError("bad_args", `step ${i} needs a tool name`);
+        if (step.tool === "run_actions") throw new ServerError("bad_args", "run_actions cannot nest");
+        if (!TOOL_NAMES.has(step.tool)) throw new ServerError("unknown_tool", `unknown tool "${step.tool}"`);
+        const result = await callTool({ name: step.tool, arguments: { ...(step.arguments ?? {}), computer: computer.id } });
+        const body = JSON.parse(result.content[0].text);
+        results.push({ tool: step.tool, ok: body.ok !== false, receipt: body });
+        if (body.ok === false || result.isError) {
+          return { content: [{ type: "text", text: JSON.stringify(fail(computer, body.error?.code ?? "step_failed", body.error?.message ?? "step failed", { tool: "run_actions", switched, stopped_at: i, steps: results })) }], isError: true };
+        }
+      }
+      return { content: [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: "run_actions", switched, steps: results })) }] };
+    }
+    if (name === "find_elements") {
+      const st = args.state_id ? appStates.get(args.state_id) : null;
+      if (args.state_id && !st) throw new ServerError("unknown_state", `state_id "${args.state_id}" is unknown or expired — call get_app_state again`);
+      if (st) {
+        if (st.computerId && st.computerId !== computer.id) {
+          throw new ServerError("state_wrong_computer", `state_id "${args.state_id}" belongs to computer "${st.computerId}", not "${computer.id}"`);
+        }
+        const filtered = filterElements(st.elements, {
+          detail: "summary", query: args.query, role: args.role,
+          limit: args.limit ?? 20, offset: args.offset ?? 0, compact: true,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: "find_elements", switched, state_id: args.state_id, ...filtered, note: "Indices address the cached tree from this state_id." })) }] };
+      }
+      return callTool({ name: "get_app_state", arguments: { ...args, detail: "compact", limit: args.limit ?? 20, computer: computer.id } });
+    }
     // Out-of-process runners (the desktop app for the local computer, the
     // remote agent for ssh computers) get the request over the wire.
     const backendMethod = BACKEND_METHOD[name] === "request_access" ? "probe" : BACKEND_METHOD[name];
@@ -390,16 +517,19 @@ async function callTool(params) {
       // being resolved still blocks this dispatch.
       if (controlStopped && !READ_ONLY_TOOLS.has(name)) throw new ServerError("control_stopped", "stop_computer_control is active; no further actions are permitted this session");
       inFlight++;
-      let reply;
       try {
         dispatched = true;
-        reply = await ex.remote({ tool: backendMethod, args: wireArgs }, { timeoutMs: backendMethod.startsWith("recording") || backendMethod === "get_app_state" ? 60_000 : 30_000 });
+        const timeoutMs = backendMethod.startsWith("recording") || backendMethod === "get_app_state" ? 60_000 : 30_000;
+        const invoke = async (tool, a) => {
+          const r = await ex.remote({ tool, args: a }, { timeoutMs });
+          if (!r.ok) throw new ServerError(r.error?.code ?? "remote_error", r.error?.message ?? "remote agent failed");
+          return r.data;
+        };
+        data = name === "type" ? await invokeType(invoke, wireArgs) : await invoke(backendMethod, wireArgs);
       } finally {
         inFlight--;
       }
-      if (!reply.ok) throw new ServerError(reply.error?.code ?? "remote_error", reply.error?.message ?? "remote agent failed");
       await assertCurrentRoute(computer, binding, true);
-      data = reply.data;
       if (Array.isArray(data)) data = { items: data };
       if ((backendMethod === "screenshot" || backendMethod === "zoom") && data?.file) {
         if (ex.filesLocal) bindRaster(computer, data);
@@ -411,7 +541,7 @@ async function callTool(params) {
       }
       if (backendMethod === "zoom") bindZoomRaster(computer, zoomParent, args.region, ex.filesLocal ? data?.file ?? data?.path : null);
       if (name === "get_app_state") {
-        data = observeState(computer, wireArgs.app_ref, data, args.detail);
+        data = observeState(computer, wireArgs.app_ref, data, args);
       }
       if (backendMethod === "probe") Object.assign(data, { via: ex.kind, app: ex.app ?? null });
     } else {
@@ -427,7 +557,9 @@ async function callTool(params) {
       inFlight++;
       try {
         dispatched = true;
-        data = await backend[backendMethod](prepared);
+        data = name === "type"
+          ? await invokeType((tool, a) => backend[BACKEND_METHOD[tool] ?? tool](a), prepared)
+          : await backend[backendMethod](prepared);
       } finally {
         inFlight--;
       }
@@ -436,7 +568,7 @@ async function callTool(params) {
       if (name === "screenshot") bindRaster(computer, data);
       if (backendMethod === "zoom") bindZoomRaster(computer, zoomParent, args.region, data?.file ?? data?.path);
       if (name === "get_app_state") {
-        data = observeState(computer, prepared.app_ref, data, args.detail);
+        data = observeState(computer, prepared.app_ref, data, args);
       }
       if (backendMethod === "probe" && computer.transport === "local") {
         // Direct mode: permissions belong to whatever hosts this server. Say so.
@@ -450,7 +582,7 @@ async function callTool(params) {
         const localFile = typeof ex?.remote !== "function" || ex.filesLocal;
         bindRaster(computer, localFile ? data.ocr.raster : { ...data.ocr.raster, file: null, path: null });
       }
-      data.ocr.note = "Recognized text may be imperfect. These coordinate targets belong to this captured image, not to accessibility elements; observe again after the UI changes.";
+      data.ocr.note = "Recognized text may be imperfect. These coordinate targets belong to this captured image, not to accessibility elements; observe again after the UI changes. Prefer ocr_region or query over a second full-window OCR.";
     }
 
     // Inline the raster only when it fits the budget. One oversized JSON-RPC
@@ -468,7 +600,7 @@ async function callTool(params) {
           bytes: size,
           encoded_bytes: encodedSize(size),
           limit_bytes: INLINE_IMAGE_MAX_BYTES,
-          note: "The capture is on disk at the returned path, but inlining it would exceed this host's single-message budget and drop the connection. Capture one display, a region, or an app window, or zoom into part of this raster to get a viewable image.",
+          note: "The capture is on disk at the returned path, but inlining it would exceed this host's single-message budget and drop the connection. Capture one display, a region, or an app window, or call zoom on this raster to get a viewable image.",
         };
       } else {
         const bytes = fs.readFileSync(file);
@@ -512,18 +644,26 @@ async function callTool(params) {
 async function prepareArgs(computer, name, args, resolve, sink) {
   const out = { ...args };
   delete out.computer;
-  const semantic = new Set(["set_value", "select_text", "perform_action"]);
+  const semantic = new Set(["set_value", "select_text", "perform_action", "focus", "get_value"]);
   for (const key of ["target", "from_target", "to"]) {
     const given = out[key];
     if (!given?.type) continue;
     const kind = key === "target" && semantic.has(name) ? "semantic" : "pointer";
     out[key] = { ...given, ...(await normalizeTarget(computer, given, kind, resolve, sink)) };
   }
-  if (name === "get_app_state") {
-    if (out.detail != null && !["summary", "compact", "full"].includes(out.detail)) throw new ServerError("bad_args", "detail must be summary or full (compact is an alias for summary)");
-    out.detail = out.detail === "full" ? "full" : "summary";
+  if (name === "get_app_state" || name === "find_elements") {
+    if (out.detail != null && !["summary", "compact", "full"].includes(out.detail)) throw new ServerError("bad_args", "detail must be summary, compact or full");
+    if (name === "get_app_state") {
+      out.compact = out.detail === "compact";
+      out.detail = out.detail === "full" ? "full" : "summary";
+    }
     if (out.include_ocr != null && typeof out.include_ocr !== "boolean") throw new ServerError("bad_args", "include_ocr must be true or false");
     if (out.window_id != null && (!Number.isSafeInteger(out.window_id) || out.window_id < 0)) throw new ServerError("bad_args", "window_id must be a non-negative window index from list_windows");
+    if (out.limit != null && (!Number.isSafeInteger(out.limit) || out.limit < 1 || out.limit > 200)) throw new ServerError("bad_args", "limit must be an integer 1..200");
+    if (out.offset != null && (!Number.isSafeInteger(out.offset) || out.offset < 0)) throw new ServerError("bad_args", "offset must be a non-negative integer");
+    if (out.query != null && typeof out.query !== "string") throw new ServerError("bad_args", "query must be a string");
+    if (out.role != null && typeof out.role !== "string") throw new ServerError("bad_args", "role must be a string");
+    if (out.ocr_region != null && (!Array.isArray(out.ocr_region) || out.ocr_region.length !== 4)) throw new ServerError("bad_args", "ocr_region must be [x, y, w, h] in screen points");
   }
   return out;
 }
