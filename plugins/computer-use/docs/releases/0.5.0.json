@@ -1,0 +1,18 @@
+{
+  "version": "0.5.0",
+  "platform": "macos",
+  "arch": "universal",
+  "archive": "Codewhale-Computer-Use-0.5.0-macos-universal.zip",
+  "size": 79730597,
+  "sha256": "b5688ccbe117b23a533251275abc84a63ed397c20c5ba0dd87addd832133124a",
+  "notarized": true,
+  "submissionId": "bd1180c2-4661-401e-a5e5-4188917196d0",
+  "createdAt": "2026-09-15T05:30:31.515Z",
+  "dmg": {
+    "archive": "Codewhale-Computer-Use-0.5.0-macos-universal.dmg",
+    "size": 88260407,
+    "sha256": "56aa7097e5ad57d6b4d37539750f71adb0d9713731a975930c442473b659b269",
+    "notarized": true,
+    "submissionId": "cc2fd378-84d8-4992-b0c8-5bd9b7db9885"
+  }
+}

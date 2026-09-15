@@ -37,7 +37,7 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 | Windows | code-complete, no receipts (backend is PowerShell/user32; never executed here) |
 | Wayland | code-complete, no receipts; `scroll` is unsupported on Wayland (`scroll on Wayland is not available in this build`), and ydotool input is never probed (the probe cannot move the pointer) |
 | HarmonyOS (hdc) | code-complete, no receipts (no device) |
-| SSH remote | experimental one-shot transport; no remote device receipts; see session limitation below |
+| SSH remote | experimental transport; persistent agent sessions (`agent --serve`) since 0.5.0, with one-shot fallback for older agents; no remote device receipts; see session limitation below |
 | Codex / Claude Desktop host registration | full registration/restart flow untested; one native Codex editing baseline is recorded below |
 | signed-update permission persistence | untested in the matrix (no parity run covers it). Grant retention was demonstrated once for a Developer ID reinstall over a granted install (2026-09-06, below); the notarized 0.3.0 → 0.3.1 updater apply on the same Mac ran with no recorded grant check and is described in [the release checklist](RELEASE_CHECKLIST.md); a clean-machine install with fresh grants is still open |
 
@@ -47,12 +47,14 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 code, but it has not been re-executed since (no Linux host here). Those rows are
 rendered from the committed summaries in `parity/results/`, not from a fresh run.
 
-The SSH agent currently runs once per call. It does not retain a macOS
-`open_application` binding for a later raw-input call, and it has no leased
-remote owner for Linux/Windows held-input gestures. Do not treat registering
-an SSH computer as proof of a complete remote interaction workflow. A
-persistent remote session and remote-device receipts remain release work for
-that transport.
+Since 0.5.0 the SSH agent can run a persistent session (`agent.mjs --serve`)
+that retains the macOS `open_application` binding and session-owned input
+across calls; the server falls back to one-shot mode when the pushed agent
+predates `--serve`, and a restarted channel fails closed until the remote
+app is rebound and re-observed. Remote held-input still depends on what the
+remote platform backend implements, and remote-device receipts remain
+release work for that transport. Do not treat registering an SSH computer
+as proof of a complete remote interaction workflow.
 
 ## Hosts not fresh-session tested
 

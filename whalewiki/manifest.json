@@ -4,12 +4,12 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "b62b2fa46d821a7f1640f0610939dc1a0645bd02629d7b6d05fbc4855b06bf22",
+      "page_sha256": "ffb8ea4a4971f601b2ce44e6e575a8191d03e7636b26c8f9b9fb22c44f9cc50b",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "ab0a448cbdd08d7192160e872170787e9790dd30a489573ed9f4916ec13b5840",
+          "sha256": "4d5a413661eb15e55e7b65b74b21156b9de01e1e3f7e6fe8ba4ef95cbb4440f3",
           "bytes": 4966
         },
         {
@@ -45,20 +45,20 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "a09e577e740ec26572087e106bc9b819e49faffce30ce00ee21bf094b0f9346f",
-          "bytes": 12595
+          "sha256": "af595d23a72a950f5d6482d6dbdca3a61b860bdcba5e8682b9b70d54636f08af",
+          "bytes": 14342
         },
         {
-          "path": "plugins/computer-use/docs/releases/0.4.0.json",
+          "path": "plugins/computer-use/docs/releases/0.5.0.json",
           "root": "repo",
-          "sha256": "6968911134906cc4f57dc9e9dc33ac0ce86549558cb347b001a846d21d1c5e29",
+          "sha256": "262fbcf9258f70729318678eb26fef005907954b6506018a2dccf53fd363eb4b",
           "bytes": 627
         },
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "412d13f605d354d1986e2cf3039b46681aa5939e0652045238528363611c53f1",
-          "bytes": 6540
+          "sha256": "c7ef7bdb4e05c707105255a6653524df219d5c8a3a8edb943b14d58702ad3b4e",
+          "bytes": 9135
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -67,7 +67,7 @@
           "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-14T05:37:44.044Z"
+      "sealed_at": "2026-09-15T05:44:25.285Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -180,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-14T05:37:44.045Z"
+  "updated_at": "2026-09-15T05:44:25.286Z"
 }

@@ -318,7 +318,9 @@ with an upgrade error instead of sharing another client's input state.
   element indices + `state_id`), `screenshot` (display/region, raster-bound
   coordinates), `zoom` (close-up crop of the last raster), `cursor_position`,
   `open_application` (exact-name rule), `request_access` (fail-closed
-  permission/capability probe).
+  permission/capability probe), `wait_for` (poll the accessibility tree
+  until a query/role appears or disappears, then act on the fresh
+  `state_id`).
 - **Pointer** — left/double/triple/right/middle click, move, drag,
   down/up, scroll (4 directions).
 - **Keyboard & text** — `type` (unicode), `key` (chords + repeat),
@@ -395,7 +397,7 @@ src/app-socket.mjs    app naming, socket protocol client, launch-on-demand
 src/app-handler.mjs   allow-listed request handler shared by app + ssh agent
 app/daemon.mjs        the desktop app process
 app/macos/launcher.c  native bundle executable (keeps TCC attribution on the app)
-agent.mjs             one-shot ssh remote agent
+agent.mjs             ssh remote agent (one-shot, or `--serve` persistent session)
 assets/               icon source + generated .png/.icns/.ico/hicolor, prebuilt mac launcher
 scripts/              build-icons · build-app · install-app · smoke
 commands/, skills/    Agent Plugins v1 command + skills for hosts that read them

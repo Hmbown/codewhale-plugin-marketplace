@@ -4,13 +4,38 @@ Keyed to the release commit. Fill in results as steps run; a release is only
 publishable when every applicable row has a recorded result. Steps marked
 **human-only** are never performed by scripts.
 
-Release commit: `249ae77fad9162c2af11d5460d91b2b5b909c06c` — date: `2026-09-13` — operator: `Hunter Bown (build and packaging run by Claude Fable 5.1)`
+Release commit: `b25f11c8673667329af2d9172aa57b153b9cc49d` — date: `2026-09-15` — operator: `Hunter Bown (build and packaging run by Devin)`
 
 ## Qualification record
 
 Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
+
+### 0.5.0 — stateful waits and persistent SSH sessions
+
+- Source suite at commit `b25f11c8673667329af2d9172aa57b153b9cc49d`:
+  **258 passed, 0 failed, 15 platform skips**; live smoke on the maintainer
+  Mac 23/23 (`receipts/smoke-2026-09-15T04-13-17-742Z.json`).
+- Public build: produced 2026-09-15 from that commit on `main`. Signed with
+  "Developer ID Application: Hunter Bown (5RDNSHA5TY)" under the hardened
+  runtime; universal (arm64 and x86_64); bundled Node 24.21.0; macOS 13.5+.
+- Notarization: submission `bd1180c2-4661-401e-a5e5-4188917196d0` Accepted;
+  ticket stapled; `codesign --verify --deep --strict` ok; `spctl` accepted
+  with source "Notarized Developer ID". Receipt:
+  [releases/0.5.0.json](releases/0.5.0.json).
+- Archive: `Codewhale-Computer-Use-0.5.0-macos-universal.zip`, 79,730,597
+  bytes, SHA-256
+  `b5688ccbe117b23a533251275abc84a63ed397c20c5ba0dd87addd832133124a`.
+- Disk image: `Codewhale-Computer-Use-0.5.0-macos-universal.dmg`, 88,260,407
+  bytes, SHA-256
+  `56aa7097e5ad57d6b4d37539750f71adb0d9713731a975930c442473b659b269`;
+  submission `cc2fd378-84d8-4992-b0c8-5bd9b7db9885` Accepted, stapled.
+- Open gates, carried forward and recorded as open: clean-machine install
+  with fresh Accessibility and Screen Recording grants; a model-driven task
+  through an installed Codewhale Engine; the non-admin Applications-directory
+  update; the real post-publication **Check for updates…** path from an
+  installed older notarized build.
 
 ### 0.4.0 — macOS beta
 
@@ -173,6 +198,7 @@ receipts belong in a public issue.
 - [x] **Repository visibility change** — public since 2026-09-13 (human).
 - [x] **Publish release** — v0.3.1 published 2026-09-13 by Hunter Bown (human); tag on `44bf9fcde4bebacf3d69d03d08972ba02b0d1bc5`; anonymous download verified (size 79,720,031, SHA-256 match, Gatekeeper accepted as Notarized Developer ID, stapled ticket valid).
 - [x] **Publish release** — v0.4.0 published 2026-09-13 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Fable 5.1 from the human's authenticated `gh` session); tag on `e03e206b50ca5e52e72042e126d7afd08e85d49e`; GitHub's asset digests match the receipt (zip 753565134e9f…, dmg 3ee12be851a9…); anonymous download of `release.json` verified.
+- [x] **Publish release** — v0.5.0 published 2026-09-15 (PDT) at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `8a7b7dd`; GitHub's asset digests match the receipt (zip b5688ccbe117…, dmg 56aa7097e5ad…).
 
 ---
 
