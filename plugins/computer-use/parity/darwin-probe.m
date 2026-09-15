@@ -6,7 +6,16 @@
 // with src/backends/darwin*. Prints one JSON line.
 #import <Cocoa/Cocoa.h>
 
-int main(int argc, const char **argv) { do { @autoreleasepool {
+int main(int argc, const char **argv) {
+  // --restore-focus <pid>: hand foreground activation back to an app that was
+  // frontmost before a fixture launch stole it. Polite activation only; needs
+  // no TCC grant and never touches the pointer.
+  if (argc >= 3 && strcmp(argv[1], "--restore-focus") == 0) { @autoreleasepool {
+    pid_t pid = (pid_t)atoi(argv[2]);
+    NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+    if (app && !app.terminated) [app activateWithOptions:0];
+  } return 0; }
+  do { @autoreleasepool {
   CGEventRef event = CGEventCreate(NULL);
   CGPoint p = CGEventGetLocation(event);
   CFRelease(event);

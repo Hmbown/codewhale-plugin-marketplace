@@ -13,9 +13,12 @@ The macOS helper keeps permissions and human controls in one menu-bar app.
 
 - **Set up once.** See Accessibility and Screen Recording status, open the
   right Settings pane, then run a check in a disposable practice window.
-- **Keep working.** macOS selects apps in background mode by default. Actions
-  that need the shared pointer are refused until foreground control is chosen
-  with the user's authorization. Background support varies by application.
+- **Keep working.** macOS selects apps in background mode by default. Clicks,
+  drags and scrolls reach the selected app's windows without moving the
+  user's cursor (a momentary no-raise front lease is reported in every
+  receipt); only hover and held-button gestures still need foreground
+  control, chosen with the user's authorization. Background support varies
+  by application.
 - **Stay in control.** See selected apps and their input modes. Pause cancels
   queued work and releases held input; Stop ends existing sessions. Only the
   person using the menu-bar controls can allow input again.

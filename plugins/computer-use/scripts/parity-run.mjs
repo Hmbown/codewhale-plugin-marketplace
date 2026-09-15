@@ -174,7 +174,7 @@ function toRasterPixels(sx, sy) {
 }
 
 /** Resolve DSL target sugar to a real target. Returns {target} or {skipReason}. */
-function resolveTarget(spec, task, repCtx) { // repCtx carries the cached doc offset
+async function resolveTarget(spec, task, repCtx, server) { // repCtx carries the cached doc offset
   if (!spec || typeof spec !== "object") return { target: spec };
   if (spec.client) {
     const org = desktop.clientOrigin(task.fixture, { window: spec.window ?? "main", repCtx });
@@ -193,7 +193,16 @@ function resolveTarget(spec, task, repCtx) { // repCtx carries the cached doc of
     if (!lastAppState?.elements) {
       return task.optional_a11y ? { skipReason: "get_app_state did not return elements" } : { error: "element_by_label without prior get_app_state" };
     }
-    const el = lastAppState.elements.find((e) => e.label === spec.element_by_label);
+    let el = lastAppState.elements.find((e) => e.label === spec.element_by_label);
+    if (!el && lastAppState.truncated && lastAppState.args) {
+      // A 16KB-budget page can hide the target. Re-observe with a server-side
+      // query: the filtered answer is small and cannot be truncated away.
+      const res = await server.call("get_app_state", { ...lastAppState.args, query: spec.element_by_label });
+      if (res.parsed?.ok) {
+        lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [], truncated: res.parsed.truncated, args: lastAppState.args };
+        el = lastAppState.elements.find((e) => e.label === spec.element_by_label);
+      }
+    }
     if (!el) {
       return task.optional_a11y
         ? { skipReason: `no element labelled "${spec.element_by_label}" in app state` }
@@ -202,8 +211,21 @@ function resolveTarget(spec, task, repCtx) { // repCtx carries the cached doc of
     return { target: { type: "element", state_id: lastAppState.state_id, index: el.index } };
   }
   if (spec.element_match) {
-    const elements = lastAppState?.elements ?? [];
-    const matches = elements.filter((el) => Object.entries(spec.element_match).every(([key, value]) => el[key] === value));
+    let elements = lastAppState?.elements ?? [];
+    let matches = elements.filter((el) => Object.entries(spec.element_match).every(([key, value]) => el[key] === value));
+    if (matches.length !== 1 && lastAppState?.truncated && lastAppState.args) {
+      const filter = {};
+      if (spec.element_match.label) filter.query = String(spec.element_match.label);
+      else if (spec.element_match.role) filter.role = String(spec.element_match.role);
+      if (Object.keys(filter).length) {
+        const res = await server.call("get_app_state", { ...lastAppState.args, ...filter });
+        if (res.parsed?.ok) {
+          lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [], truncated: res.parsed.truncated, args: lastAppState.args };
+          elements = lastAppState.elements;
+          matches = elements.filter((el) => Object.entries(spec.element_match).every(([key, value]) => el[key] === value));
+        }
+      }
+    }
     if (matches.length !== 1) return { error: `expected one observed element matching ${JSON.stringify(spec.element_match)}; found ${matches.length}` };
     let element = matches[0];
     if (spec.ancestor_role) {
@@ -293,7 +315,7 @@ async function runStep(step, { task, repCtx, server, ctx, vars, rep, counts }) {
     const name = step.call;
     for (const key of ["target", "from_target", "to"]) {
       if (args[key]) {
-        const r = resolveTarget(args[key], task, repCtx);
+        const r = await resolveTarget(args[key], task, repCtx, server);
         if (r.skipReason) { rep.status = "skipped"; rep.reason = r.skipReason; throw new SkipRep(r.skipReason); }
         if (r.error) throw new Error(r.error);
         args[key] = r.target;
@@ -340,7 +362,7 @@ async function runStep(step, { task, repCtx, server, ctx, vars, rep, counts }) {
         };
       }
       if (name === "get_app_state" && res.parsed?.ok) {
-        lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [] };
+        lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [], truncated: res.parsed.truncated, args };
       }
       if (step.expect_error) {
         if (!(res.isError && res.parsed?.error?.code === step.expect_error)) {

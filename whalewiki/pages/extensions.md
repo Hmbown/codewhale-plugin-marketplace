@@ -5,15 +5,22 @@ Cloudflare docs and the bundled Codewhale skills. The catalog declares their
 relative sources and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.5.0 adds `wait_for` stateful polling, element-targeted
-`type`/`key` (focus-then-act in one call), app-window-scoped recording and
-persistent SSH agent sessions that retain bindings between calls; the
+Computer Use source 0.6.0 unlocks web content on macOS (`AXWebArea`
+traversal, flat-index element targets, real key events into web fields) and
+adds a window-routed background pointer: clicks, drags, menus and
+pixel-unit wheel input reach occluded windows without moving the user's
+cursor, with astral-plane typing and a verified `set_value` replacement
+path for web text fields. The darwin parity suite demonstrates 28/28 tasks
+against these surfaces (`parity/results/darwin-aqua-2026-09-15.json` and
+`parity/results/improvement-log.md` carry the run record and the kimi-cu
+comparison). The
 marketplace enables it on macOS only. Windows and Linux remain experimental
 source-only backends. The native macOS helper provides permission setup, a
 background check, human Pause/Stop and on-demand verified updates. The
-Developer ID-signed, notarized 0.5.0 macOS build is published as the v0.5.0
-GitHub release, with its packaging receipt in
-`plugins/computer-use/docs/releases/0.5.0.json`; the
+latest published download remains the Developer ID-signed, notarized 0.5.0
+macOS build (v0.5.0 GitHub release, packaging receipt
+`plugins/computer-use/docs/releases/0.5.0.json`); 0.6.0 is vendored source
+ahead of its own release qualification. The
 [official setup page](https://codewhale.net/computer-use) reports whether the
 download is available, and the
 [Computer Use CHANGELOG](../../plugins/computer-use/CHANGELOG.md) records the

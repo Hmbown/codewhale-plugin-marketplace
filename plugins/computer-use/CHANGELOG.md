@@ -1,5 +1,127 @@
 # Release notes
 
+## Unreleased — window-routed background pointer
+
+- **Background mouse input now reaches AppKit views without touching the
+  user's cursor.** Process-directed mouse events (`CGEventPostToPid`) never
+  reach AppKit, and posting to the HID tap moves the real cursor. The
+  production route addresses each event to the target window id (event fields
+  `0x33`/`0x5b`/`0x5c`) with a window-space location
+  (`CGEventSetWindowLocation`) and posts it as its raw event record through
+  `SLPSPostEventRecordTo`. Measured on macOS 26.1: view-level delivery
+  requires the window to be *key* — the window-focus record alone makes it
+  only *main* (events arrive and are swallowed) — so the helper takes a
+  momentary front-process lease with no-windows options and restores it in
+  `@finally`, re-asserting the previous app through the Accessibility grant
+  when the restore lags. Every receipt reports `front_lease` truthfully.
+  - Coordinate `left_click`/`double_click`/`triple_click`/
+    `right_click`/`middle_click` on a point with no pressable AX element and
+    `left_click_drag` now deliver in background mode instead of refusing
+    with `shared_pointer_required`. Delivery is by window id to a window
+    owned by the bound app, so events cannot land on a covering window.
+  - **Menus survive the flow.** A menu opened by a background click closes
+    the moment the lease ends, so menu-opening clicks hold the lease across
+    calls (state file + 15 s watchdog + restore at the next raw-input call,
+    and only while the target is still frontmost). Web popup buttons report
+    unpressable so they get a real click — `AXPress` does not open the
+    native menu — and the helper polls for the menu through Chromium's
+    post-activation AX rebuild. Observes poll for menu items while a menu
+    lease is held.
+  - **Wheel scrolling uses pixel units.** Chromium ignores line-unit wheel
+    events entirely (measured); one notch now maps to 40 px.
+  - **Astral-plane typing works in occluded windows.** The WindowServer
+    drops key translation for covered windows, losing surrogate-pair
+    graphemes (measured: "héllo wörld 日本 🐳" → "héllo wörld 日本 "). Any
+    multi-unit grapheme now routes the whole keystream through the record
+    channel under one lease; receipts say `keyboard_delivery:"window-record"`.
+  - **Activation repaired.** `open_application(activate:true)` uses the
+    WindowServer front-process channel (options 0x200) with the AXFrontmost
+    fallback, and the confirmation wait pumps the run loop — a one-shot
+    helper otherwise reads a stale NSWorkspace answer for seconds.
+  - **`set_value` covers web text fields.** Direct `AXValue` writes are
+    still refused (Chromium ignores or coerces them), but the backend now
+    answers with the replacement path instead of an instruction: focus,
+    select-all through the window-record channel (menu key equivalents need
+    a key window — new `bg_key` primitive), type, read-back verify.
+    Receipts say `strategy:"focus-type-replace"` with `verified` from the
+    control's own value — the last capability kimi-cu held over us.
+  - **Observation rides out Chromium's a11y rebuilds.** Windows that vend
+    zero content are rebuilt-tree states, not empty pages: unfiltered
+    observes poll up to 2.4 s (longer while a menu lease is held) before
+    returning. Filtered observes are exempt — an empty match is a legitimate
+    answer.
+  - Live receipts (macOS 26.1): full parity suite 28/28 tasks × 5 reps —
+    background drag to a drop zone, `<select>` popup open + pick, native
+    file-picker upload, emoji into a fully occluded window — with the real
+    cursor position unchanged across every gesture and the operator's
+    foreground restored.
+
+## 0.6.0 — web-area traversal and flat-index targeting
+
+The plugin could not see inside browser pages: `get_app_state` on Chrome
+returned the toolbar and tab strip but never descended into `AXWebArea`, so
+every control on the page was invisible to observe, target and verify. This
+version fixes the blindness and the interaction-model friction around it,
+matching the behavior kimi-cu demonstrated while keeping Codewhale's
+receipts, batching, clipboard, preview and remote-computer surfaces.
+
+- **macOS observation now unlocks web content.** The backend sets
+  `AXEnhancedUserInterface` + `AXManualAccessibility` on target app
+  elements before walking, so Chrome/Electron `AXWebArea` subtrees vend
+  their DOM. Traversal budgets grow to depth 16 / 900 elements for
+  summaries and depth 24 / 1600 for `detail:"full"` and `query`/`role`
+  filtered observes — a filtered find can now reach deeply nested web
+  controls. An `AXWebArea` that arrives with no descendants (page still
+  populating) triggers one 200 ms re-observation before returning.
+- **`state_id` is optional on element targets.** `{type:"element", index}`
+  binds the computer's latest observation — observe, then act on the flat
+  index, kimi-style. Passing `state_id` pins a specific earlier snapshot
+  (e.g. one returned by `wait_for`). Live-tree revalidation,
+  `element_stale`, `state_wrong_computer` and `target_reacquired` receipts
+  are unchanged.
+- **Degenerate-frame refusal.** Acting on a zero-size element — collapsed
+  placeholder rows vended by virtualized lists (`13x0`, `734x1`) — fails
+  `degenerate_frame` telling the caller to scroll the row into view and
+  re-observe, instead of pressing a phantom rect.
+- **`set_value` handles numeric controls honestly.** `AXIncrementor`,
+  `AXSlider`, `AXStepper`, `AXValueIndicator` and `AXProgressIndicator`
+  receive an `NSNumber` parsed with a POSIX `NSNumberFormatter`; a
+  non-numeric string fails before dispatch with a focus-then-type
+  instruction (previously a string write could clear the control). The
+  value is read back and reported as `verified`. Elements under
+  `AXWebArea` refuse `set_value` before dispatch entirely — Chromium
+  accepts `AXValue` sets and then ignores them, or a numeric control
+  coerces the write to empty — with an instruction to `focus` the
+  element and `type` instead.
+- **Web-area typing uses real key events.** `type` skips the
+  `AXSelectedText` semantic path for elements under `AXWebArea`
+  (Chromium accepts the write and drops it) and sends process-bound
+  unicode events after accessibility focus — still no pointer movement,
+  still verified against the control's own value.
+- **The preview panel is on by default** while an app is bound: a
+  nonactivating mini view of the captured app window with the agent
+  cursor drawn at each action's target — element-targeted actions update
+  it too, not just pointer gestures. The real pointer never moves;
+  `preview(enabled:false)` mutes it for the session.
+- **Source installs reuse the signed helper.** When the plugin runs from
+  a plain checkout (Kimi Code and other hosts' plugin dirs), the backend
+  now prefers `~/Applications/Codewhale Computer Use.app`'s signed helper
+  over compiling an unsigned one — so accessibility and screen-recording
+  grants carry over instead of re-prompting or silently failing.
+
+Live spot check on the maintainer Mac (macOS 26.1, arm64): real Chrome on
+a long ChatGPT page yields ~750 elements to depth 24 including the composer
+`AXTextArea`; the same call before the change returned ~85 browser-chrome
+elements. An OCI-style create-instance form driven end-to-end through the
+installed app — background, flat indices, no pointer movement — typed the
+name field (`verified:true`), pressed the radio, refused the web
+incrementor, filled the textarea and produced `created:<name>`. The real
+OCI wizard (`cloud.oracle.com/compute/instances/create`) still wants its
+own receipt before the `docs/LIMITATIONS.md` rows change.
+
+Source suite: 260 passed, 0 failed, 15 platform skips (`npm test`);
+Objective-C helper compiles clean in normal and `CU_TEST` builds.
+
 ## 0.5.0 — stateful waits and persistent SSH sessions
 
 The workflows that burned observe→wait→observe round-trips on dynamic UI now

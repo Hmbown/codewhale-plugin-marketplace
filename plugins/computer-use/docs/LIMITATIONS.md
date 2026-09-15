@@ -1,6 +1,59 @@
 # Limitations
 
 
+## Version 0.6.0 web-area traversal and targeting
+
+Observation now sets `AXEnhancedUserInterface` and `AXManualAccessibility` on
+target app elements before walking, so Chrome/Electron `AXWebArea` subtrees
+vend their page content (pre-0.6.0 builds saw only browser chrome — the
+"AXWebArea blindness" defect). Traversal budgets are depth 16 / 900 elements
+for summaries and depth 24 / 1600 for `detail:"full"` and `query`/`role`
+filtered observes; receipts still report `truncated:true` honestly on
+pathological pages. If an `AXWebArea` arrives with no descendants — the page
+was still populating — the observe retries once after 200 ms before
+returning. A re-observation remains the right answer when a control you can
+see is absent from the tree.
+
+Element targets no longer require `state_id`: `{type:"element", index}`
+binds the computer's latest observation, and an explicit `state_id` pins a
+specific earlier snapshot. Revalidation against the live tree is unchanged —
+stale or replaced elements still fail `element_stale` before any dispatch.
+
+Two honesty fixes on the action path:
+
+- **Degenerate frames.** Acting on a zero-size element (collapsed
+  virtualized-list rows report frames like `13x0` or `734x1`) fails
+  `degenerate_frame` with an instruction to scroll the row into view and
+  re-observe, instead of pressing a phantom rect.
+- **`set_value` on numeric controls.** `AXIncrementor`, `AXSlider`,
+  `AXStepper`, `AXValueIndicator` and `AXProgressIndicator` receive an
+  `NSNumber` (parsed with a POSIX `NSNumberFormatter`); a non-numeric string
+  fails before dispatch with a focus-then-type instruction, and the result
+  is read back so the receipt reports `verified` rather than asserting the
+  write. Elements under `AXWebArea` still refuse direct `AXValue` writes —
+  Chromium accepts them and then ignores them or coerces the field empty —
+  but the backend now answers with the replacement path instead of an
+  instruction: focus the element, select-all through the window-record
+  channel (menu key equivalents need a key window), type, and read the
+  value back (`strategy:"focus-type-replace"`, `verified` from the control's
+  own value).
+- **Web-area typing uses real key events.** `type` skips the
+  `AXSelectedText` path for elements under `AXWebArea` (Chromium accepts the
+  write and drops it) and sends process-bound unicode events after the
+  accessibility focus — still no pointer movement, still verified against
+  the control's own value.
+- **The preview panel is on by default** while an app is bound: each action
+  refreshes the captured window and draws the agent cursor at the action's
+  target — including element actions, not just pointer gestures. It is a
+  nonactivating panel; it never moves the real cursor. `preview(enabled:false)`
+  mutes it for the session.
+
+Live spot check (macOS 26.1, arm64, 2026-09-15): real Chrome on a long
+ChatGPT page observed ~750 elements to depth 24 including the composer
+`AXTextArea` — versus ~85 flat browser-chrome elements under the same call
+before the change. This is one machine and one page, not a re-run of the
+family table below.
+
 ## Version 0.3.0 presentation and controls
 
 The new menu-bar setup panel, live session status, Pause/Stop, practice check
@@ -105,17 +158,37 @@ way it does. Receipts: `parity/results/darwin-aqua-2026-09-07.json`,
   hit test with the window rather than the control). A hit performs the
   element's supported click, focus or selection action: no pointer motion, no activation. The receipt says
   `strategy: "a11y"`.
-- **Background mode refuses shared pointer gestures.** With no pressable
-  element, and for raw double/triple/middle click, drag and hover,
-  the default `activate:false` binding returns `shared_pointer_required`.
-  Context menus and scrolling now use supported accessibility operations;
-  unavailable semantic operations fail without a raw pointer fallback.
-  Only explicit `activate:true` shared-desktop control permits the event tap.
-  That moves the user's cursor (it is put back
-  afterwards: `pointer_restored: true`; observed displacement is reported in
-  the matrix and can be nonzero on the shared desktop) and requires the target application to remain
-  frontmost. Gestures stop on focus loss and never reactivate the target. The receipt carries `strategy: "event"`, `pointer_moved: true`,
-  `foreground_taken`, `foreground_before` and `foreground_after`.
+- **Background mouse input now delivers through the window-record route.**
+  Process-directed mouse events (`CGEventPostToPid`) never reach AppKit views
+  and posting to the HID tap moves the real cursor (both measured). The
+  production route addresses each event to the target window id (event fields
+  `0x33`/`0x5b`/`0x5c`) with a window-space location
+  (`CGEventSetWindowLocation`) and posts it as its raw event record through
+  `SLPSPostEventRecordTo`. View-level delivery requires the window to be
+  *key*: the window-focus record posted before each gesture makes it *main*
+  — events then arrive at the process and are swallowed by first-mouse
+  semantics — so the helper also takes a momentary front-process lease with
+  no-windows options and restores it in `@finally`, re-asserting the previous
+  app through the Accessibility grant when the restore lags. Coordinate
+  clicks with no pressable element, `left_click_drag`, raw double/triple/
+  middle click and scrollbar-less `scroll` deliver this way in background
+  mode. Receipts report `strategy:"window-record"`, `pointer_moved:false`
+  and `front_lease:true` — the lease is a momentary front-process swap with
+  no window raise, reported because a keystroke in exactly that window would
+  go to the target app. Delivery is by window id to a window owned by the
+  bound app, so events cannot land on a window covering the target. Wheel
+  events use pixel units because Chromium ignores line-unit scrolls. Menus
+  opened by a click close when the lease ends, so menu-opening clicks hold
+  the lease across calls (15 s watchdog cap, restored at the next raw-input
+  call, never yanked back when the user takes another app first).
+- **Shared pointer gestures remain explicit.** `strategy:"event"` and the
+  held-button tools (`mouse_move`, `left_mouse_down`/`left_mouse_up`) still
+  require `activate:true` shared-desktop control. That moves the user's
+  cursor (it is put back afterwards: `pointer_restored: true`) and requires
+  the target application to remain frontmost. Gestures stop on focus loss
+  and never reactivate the target. The receipt carries `strategy: "event"`,
+  `pointer_moved: true`, `foreground_taken`, `foreground_before` and
+  `foreground_after`.
 - **The foreground cannot be given back.** macOS 14+ ignores activation
   requests from a process that is not itself frontmost — measured for both
   `-[NSRunningApplication activateWithOptions:]` and setting `AXFrontmost`. The
@@ -181,11 +254,15 @@ not Engine/model parity; see [the commands](DEMO.md).
 | family | observable (AX elements) | keyboard in background | accessibility press in background | window stays behind | verdict |
 |---|---|---|---|---|---|
 | AppKit (`parity/fixtures/native-macos.m`) | 101 | yes | yes | yes | **verified live** |
-| Browser — Google Chrome | 85 | target was frontmost | effect observed | not established | **background unqualified** |
+| Browser — Google Chrome | 85* | target was frontmost | effect observed | not established | **background unqualified** |
 | Chromium-based — Chromium | 122 | target was frontmost | effect observed | not established | **background unqualified** |
 | Electron — Visual Studio Code | 12 | **no** | no oracle-backed control to press | yes | **verified failed** |
 | Tk — python3 tkinter | 6 | **no** | **no** (no pressable element exists) | yes | **verified failed** |
 | Java — Swing/AWT | — | — | — | — | **untested** (no Java runtime on this host) |
+
+*Pre-0.6.0 count: the harness then could not see `AXWebArea` descendants, so
+85 was the browser chrome only. See "Version 0.6.0 web-area traversal" above;
+the input verdicts in this table are unaffected and still unrequalified.
 
 The two failures in detail:
 
@@ -298,7 +375,8 @@ listing remain available.
   indistinguishable.
 - **macOS zoom** has single-Retina live receipts; nested zoom and mixed-display
   child rasters remain untested.
-- **macOS has an opt-in agent preview** with a drawn cursor. Other platforms
+- **macOS has an agent preview** with a drawn cursor, on by default while an
+  app is bound (0.6.0+; `preview(enabled:false)` mutes it). Other platforms
   have no equivalent preview.
 - **Each MCP session has its own input binding.** Session protocol 2 separates
   backend state in the long-running daemon. New clients also require background

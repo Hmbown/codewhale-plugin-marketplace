@@ -11,19 +11,21 @@ const strategyParam = {
   description: "macOS auto (default): element targets press that exact revalidated element and fail closed, with no coordinate fallback; coordinate targets hit-test the point for an accessibility press, including focus of a field that is not AXPressable. a11y: require an accessibility press or focus and fail closed otherwise. app: if accessibility cannot act, post a pointer event only when the point is inside the bound app's window, then restore the cursor — never a global desktop click. event: force the guarded raw pointer event (shared-desktop / activate:true). Other platforms use raw events. action_sent confirms dispatch, not the effect; observe again before deciding another action.",
 };
 
+const elementTargetSchema = {
+  type: "object",
+  description: "Element target: the flat index from the latest get_app_state on this computer. state_id is optional — supply it only to pin a specific earlier observation.",
+  required: ["type", "index"],
+  properties: {
+    type: { const: "element" },
+    state_id: { type: "string" },
+    index: { type: "integer", minimum: 0 },
+  },
+  additionalProperties: false,
+};
+
 const targetSchema = {
   oneOf: [
-    {
-      type: "object",
-      description: "Element target from the latest get_app_state on this computer.",
-      required: ["type", "state_id", "index"],
-      properties: {
-        type: { const: "element" },
-        state_id: { type: "string" },
-        index: { type: "integer", minimum: 0 },
-      },
-      additionalProperties: false,
-    },
+    elementTargetSchema,
     {
       type: "object",
       description: "Pixel coordinates in the latest returned raster (screenshot or zoom) for this computer.",
@@ -40,7 +42,7 @@ const targetSchema = {
 };
 
 export const TOOLS = [
-  { name: "preview", description: "macOS: show or hide a nonactivating app preview with the agent cursor. Off by default. Enable only when the user asks to watch; disable when finished. Open an application first; subsequent actions update its preview without taking over your mouse.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" }, computer: computerParam }, additionalProperties: false } },
+  { name: "preview", description: "macOS: show or hide the nonactivating app preview with the drawn agent cursor. On by default while an app is bound — each action updates the captured window and cursor without moving the real pointer. Set enabled:false to mute it for the session.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" }, computer: computerParam }, additionalProperties: false } },
   // ---- computers (switching is a default) ----
   {
     name: "computer_list",
@@ -136,7 +138,7 @@ export const TOOLS = [
   },
   {
     name: "get_app_state",
-    description: "Read an application's text, controls, actions and layout without requiring vision. The default summary keeps app content and top-level menus; full adds nested menus and tree structure. Act using observed state_id/index targets and refresh after UI changes. Missing labels or values are unknown, not an invitation to guess; request a screenshot only when useful.",
+    description: "Read an application's text, controls, actions and layout without requiring vision. The default summary keeps app content and top-level menus; full adds nested menus and tree structure. Act on observed elements with {type:'element', index} and refresh after UI changes. Missing labels or values are unknown, not an invitation to guess; request a screenshot only when useful.",
     inputSchema: {
       type: "object",
       properties: {
@@ -204,7 +206,7 @@ export const TOOLS = [
   },
   // ---- pointer ----
   {
-    name: "left_click", description: "Left-click a coordinate (pixels in the latest raster) or perform the element's press action.",
+    name: "left_click", description: "Left-click a coordinate (pixels in the latest raster) or perform the element's press action. macOS background mode presses via accessibility first; a point with no pressable element is delivered through the window-record route (genuine mouse events, cursor untouched, momentary no-raise front lease reported as front_lease).",
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, strategy: strategyParam, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -228,7 +230,7 @@ export const TOOLS = [
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "left_click_drag", description: "Press at from_target, move in steps, release at `to`.",
+    name: "left_click_drag", description: "Press at from_target, move in steps, release at `to`. macOS background mode delivers the gesture through the window-record route (strategy \"window-record\"): AppKit receives genuine mouse events, the real cursor never moves, and a momentary no-raise front lease is taken and restored (reported as front_lease).",
     inputSchema: { type: "object", required: ["from_target", "to"], properties: { from_target: targetSchema, to: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -240,24 +242,24 @@ export const TOOLS = [
     inputSchema: { type: "object", properties: { computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "scroll", description: "Scroll up/down/left/right at a target. macOS background mode uses the target's accessibility scrollbar without moving the cursor; amount counts native increments or 5% normalized steps, named in the receipt. Other raw routes use lines/notches. Prefer an observed scroll-area element.",
+    name: "scroll", description: "Scroll up/down/left/right at a target. macOS background mode uses the target's accessibility scrollbar without moving the cursor; amount counts native increments or 5% normalized steps, named in the receipt. Where no AX scrollbar exists (overlay scrollers, web pages) wheel events are delivered through the window-record route (strategy \"window-record\", a momentary no-raise front lease, cursor untouched). Other raw routes use lines/notches. Prefer an observed scroll-area element.",
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, direction: { enum: ["up", "down", "left", "right"] }, amount: { type: "integer", minimum: 1, maximum: 100 }, computer: computerParam }, additionalProperties: false },
   },
   // ---- text & keyboard ----
   {
     name: "type", description: "Type unicode text into the focused control. Newlines in `text` are Return/Enter key presses, not literal characters — never put \\n in a composer by hoping it will send. Focus the field first (click, focus, or set_value), or pass an element `target` to focus it in the same call. On macOS the receipt carries `verified:true` only when the focused control's value actually reflects the typed text; on `verified:false` the text may have gone nowhere — observe again before relying on it.",
-    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, press_enter: { type: "boolean", description: "After typing, press Return/Enter once. Prefer this to putting a newline in `text` when you want to send." }, target: { type: "object", description: "Element target from get_app_state; it is accessibility-focused first, then the text is typed. Element targets only.", required: ["type", "state_id", "index"], properties: { type: { const: "element" }, state_id: { type: "string" }, index: { type: "integer", minimum: 0 } }, additionalProperties: false }, computer: computerParam }, additionalProperties: false },
+    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, press_enter: { type: "boolean", description: "After typing, press Return/Enter once. Prefer this to putting a newline in `text` when you want to send." }, target: { ...elementTargetSchema, description: "Element target from get_app_state; it is accessibility-focused first, then the text is typed. Element targets only." }, computer: computerParam }, additionalProperties: false },
   },
   {
     name: "key", description: "Press a named key or chord. Examples: return, enter, backspace, tab, escape, cmd+c (macOS), ctrl+c (Linux/Windows). This is the key-press tool; type() cannot send modifiers or Return by itself except via newlines/press_enter. Repeat with `repeat`. Pass an element `target` to accessibility-focus it first.",
-    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, repeat: { type: "integer", minimum: 1, maximum: 100 }, target: { type: "object", description: "Element target from get_app_state; it is accessibility-focused first, then the key is sent. Element targets only.", required: ["type", "state_id", "index"], properties: { type: { const: "element" }, state_id: { type: "string" }, index: { type: "integer", minimum: 0 } }, additionalProperties: false }, computer: computerParam }, additionalProperties: false },
+    inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, repeat: { type: "integer", minimum: 1, maximum: 100 }, target: { ...elementTargetSchema, description: "Element target from get_app_state; it is accessibility-focused first, then the key is sent. Element targets only." }, computer: computerParam }, additionalProperties: false },
   },
   {
     name: "hold_key", description: "Hold a key for `duration` seconds (0.05..30).",
     inputSchema: { type: "object", required: ["text", "duration"], properties: { text: { type: "string" }, duration: { type: "number", minimum: 0.05, maximum: 30 }, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "set_value", description: "Set an editable element's value through the accessibility layer (background-safe, no keystrokes). Element targets only.",
+    name: "set_value", description: "Set an editable element's value. Native controls take a background-safe AXValue write with read-back verify; web-area elements take the replacement path (focus, select-all through the window-record channel, type, read-back verify) because Chromium silently no-ops direct AXValue writes. Element targets only.",
     inputSchema: { type: "object", required: ["target", "value"], properties: { target: targetSchema, value: { type: "string" }, computer: computerParam }, additionalProperties: false },
   },
   {

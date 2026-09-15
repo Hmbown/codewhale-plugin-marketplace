@@ -49,7 +49,11 @@ test('native summary keeps text and top-level menus without spending the UI budg
     [{AXRole:'AXMenuItem',actions:['AXPick']},false,'AXPick'],
     [{AXRole:'AXButton',actions:['AXShowMenu']},true,'AXShowMenu'],
     [{AXRole:'AXButton',AXEnabled:false,actions:['AXPress']},false,null],
-    [{AXRole:'AXGroup',settable:['AXFocused']},false,'AXFocused'],
+    // Focusing anything but a text-entry role is not a click; the caller
+    // falls back to real delivery.
+    [{AXRole:'AXGroup',settable:['AXFocused']},false,null],
+    [{AXRole:'AXSearchField',settable:['AXFocused']},false,'AXFocused'],
+    [{AXRole:'AXGroup',settable:['AXFocused','AXSelectedText']},false,null],
   ]) {
     const r=spawnSync(binary,[JSON.stringify({tool:'inspect_click_action',args:{element,context}})],{encoding:'utf8'});
     assert.equal(r.status,0,r.stderr);
@@ -312,8 +316,9 @@ test('macOS background control never escalates an unavailable semantic action to
   ]) await assert.rejects(backend[tool](args),error=>error.code===(tool==='scroll'?'background_scroll_unavailable':'shared_pointer_required'));
   assert.ok(!calls.some(r=>['pointer_sequence','release_input','window_at_point'].includes(r.tool)));
   await backend.type({text:'Background typing'});
-  assert.equal(calls.at(-1).tool,'type');
-  assert.equal(calls.at(-1).args.foreground_input,false);
+  const typed=calls.filter(r=>r.tool==='type');
+  assert.equal(typed.length,1);
+  assert.equal(typed[0].args.foreground_input,false);
 });
 
 test('macOS returning to background stops held-pointer movement while preserving its release', async t => {
@@ -629,7 +634,9 @@ test('macOS type passes the native verification receipt through untouched', asyn
   const nativeReceipt = { action_sent: true, chars: 5, strategy: 'unicode-events', keyboard_delivery: 'process', verified: false, focused_role: null, verification_required: 'screenshot' };
   const { backend } = stubBackend(t, (r) => (r.tool === 'type' ? nativeReceipt : null));
   await backend.open_application({ name: 'TextEdit' });
-  assert.deepEqual(await backend.type({ text: 'hello' }), nativeReceipt);
+  const { preview_error, ...receipt } = await backend.type({ text: 'hello' });
+  assert.deepEqual(receipt, nativeReceipt);
+  assert.ok(preview_error, 'preview refresh failure is reported, not swallowed');
 });
 
 // A 1x1 PNG is enough: screenshot reads its IHDR for the pixel ground truth.

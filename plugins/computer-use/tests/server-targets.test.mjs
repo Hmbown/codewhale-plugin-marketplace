@@ -286,6 +286,28 @@ test("unmoved element geometry does not mark the receipt reacquired", async () =
   assert.deepEqual({ x: last.args.target.x, y: last.args.target.y }, { x: 40, y: 35 });
 });
 
+test("an element target without state_id binds the computer's latest observation", async () => {
+  const st = await freshState();
+  setControl(null);
+  const r = await tool("left_click", { target: { type: "element", index: 1 } });
+  assert.equal(r.ok, true, JSON.stringify(r.error));
+  const last = calls("left_click").at(-1);
+  assert.deepEqual({ x: last.args.target.x, y: last.args.target.y }, { x: 40, y: 35 });
+  assert.notEqual(st.state_id, undefined);
+});
+
+test("a bare element index follows the newest observation; an explicit state_id pins the older one", async () => {
+  const first = await freshState();
+  const second = await freshState();
+  assert.notEqual(first.state_id, second.state_id);
+  setControl(null);
+  // index 1 in the fresh state is the same fixture button in both states.
+  const latest = await tool("left_click", { target: { type: "element", index: 1 } });
+  assert.equal(latest.ok, true, JSON.stringify(latest.error));
+  const pinned = await tool("left_click", { target: { type: "element", state_id: first.state_id, index: 1 } });
+  assert.equal(pinned.ok, true, JSON.stringify(pinned.error));
+});
+
 test("stale element fails element_stale without touching the pointer", async () => {
   const st = await freshState();
   setControl({ found: false, element: null, reason: "element_gone" });

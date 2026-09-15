@@ -378,7 +378,7 @@
    "id": "browser.upload",
    "issue": 2,
    "fixture": "browser",
-   "goal": "Upload through the native file picker: observe Go to Folder, set its focused text field, choose the observed completion row, and press Open.",
+   "goal": "Upload through the native file picker: observe Go to Folder, set its focused text field to the file path, accept it with Return, and press Open.",
    "steps": [
     {
      "call": "screenshot"
@@ -450,16 +450,7 @@
      }
     },
     {
-     "call": "double_click",
-     "args": {
-      "target": {
-       "element_match": {
-        "role": "AXList",
-        "label": "path"
-       },
-       "ancestor_role": "AXRow"
-      }
-     }
+     "key": "return"
     },
     {
      "sleep": 600
@@ -551,13 +542,13 @@
     {
      "call": "type",
      "args": {
-      "text": "héllo wörld 日本 🐳"
+      "text": "h\u00e9llo w\u00f6rld \u65e5\u672c \ud83d\udc33"
      }
     },
     {
      "expect": {
       "path": "uni",
-      "equals": "héllo wörld 日本 🐳"
+      "equals": "h\u00e9llo w\u00f6rld \u65e5\u672c \ud83d\udc33"
      }
     }
    ]
@@ -721,7 +712,7 @@
    "issue": 2,
    "fixture": "browser",
    "optional_a11y": true,
-   "goal": "After the observed element disappears (Load replaces it), acting on the old element target fails element_stale instead of clicking something else.",
+   "goal": "After the observed element disappears (Load replaces it), acting on the old element target fails element_stale and delivers no click: #dyn's once-handler never fires, so dyn stays loading.",
    "steps": [
     {
      "call": "get_app_state",
@@ -743,7 +734,7 @@
     {
      "expect": {
       "path": "dyn",
-      "equals": "ready"
+      "equals": "loading"
      }
     },
     {
@@ -756,9 +747,12 @@
      "expect_error": "element_stale"
     },
     {
+     "sleep": 1000
+    },
+    {
      "expect": {
       "path": "dyn",
-      "equals": "ready"
+      "equals": "loading"
      }
     }
    ]
@@ -1094,7 +1088,7 @@
     {
      "call": "type",
      "args": {
-      "text": "Ünïcödé ✓"
+      "text": "\u00dcn\u00efc\u00f6d\u00e9 \u2713"
      }
     },
     {
@@ -1111,7 +1105,7 @@
     {
      "expect": {
       "path": "applied",
-      "equals": "Ünïcödé ✓"
+      "equals": "\u00dcn\u00efc\u00f6d\u00e9 \u2713"
      }
     }
    ]
@@ -1182,7 +1176,7 @@
    "server_env": {
     "CODEWHALE_CU_APP": "off"
    },
-   "goal": "Direct mode with no bound application refuses raw input with an actionable message instead of typing into whatever is in front. (macOS binds input to a process, so this — not a missing DISPLAY — is the platform's fail-closed edge.)",
+   "goal": "Direct mode with no bound application refuses raw input with an actionable message instead of typing into whatever is in front. (macOS binds input to a process, so this \u2014 not a missing DISPLAY \u2014 is the platform's fail-closed edge.)",
    "steps": [
     {
      "call": "type",

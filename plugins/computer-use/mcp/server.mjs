@@ -25,6 +25,8 @@ const requests = new Map();
 let dispatch = Promise.resolve();
 /** state_id -> { computerId, app_ref, windowIndex, elements } */
 const appStates = new Map();
+/** computerId -> state_id of its most recent observation */
+const latestStateByComputer = new Map();
 /** computerId -> last raster metadata {file, scale, origin} */
 const lastRasters = new Map();
 /** computerId -> route-bound session resources; the registry owns configuration. */
@@ -64,6 +66,7 @@ function fail(computer, code, message, extra = {}) {
 
 function invalidateObservations(id) {
   lastRasters.delete(id);
+  latestStateByComputer.delete(id);
   for (const [stateId, state] of appStates) {
     if (state.computerId === id) appStates.delete(stateId);
   }
@@ -126,12 +129,20 @@ async function getBackend(computer, binding) {
   return binding.backend;
 }
 
-/** Element target -> enriched target with cached app identity and AX path. */
-function resolveElement(target) {
-  const st = appStates.get(target.state_id);
-  if (!st) throw new ServerError("unknown_state", `state_id "${target.state_id}" is unknown or expired — call get_app_state again`);
+/**
+ * Element target -> enriched target with cached app identity and AX path.
+ * An explicit state_id pins a specific observation; a bare index addresses
+ * the latest observation on this computer — the flat addressing a caller
+ * uses when it acts on what it just saw.
+ */
+function resolveElement(target, computer) {
+  const stateId = target.state_id ?? latestStateByComputer.get(computer.id);
+  const st = stateId ? appStates.get(stateId) : null;
+  if (!st) throw new ServerError("unknown_state", target.state_id
+    ? `state_id "${target.state_id}" is unknown or expired — call get_app_state again`
+    : "no observation on this computer yet — call get_app_state first");
   const el = st.elements[target.index];
-  if (!el) throw new ServerError("unknown_element", `element index ${target.index} is outside state ${target.state_id} (0..${st.elements.length - 1})`);
+  if (!el) throw new ServerError("unknown_element", `element index ${target.index} is outside state ${stateId} (0..${st.elements.length - 1})`);
   return { state: st, element: el };
 }
 
@@ -170,7 +181,7 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
     return { x: Math.round(pt.x), y: Math.round(pt.y), strategy: "event", coordinate_space: "raster" };
   }
   if (target?.type === "element") {
-    const { state, element } = resolveElement(target);
+    const { state, element } = resolveElement(target, computer);
     if (state.computerId && state.computerId !== computer.id) {
       throw new ServerError("state_wrong_computer", `state_id "${target.state_id}" belongs to computer "${state.computerId}", not "${computer.id}" — call get_app_state on that computer again`);
     }
@@ -209,7 +220,7 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
     return { ...c, strategy: "a11y-center", role: element.role, label: element.label, app_ref: state.app_ref,
       windowIndex: element.windowIndex ?? 0, path: element.path, reacquired: moved };
   }
-  throw new ServerError("bad_target", "target must be {type:'coordinate',x,y} or {type:'element',state_id,index}");
+  throw new ServerError("bad_target", "target must be {type:'coordinate',x,y} or {type:'element',index} (state_id optional to pin a specific observation)");
 }
 
 function bindRaster(computer, shot) {
@@ -246,6 +257,7 @@ function rememberState(computer, app_ref, result) {
   const resolved = { ...app_ref };
   for (const key of ["pid", "bundle_id", "name"]) if (result[key] != null && result[key] !== "") resolved[key] = result[key];
   appStates.set(id, { computerId: computer.id, app_ref: resolved, elements: result.elements ?? [], ts: Date.now() });
+  latestStateByComputer.set(computer.id, id);
   if (appStates.size > 24) {
     for (const k of appStates.keys()) { appStates.delete(k); break; }
   }
@@ -352,7 +364,7 @@ function observeState(computer, app_ref, result, args = {}) {
     truncated: filtered.truncated,
     note: ephemeral
       ? "Ephemeral poll: elements are not bound to a state_id."
-      : "Target observed elements with {type:'element', state_id, index}. Indices address the cached tree, including rows omitted from this page. Filter with query/role/limit/offset instead of requesting a larger dump. Missing labels or values are unknown; do not guess.",
+      : "Target observed elements with {type:'element', index}; the index addresses this latest observation's cached tree, including rows omitted from this page. Pin an older observation with state_id. Filter with query/role/limit/offset instead of requesting a larger dump. Missing labels or values are unknown; do not guess.",
   };
   if (compact && data.ocr && args.include_ocr !== true) delete data.ocr;
   return fitStatePayload(data, STATE_CHAR_BUDGET);
@@ -409,7 +421,7 @@ async function waitFor(computer, args, switched) {
       if (bound.isError || b.ok === false) {
         return { content: [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: "wait_for", switched, matched: true, state, polls, elapsed_ms: Date.now() - started, note: "Condition held but the follow-up observation failed — call get_app_state before targeting." })) }] };
       }
-      return { content: [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: "wait_for", switched, matched: true, state, polls, elapsed_ms: Date.now() - started, state_id: b.state_id, matched_count: b.matched ?? 0, elements: b.elements, app: { name: b.name ?? null, pid: b.pid ?? null, bundle_id: b.bundle_id ?? null }, note: "Elements are bound to state_id — target them with {type:'element', state_id, index}. Re-observe if the UI changes again." })) }] };
+      return { content: [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: "wait_for", switched, matched: true, state, polls, elapsed_ms: Date.now() - started, state_id: b.state_id, matched_count: b.matched ?? 0, elements: b.elements, app: { name: b.name ?? null, pid: b.pid ?? null, bundle_id: b.bundle_id ?? null }, note: "Elements are bound to this observation — target them with {type:'element', index}; add state_id only to pin this snapshot after later observes. Re-observe if the UI changes again." })) }] };
     }
     if (Date.now() >= deadline) break;
     await wait(Math.min(intervalMs, Math.max(1, deadline - Date.now())));

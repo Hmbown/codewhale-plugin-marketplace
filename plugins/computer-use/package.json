@@ -1,6 +1,6 @@
 {
   "name": "codewhale-cu-plugin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Let Codewhale see and operate your apps. Background control, permission setup and human safety controls over MCP.",
   "license": "MIT",
   "repository": "github:Hmbown/codewhale-cu-plugin",

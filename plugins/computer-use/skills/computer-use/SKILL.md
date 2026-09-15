@@ -55,7 +55,10 @@ Observe once, act once, then verify.
    shorter labels). `detail:"full"` adds nested menus and tree paths.
    `find_elements` searches a cached `state_id` or observes now. Missing
    labels or values mean unknown content, not something to guess. `get_value`
-   reads one field live.
+   reads one field live. On macOS, browsers and Electron/webview apps expose
+   page content as `AXWebArea` descendants; the first observation may arrive
+   while the page is still populating — re-observe if the tree looks
+   suspiciously shallow or a control you can see is absent.
 4. If the tree contains the target, act on the element: `focus` then `type`
    or `key` for composers (or pass the element `target` straight to
    `type`/`key` — it focuses first, in the same call), `set_value` for
@@ -103,13 +106,14 @@ Observe once, act once, then verify.
 
 ## Choosing targets
 
-- Element: `{"type":"element","state_id":"s-1","index":4}` — prefer this.
+- Element: `{"type":"element","index":4}` — prefer this. A bare index binds
+  that computer's latest observation; add `state_id` only to pin a specific
+  earlier snapshot (e.g. one returned by `wait_for` after newer observes).
   Elements are revalidated against the live tree before every action: if the
   element moved, the click lands on its fresh center and the receipt carries
   `target_reacquired: true`; if it no longer resolves (or changed role) the
-  call fails `element_stale` — call `get_app_state` again for a fresh
-  `state_id`. A `state_id` only works on the computer that issued it
-  (`state_wrong_computer`).
+  call fails `element_stale` — call `get_app_state` again. A `state_id` only
+  works on the computer that issued it (`state_wrong_computer`).
 - Coordinate: `{"type":"coordinate","x":496,"y":331}` — pixels from the latest
   raster only; submit `x`/`y` unchanged, never transform them yourself.
   `{"type":"coordinate","x":100,"y":200,"space":"screen"}` is an absolute
@@ -130,19 +134,18 @@ Observe once, act once, then verify.
     Prefer them. Text entry uses writable accessibility selection when
     available; verify the resulting value. `get_app_state`, `list_windows`
     and `screenshot` default to the selected app.
-  - **Background mode never takes the shared pointer.** A coordinate
+  - **Background mode never moves the user's cursor.** A coordinate
     `left_click` first tries the bound application's accessibility action,
     including focusing a field that is not AXPressable. `right_click` uses
     advertised context-menu actions. `scroll` uses the target's accessibility
     scrollbar; prefer a scroll-area element and read the receipt's unit and
-    value change. If accessibility cannot act, `strategy:"app"` posts a
-    pointer event only when the point is inside the bound app's window, then
-    restores the cursor — not a global desktop click. Raw double/triple/middle
-    click, drag, hover, and `strategy:"event"` fail with
-    `shared_pointer_required` before moving the cursor. Missing semantic
-    scrolling or context-menu support is a refusal, never permission to
-    activate. Use `strategy:"app"`, another advertised accessibility action,
-    or a separate computer.
+    value change. Where accessibility cannot act — a point with no pressable
+    element, drag, raw double/triple/middle click, wheel scrolling without an
+    AX scrollbar — the window-record route delivers genuine mouse/wheel
+    events to the bound app's window: the cursor never moves, and a momentary
+    no-raise front-process lease is taken and restored (every receipt says
+    `strategy:"window-record"`, `pointer_moved:false`, `front_lease:true`).
+    Only hover and held-button tools still need `activate:true`.
   - Shared-desktop gestures and foreground keyboard delivery require explicit
     user authorization for exclusive desktop use, followed by
     `open_application(activate:true)`. Do not select it merely to work around a
@@ -159,10 +162,20 @@ Observe once, act once, then verify.
     move or close the reported window.
   - An accessibility press refuses to cross a modal sheet
     (`window_blocked_by_modal_sheet`): deal with the sheet first.
+  - Virtualized lists vend collapsed placeholder rows (zero-size frames).
+    Acting on one fails `degenerate_frame` — scroll the real row into view
+    and re-observe rather than retrying the same index.
+  - `set_value` coerces numbers for `AXIncrementor`/`AXSlider`/`AXStepper`
+    and verifies the readback. Web-area elements take the replacement path
+    automatically (focus, select-all through the record channel, type,
+    read-back verify — receipt `strategy:"focus-type-replace"`) because
+    Chromium silently no-ops or coerces direct `AXValue` writes.
   Use app-scoped screenshots (`app_ref`) to avoid capturing unrelated windows.
-  Watching the preview does not authorize shared-desktop control. Enable it
-  only when the user asks to watch; disable it when finished. The preview is a
-  local app view, not an isolated desktop. Process-directed actions still
+  The nonactivating preview panel is on by default while an app is bound —
+  it shows the captured app window and a drawn cursor at each action's target
+  so the user can watch; the real pointer never moves. `preview(enabled:false)`
+  mutes it for the session. The preview is a local app view, not an isolated
+  desktop; watching it does not authorize shared-desktop control. Process-directed actions still
   change the target app: do not work in an app the user is actively editing.
   Close only disposable documents created by your task; never quit a user app.
 - Windows/Linux: raw input is foreground by nature; UIA/AT-SPI element actions
