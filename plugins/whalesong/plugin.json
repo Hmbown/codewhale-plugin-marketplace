@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "whalesong",
+  "version": "0.1.0",
+  "description": "Query and analyze the sessions your agent CLIs are recording into Whalesong: list traces, read waterfalls, run the deterministic analysis core (loops, retries, bursts, context pressure, divergence), compare two runs, and attach review scores. Local-first, read-mostly.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "observability",
+    "traces",
+    "analysis",
+    "langfuse",
+    "sessions",
+    "whalesong"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Whalesong",
+      "skills": {
+        "path": "skills"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  }
+}

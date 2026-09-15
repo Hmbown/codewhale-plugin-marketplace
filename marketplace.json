@@ -17,6 +17,13 @@
       ]
     },
     {
+      "name": "whalesong",
+      "source": "path:plugins/whalesong",
+      "version": "0.1.0",
+      "description": "Query and analyze agent sessions recorded into the local Whalesong platform: list traces, read waterfalls, run deterministic analysis (loops, retries, context pressure, divergence), compare runs, attach review scores.",
+      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace"
+    },
+    {
       "name": "whalewiki",
       "source": "path:plugins/whalewiki",
       "version": "0.1.0",
