@@ -17,10 +17,9 @@ comparison). The
 marketplace enables it on macOS only. Windows and Linux remain experimental
 source-only backends. The native macOS helper provides permission setup, a
 background check, human Pause/Stop and on-demand verified updates. The
-latest published download remains the Developer ID-signed, notarized 0.5.0
-macOS build (v0.5.0 GitHub release, packaging receipt
-`plugins/computer-use/docs/releases/0.5.0.json`); 0.6.0 is vendored source
-ahead of its own release qualification. The
+Developer ID-signed, notarized 0.6.0 macOS build is published as the v0.6.0
+GitHub release, with its packaging receipt in
+`plugins/computer-use/docs/releases/0.6.0.json`. The
 [official setup page](https://codewhale.net/computer-use) reports whether the
 download is available, and the
 [Computer Use CHANGELOG](../../plugins/computer-use/CHANGELOG.md) records the

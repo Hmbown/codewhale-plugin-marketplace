@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "8066cd44e949424b98d58f24b1a702ac5a58cffd53f80f703f8220078f4e2592",
+      "page_sha256": "8e49890e232855689c0c708579e4a1d0e987c7027e0cce480bb9aab57195f72d",
       "sources": [
         {
           "path": "marketplace.json",
@@ -45,20 +45,20 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "af595d23a72a950f5d6482d6dbdca3a61b860bdcba5e8682b9b70d54636f08af",
-          "bytes": 14342
+          "sha256": "b67cbce68d776c42c1f75f2d2144557b81b45a686490a7daab3ead9dfd529af8",
+          "bytes": 16262
         },
         {
-          "path": "plugins/computer-use/docs/releases/0.5.0.json",
+          "path": "plugins/computer-use/docs/releases/0.6.0.json",
           "root": "repo",
-          "sha256": "262fbcf9258f70729318678eb26fef005907954b6506018a2dccf53fd363eb4b",
+          "sha256": "58ffad13711097896923a9bb2673084a26555795b3d3d0069b8a7af371218a86",
           "bytes": 627
         },
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "b007806bdaffc6178c148ae82b98b7bbc53c0ed0158bb07de2ca10c913f893af",
-          "bytes": 17036
+          "sha256": "af259e361f67933b7ccb2aeedae88e72254e2ecf112761d7b8e4bd1973943a65",
+          "bytes": 16996
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -67,7 +67,7 @@
           "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-15T20:22:50.554Z"
+      "sealed_at": "2026-09-15T20:40:09.400Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -180,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-15T20:22:50.555Z"
+  "updated_at": "2026-09-15T20:40:09.400Z"
 }

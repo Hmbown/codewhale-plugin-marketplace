@@ -4,13 +4,39 @@ Keyed to the release commit. Fill in results as steps run; a release is only
 publishable when every applicable row has a recorded result. Steps marked
 **human-only** are never performed by scripts.
 
-Release commit: `b25f11c8673667329af2d9172aa57b153b9cc49d` — date: `2026-09-15` — operator: `Hunter Bown (build and packaging run by Devin)`
+Release commit: `e52a124f832f340330fd522cefc52e50363a8a96` — date: `2026-09-15` — operator: `Hunter Bown (build and packaging run by Devin)`
 
 ## Qualification record
 
 Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
+
+### 0.6.0 — window-routed background pointer and web-area traversal
+
+- Source suite at commit `e52a124f832f340330fd522cefc52e50363a8a96`:
+  **260 passed, 0 failed, 15 platform skips**; darwin-aqua parity suite
+  **28/28 tasks × 5 reps** (run `darwin-aqua-2026-09-15T15-45-34-087Z`,
+  pointer drift 0 px, operator foreground preserved).
+- Public build: produced 2026-09-15 from that commit on `main`. Signed with
+  "Developer ID Application: Hunter Bown (5RDNSHA5TY)" under the hardened
+  runtime; universal (arm64 and x86_64); bundled Node 24.21.0; macOS 13.5+.
+- Notarization: submission `3f76ab14-74ff-4650-b668-1bb3ecefb795` Accepted;
+  ticket stapled; `codesign --verify --deep --strict` ok; `spctl` accepted
+  with source "Notarized Developer ID". Receipt:
+  [releases/0.6.0.json](releases/0.6.0.json).
+- Archive: `Codewhale-Computer-Use-0.6.0-macos-universal.zip`, 79,766,090
+  bytes, SHA-256
+  `c8f25537a16287d5397cb0c938e759746904d040edb2cd842bd6963c44a77ea2`.
+- Disk image: `Codewhale-Computer-Use-0.6.0-macos-universal.dmg`, 88,300,064
+  bytes, SHA-256
+  `20d63bf43e40b9eaff97ab7294edc7296cf3d8317e1fd5f90c6b9f99b17a876c`;
+  submission `27d89e49-4551-4b0e-aaa3-3245d56e989f` Accepted, stapled.
+- Open gates, carried forward and recorded as open: clean-machine install
+  with fresh Accessibility and Screen Recording grants; a model-driven task
+  through an installed Codewhale Engine; the non-admin Applications-directory
+  update; the real post-publication **Check for updates…** path from an
+  installed older notarized build.
 
 ### 0.5.0 — stateful waits and persistent SSH sessions
 
@@ -156,10 +182,10 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Unit tests | `npm test` | 249ae77 on macOS: 245 passed, 0 failed, 15 platform skips |
-| Parity suite | `npm run parity` (each supported platform) | run dir recorded below |
-| Parity suite, isolated | `npm run parity -- --isolated` | run dir recorded below |
-| Matrix regenerated | `npm run parity:matrix -- --run <dir> [--run <dir>...]` | `docs/PARITY_MATRIX.md` current |
+| Unit tests | `npm test` | e52a124 on macOS: 260 passed, 0 failed, 15 platform skips |
+| Parity suite | `npm run parity` (each supported platform) | `receipts/parity/darwin-aqua-2026-09-15T15-45-34-087Z` — 28/28 × 5 reps |
+| Parity suite, isolated | `npm run parity -- --isolated` | not run this cycle; aqua session run recorded above |
+| Matrix regenerated | `npm run parity:matrix -- --run <dir> [--run <dir>...]` | `docs/PARITY_MATRIX.md` regenerated against `darwin-aqua-2026-09-15T15-45-34-087Z` |
 | Model comparison eligibility | `npm run parity:matrix -- --model-trials <trial-dir> --out <report-dir>` | complete valid fixture outcomes, exclusions retained; see `docs/PARITY.md` |
 | Receipt hygiene | `node scripts/check-receipts.mjs parity/results docs` | clean |
 | README claims match matrix | manual read of `docs/PARITY_MATRIX.md` vs README claims | ok / diff noted |
@@ -168,10 +194,10 @@ receipts belong in a public issue.
 
 | step | command | result |
 |---|---|---|
-| Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | 249ae77: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
-| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | 249ae77: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
-| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | 249ae77: notarized:true, submission 08f574c9-e4d7-4ff7-b7e1-431136fd4262 Accepted, stapled; archive 79,725,412 bytes, sha256 753565134e9fa36ac1435b64af0613d4df8195503bad56b93c80fdee0df6a637 |
-| Disk image | `node scripts/package-dmg.mjs --notary-profile <profile>` | 249ae77 app, 2026-09-13: dmgbuild layout (app, Applications shortcut, branded background), Developer ID signed, submission 0416455e-1798-4397-b0d0-c9b1bf5cb8dd Accepted, stapled, `spctl --type open` accepted (Notarized Developer ID), mounted contents verified; 88,254,027 bytes, sha256 3ee12be851a9f7a2feb43fa55eea0abbd5ea9ffc83472b20ccb2d0dab7aae4d8 |
+| Build app bundle | `node scripts/prepare-node-runtime.mjs && node scripts/build-app.mjs --platform macos --node-runtime dist/node` | e52a124: built and Developer ID-signed (hardened runtime, universal, Node 24.21.0) |
+| Verify signature | `node scripts/verify-bundle.mjs dist/macos/"Codewhale Computer Use.app"` (runs `codesign --verify --deep --strict`, `codesign -dv`, `spctl --assess --type execute`) | e52a124: codesign ok, identifier net.codewhale.computer-use, team 5RDNSHA5TY; spctl rejected before notarization, accepted (Notarized Developer ID) after |
+| Notarize and package | `node scripts/package-macos.mjs --notary-profile <profile>` | e52a124: notarized:true, submission 3f76ab14-74ff-4650-b668-1bb3ecefb795 Accepted, stapled; archive 79,766,090 bytes, sha256 c8f25537a16287d5397cb0c938e759746904d040edb2cd842bd6963c44a77ea2 |
+| Disk image | `node scripts/package-dmg.mjs --notary-profile <profile>` | e52a124 app, 2026-09-15: dmgbuild layout (app, Applications shortcut, branded background), Developer ID signed, submission 27d89e49-4551-4b0e-aaa3-3245d56e989f Accepted, stapled; 88,300,064 bytes, sha256 20d63bf43e40b9eaff97ab7294edc7296cf3d8317e1fd5f90c6b9f99b17a876c |
 
 ## 3. Permission flow (manual on macOS)
 
@@ -199,6 +225,7 @@ receipts belong in a public issue.
 - [x] **Publish release** — v0.3.1 published 2026-09-13 by Hunter Bown (human); tag on `44bf9fcde4bebacf3d69d03d08972ba02b0d1bc5`; anonymous download verified (size 79,720,031, SHA-256 match, Gatekeeper accepted as Notarized Developer ID, stapled ticket valid).
 - [x] **Publish release** — v0.4.0 published 2026-09-13 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Fable 5.1 from the human's authenticated `gh` session); tag on `e03e206b50ca5e52e72042e126d7afd08e85d49e`; GitHub's asset digests match the receipt (zip 753565134e9f…, dmg 3ee12be851a9…); anonymous download of `release.json` verified.
 - [x] **Publish release** — v0.5.0 published 2026-09-15 (PDT) at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `8a7b7dd`; GitHub's asset digests match the receipt (zip b5688ccbe117…, dmg 56aa7097e5ad…).
+- [x] **Publish release** — v0.6.0 published 2026-09-15 at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `c9d36d9`; GitHub's asset digests match the receipt (zip c8f25537a162…, dmg 20d63bf43e40…); anonymous `release.json` download verified.
 
 ---
 

@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased — window-routed background pointer
+## 0.6.0 — window-routed background pointer and web-area traversal
 
 - **Background mouse input now reaches AppKit views without touching the
   user's cursor.** Process-directed mouse events (`CGEventPostToPid`) never
@@ -55,8 +55,6 @@
     file-picker upload, emoji into a fully occluded window — with the real
     cursor position unchanged across every gesture and the operator's
     foreground restored.
-
-## 0.6.0 — web-area traversal and flat-index targeting
 
 The plugin could not see inside browser pages: `get_app_state` on Chrome
 returned the toolbar and tab strip but never descended into `AXWebArea`, so
