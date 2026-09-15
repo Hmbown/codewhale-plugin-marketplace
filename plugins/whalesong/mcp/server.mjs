@@ -43,10 +43,11 @@ async function core() {
   if (_core) return _core;
   if (!WSHOME) throw new Error("WHALESONG_HOME is not set — expected it in ~/.whalesong/env");
   const imp = rel => import(pathToFileURL(path.join(WSHOME, rel)).href);
-  const [{ PlatformStore }, { analyze, compare }, { importTrace }] = await Promise.all([
+  const [{ PlatformStore }, analysis, { importTrace }, signal, audio, { analysisReport }] = await Promise.all([
     imp("scripts/lib/store.mjs"), imp("dist/core/analysis.js"), imp("dist/core/ingest.js"),
+    imp("dist/core/signal.js"), imp("dist/core/audio.js"), imp("dist/core/report.js"),
   ]);
-  _core = { PlatformStore, analyze, compare, importTrace };
+  _core = { PlatformStore, importTrace, signal, audio, analysisReport, ...analysis };
   return _core;
 }
 let _db, _pid;
@@ -142,8 +143,19 @@ const TOOLS = [
         name: { type: "string" },
         level: { type: "string", enum: ["DEFAULT", "WARNING", "ERROR"] },
         limit: { type: "number", default: 50 },
+        full: { type: "boolean", description: "Include input/output/statusMessage payloads (truncated to 4000 chars each). Needed to see WHY a call failed or what a loop was doing." },
       },
       required: ["trace_id"],
+    },
+  },
+  {
+    name: "whalesong_tools",
+    description: "Aggregate stats over a recent window across all sessions: calls, errors and total tokens per tool/model/source. The fastest way to answer 'what are my agents actually doing'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        since_hours: { type: "number", default: 24 },
+      },
     },
   },
   {
@@ -192,6 +204,44 @@ const TOOLS = [
     },
   },
   {
+    name: "whalesong_listen",
+    description: "Render a session to a stereo WAV using Whalesong's deterministic synthesizer: model/reasoning/subagent work becomes sustained harmonic voices, tool/file/network activity becomes short envelopes at fixed category registers, error density becomes beating/dissonance. Meaning lives in density, repetition and transitions — a pleasant chord is not success. Returns the file path; play it with afplay.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trace_id: { type: "string" },
+        path: { type: "string" },
+        seconds: { type: "number", default: 30, description: "Output duration; the run is time-compressed into this" },
+        out: { type: "string", description: "Output .wav path. Default: ~/.whalesong/renders/" },
+      },
+    },
+  },
+  {
+    name: "whalesong_rhythm",
+    description: "Spectral forensics on a session's onset train: autocorrelation plus Hann-windowed periodogram. Answers 'was this metronomic' with a dominant period in seconds, spectral entropy, and the strongest self-similarity lag — quantifying poll loops and periodic stalls instead of eyeballing them.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trace_id: { type: "string" },
+        path: { type: "string" },
+        category: { type: "string", description: "Restrict to one category (tool, reasoning, code, ...)" },
+        start_ms: { type: "number", description: "Window start, relative to trace start" },
+        end_ms: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "whalesong_report",
+    description: "The shareable numerical report for a session: counts, timings, channel shares, temporal shape, autocorrelation fingerprint, finding kinds — with prompts, payloads, names, ids and absolute timestamps deliberately omitted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trace_id: { type: "string" },
+        path: { type: "string" },
+      },
+    },
+  },
+  {
     name: "whalesong_score",
     description: "Attach a score to a trace after review (feedback/annotation). value may be a number (NUMERIC), boolean (BOOLEAN) or string (CATEGORICAL).",
     inputSchema: {
@@ -233,11 +283,18 @@ async function fetchObservations(traceId, { limit = 50, type, name, level } = {}
   return rows.slice(0, limit);
 }
 
-const obsRow = o => ({
+const trunc = (v, n = 4000) => {
+  if (v === undefined || v === null) return undefined;
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return s.length > n ? s.slice(0, n) + `… [${s.length - n} chars truncated]` : s;
+};
+
+const obsRow = (o, full = false) => ({
   id: o.id, type: o.type, name: o.name, level: o.level,
-  start: o.startTime, end: o.endTime, model: o.metadata?.model ?? undefined,
+  start: o.startTime, end: o.endTime, model: o.metadata?.model ?? o.model ?? undefined,
   usage: o.usage, latency: o.latency, parent: o.parentObservationId,
   category: o.metadata?.whalesong?.category, tool: o.metadata?.whalesong?.tool,
+  ...(full ? { statusMessage: o.statusMessage, input: trunc(o.input), output: trunc(o.output) } : {}),
 });
 
 async function callTool(name, args) {
@@ -301,7 +358,23 @@ async function callTool(name, args) {
       });
     }
     case "whalesong_observations":
-      return resultText((await fetchObservations(args.trace_id, args)).map(obsRow));
+      return resultText((await fetchObservations(args.trace_id, args)).map(o => obsRow(o, !!args.full)));
+    case "whalesong_tools": {
+      const sinceMs = Date.now() - (args.since_hours ?? 24) * 3600_000;
+      const db = await store();
+      const perTool = db.all(`SELECT json_extract(metadata,'$.whalesong.tool') name, count(*) calls,
+        sum(level='ERROR') errors FROM observations
+        WHERE project_id=? AND start_ms>=? AND json_extract(metadata,'$.whalesong.tool') IS NOT NULL
+        GROUP BY name ORDER BY calls DESC LIMIT 25`, _pid, sinceMs);
+      const perModel = db.all(`SELECT COALESCE(model, json_extract(metadata,'$.model')) name, count(*) calls,
+        sum(COALESCE(json_extract(usage,'$.input'),0)) input, sum(COALESCE(json_extract(usage,'$.output'),0)) output
+        FROM observations WHERE project_id=? AND start_ms>=? AND COALESCE(model, json_extract(metadata,'$.model')) IS NOT NULL
+        GROUP BY name ORDER BY output DESC LIMIT 15`, _pid, sinceMs);
+      const perSource = db.all(`SELECT substr(trace_id,1,instr(trace_id,':')-1) source, count(*) observations,
+        sum(level='ERROR') errors, count(DISTINCT trace_id) traces
+        FROM observations WHERE project_id=? AND start_ms>=? GROUP BY source ORDER BY observations DESC`, _pid, sinceMs);
+      return resultText({ since_hours: args.since_hours ?? 24, perSource, perModel, perTool });
+    }
     case "whalesong_find": {
       const limit = Math.min(Math.max(1, args.limit ?? 50), 500);
       const q = new URLSearchParams({ limit: String(limit) });
@@ -333,6 +406,52 @@ async function callTool(name, args) {
       const days = Math.min(Math.max(1, args.days ?? 7), 90);
       const d = await api(`/api/public/metrics/daily?fromTimestamp=${new Date(Date.now() - days * 86400_000).toISOString()}`);
       return resultText(d);
+    }
+    case "whalesong_listen": {
+      const { signal: { buildPyramid }, audio: { renderPCM, encodeWav } } = await core();
+      const trace = await loadTrace(args.trace_id ?? args.path);
+      const seconds = Math.min(Math.max(5, args.seconds ?? 30), 300);
+      const pcm = renderPCM(buildPyramid(trace.events, trace.duration), 0, trace.duration, trace.duration / (seconds * 1000));
+      const dir = args.out ? path.dirname(args.out) : path.join(os.homedir(), ".whalesong", "renders");
+      fs.mkdirSync(dir, { recursive: true });
+      const file = args.out ?? path.join(dir, `${(args.trace_id ?? trace.name ?? "trace").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60)}-${Date.now()}.wav`);
+      fs.writeFileSync(file, encodeWav(pcm));
+      return resultText({
+        file, durationSeconds: Math.round(pcm.left.length / pcm.sampleRate * 10) / 10,
+        sampleRate: pcm.sampleRate, peak: +pcm.peak.toFixed(3), rms: +pcm.rms.toFixed(4),
+        play: `afplay "${file}"`,
+        vocabulary: {
+          "sustained harmonics": "model/reasoning, retrieval, subagent activity",
+          "short envelopes at fixed registers": "tool, file, code, browser, network calls",
+          "beating / dissonance": "error density",
+          "stereo pan": "fixed by category",
+        },
+        note: "Deterministic render of the signal pyramid — density, repetition and transitions carry meaning. Not a correctness score. A/B comparisons need the same duration.",
+      });
+    }
+    case "whalesong_rhythm": {
+      const { signal: { onsetSeries, autocorrelation, periodogram } } = await core();
+      const trace = await loadTrace(args.trace_id ?? args.path);
+      const start = args.start_ms ?? 0, end = args.end_ms ?? trace.duration;
+      if (!(end > start)) throw new Error("empty window");
+      const n = 1024, series = onsetSeries(trace.events, start, end, n, args.category);
+      const sampleHz = n / ((end - start) / 1000);
+      const spec = periodogram(series, sampleHz);
+      const ac = autocorrelation(series, Math.min(256, n >> 1));
+      const bestLag = ac.indexOf(Math.max(...ac.slice(1))) === 0 ? 0 : ac.slice(1).indexOf(Math.max(...ac.slice(1))) + 1;
+      return resultText({
+        windowMs: end - start, category: args.category ?? "all", onsets: series.reduce((a, b) => a + b, 0),
+        dominantPeriodSeconds: spec.peakHz > 0 ? +(1 / spec.peakHz).toFixed(2) : null,
+        peakHz: +spec.peakHz.toFixed(4), spectralEntropy: +spec.entropy.toFixed(3),
+        strongestAutocorrLagSeconds: +(bestLag / sampleHz).toFixed(2),
+        autocorrAtBestLag: bestLag > 0 ? +ac[bestLag].toFixed(3) : null,
+        note: "PeakHz/period describe the onset *train*, not audio pitch. A strong autocorr lag + dominant period = metronomic repetition; high entropy = arrhythmic. Sparse trains can show harmonics.",
+      });
+    }
+    case "whalesong_report": {
+      const { analyze, analysisReport } = await core();
+      const trace = await loadTrace(args.trace_id ?? args.path);
+      return resultText(analysisReport(analyze(trace)));
     }
     case "whalesong_score": {
       if (typeof args.trace_id !== "string" || typeof args.name !== "string") throw new Error("trace_id and name are required strings");

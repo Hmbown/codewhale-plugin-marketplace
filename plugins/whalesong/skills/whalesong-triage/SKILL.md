@@ -13,11 +13,14 @@ A cross-tool sweep over the durable store. Default window is the last 24h
 
 1. `whalesong_health` — confirm the platform is up and note per-project
    counts so the sweep is bounded.
-2. `whalesong_list_traces` with `since_hours` — one row per session:
+2. `whalesong_tools` with the same window — aggregate per-source, per-model
+   and per-tool calls/errors/tokens. This is the fleet's actual behavior
+   distribution before you look at any single session.
+3. `whalesong_list_traces` with `since_hours` — one row per session:
    source, name, timestamp, observation count, latency, cost.
-3. `whalesong_find` with `level: ERROR` and the same window — every errored
-   observation across all tools, with its `traceId`. Group by trace.
-4. `whalesong_daily` — the per-day token/trace totals put any outlier in
+4. `whalesong_find` with `level: ERROR` — every errored observation across
+   all tools, with its `traceId`. Group by trace.
+5. `whalesong_daily` — the per-day token/trace totals put any outlier in
    context.
 
 ## Rank, don't exhaust
@@ -25,6 +28,9 @@ A cross-tool sweep over the durable store. Default window is the last 24h
 Most sessions are routine. Rank candidates for deeper inspection by:
 
 - error density (errored observations / total),
+- periodicity — `whalesong_rhythm` on suspects: a strong dominant period +
+  low spectral entropy is a metronome (poll loop, retry timer), high
+  entropy is ordinary busyness,
 - retries and loops (`whalesong_analyze` on the top suspects),
 - token volume vs. that source's baseline in `whalesong_daily`,
 - long spans with few events (stalled or only partially recorded).

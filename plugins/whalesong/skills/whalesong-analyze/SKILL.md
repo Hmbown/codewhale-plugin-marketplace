@@ -1,52 +1,56 @@
 ---
 name: whalesong-analyze
-description: Analyze one recorded agent session from the local Whalesong platform — or a raw session file — for loops, retries, bursts, gaps, context pressure, divergence and spawns. Use when the user asks what a session did, why it stalled, looped, errored, or burned tokens.
+description: Analyze one recorded agent session the way the Whalesong instrument does — signal shape first, computed findings second, exact evidence rows last. Use when the user asks what a session did, why it stalled, looped, errored, or burned tokens.
 invocation: model+user
 ---
 
 # Whalesong: analyze one session
 
-The Whalesong platform at `127.0.0.1:4173` holds durable traces of local agent
-sessions (codewhale, claude code, codex, kimi, grok, devin, muse, amp). This
-skill inspects one of them end to end.
+Whalesong's contract is **see the behavior, then read the record**. Follow that
+order — shape, findings, evidence — instead of starting in rows.
 
 ## Pick the trace
 
-- If the user names a session or time, call `whalesong_list_traces` (filter
-  `name` or `since_hours`, or `source` for one tool). Trace ids are prefixed
-  with their source, e.g. `claude:…`, `codex:…`, `cw:…`.
-- If the user gives a file (Whalesong JSONL, OTLP JSON, Codewhale session JSON,
-  Codewhale runtime JSONL), skip listing — `whalesong_analyze` accepts `path`.
+- `whalesong_list_traces` (filter `source`, `name`, `since_hours`). Ids are
+  source-prefixed: `claude:…`, `codex:…`, `cw:…`, `devin:…`, `muse:…`.
+- A file path works too: `whalesong_analyze` accepts `path` for Whalesong
+  JSONL, OTLP JSON, Codewhale session JSON, or runtime JSONL.
 
-## Analyze
+## Shape before findings
 
-1. `whalesong_get_trace` — the rollup gives observation counts by type and
-   category, models, tokens, errors, top tools, and wall-clock span. This is
-   the cheapest orientation.
-2. `whalesong_analyze` — the same deterministic core the instrument uses.
-   Returns stats, a fingerprint, and findings. Each finding has `kind`,
-   `severity`, `title`, `detail`, `atMs` and `events` (ids you can re-open).
-3. For the findings that matter, pull evidence with `whalesong_observations`
-   (`level: ERROR`, `type: GENERATION`, or a name filter) and quote names and
-   timings — not guesswork.
-4. `instrumentUrl` in the trace response deep-links the waterfall into the
-   Whalesong instrument for the user.
+1. `whalesong_get_trace` — rollup: counts by type/category, models, tokens,
+   errors, top tools, span. Long duration + few events = partially observed,
+   not slow.
+2. `whalesong_rhythm` — the instrument's actual DSP: dominant onset period,
+   spectral entropy, strongest autocorrelation lag. A metronomic session
+   (strong lag, low entropy) is a different failure than an arrhythmic storm.
+3. `whalesong_analyze` — findings with `kind`, `severity`, `atMs`,
+   `detail`, and sampled `events` ids. Every finding is a heuristic with a
+   stated threshold, not a verdict.
+4. `whalesong_observations` with `full: true` on the finding's event ids —
+   `statusMessage`/`input`/`output` say *why* a call failed or what a loop
+   was running. Shape without payload is half the answer.
 
-## Reading findings honestly
+## If the shape is the story
 
-- Findings are computed heuristics over the record. `loop` means the same
-  call repeated; it does not prove the agent was stuck. `context` means
-  observed tokens approached the known limit — not that quality degraded.
-- An absent span is missing observation, not inactivity. Trailing
-  `observedGapRatio` high plus few events usually means the collector only
-  saw part of the session.
-- Token and cost fields are null when unrecorded. Never estimate them.
-- Severity `info`/`warn`/`error` ranks the finding against typical traces,
-  not the session's correctness.
-- Timestamps in analysis output (`atMs`) are relative to trace start.
+- `whalesong_listen` renders the run to WAV — sustained harmonics are
+  model/reasoning/subagent work, short envelopes are tool/file/network at
+  fixed registers, beating is error density. Offer the path; let the human
+  hear the session rather than read about it.
+- `whalesong_report` produces the privacy-safe numerical report (no names,
+  payloads, ids or absolute timestamps) when the analysis needs to be shared.
 
-## Report shape
+## Honesty rules — the instrument's own
 
-Lead with the session's shape (duration, events, models, errors), then
-findings ordered by severity with the evidence rows that support each, then
-a short "what I'd check next" — grounded, no verdicts about intent.
+- Repetition is evidence, not proof of a stuck agent; identical calls can
+  still progress. Gaps are *unobserved* time: waiting, uninstrumented work,
+  dropped data, or stall — the record cannot say which.
+- Token/cost fields stay null when unrecorded. Never estimate them.
+- `observedGapRatio` near 1 means the collector saw fragments — read
+  coverage before behavior.
+
+## Report
+
+Shape line (duration, events, models, errors, dominant period if notable),
+then findings by severity each backed by quoted evidence rows, then one
+"check next" — `instrumentUrl` deep-links the waterfall for the human.

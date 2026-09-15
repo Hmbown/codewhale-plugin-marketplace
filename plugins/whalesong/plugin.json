@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "whalesong",
-  "version": "0.1.0",
-  "description": "Query and analyze the sessions your agent CLIs are recording into Whalesong: list traces, read waterfalls, run the deterministic analysis core (loops, retries, bursts, context pressure, divergence), compare two runs, and attach review scores. Local-first, read-mostly.",
+  "version": "0.2.0",
+  "description": "Query, analyze and listen to the sessions your agent CLIs record into Whalesong: traces and waterfalls, the deterministic analysis core (loops, retries, context pressure, divergence), real signal DSP (periodogram, autocorrelation), WAV sonification, run comparison, and review scores. Local-first, read-mostly.",
   "author": {
     "name": "Codewhale"
   },
