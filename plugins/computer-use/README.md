@@ -61,7 +61,7 @@ existing Engine authority before the model can use it.
 
 ## Verification status
 
-**Source (this snapshot).** `npm test` on macOS: 245 passed, 0 failed,
+**Source (this snapshot).** `npm test` on macOS: 260 passed, 0 failed,
 15 platform skips. The GitHub Actions workflow runs the same suite plus the
 receipt hygiene check on macOS and Ubuntu runners. Source tests exercise the
 protocol, routing, session and injected-runner paths; they perform no native
@@ -105,10 +105,13 @@ image. OCR was verified on a generated image and the actual Codewhale app;
 it does not interpret unlabeled icons, charts or other graphical meaning.
 Screenshots and zoom remain available to models that support images.
 
-**Live-verified: Linux X11** — shared desktop and the isolated Xvfb route,
-26/27 demonstrated. Those rows predate the parity runner's split into a
-platform-neutral engine plus per-platform drivers and have not been re-run
-since; see [docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
+**Live-verified: Linux X11** — the isolated Xvfb route re-ran at repeats 5 on
+2026-09-16: 25/27 demonstrated, 2 held-input rows skipped with committed
+reasons, `native.modal_dialog` failing under a documented toolkit-modal
+limitation (`parity/results/linux-xvfb-isolated-2026-09-16.json`). A shared
+login-session desktop has not been re-run since the runner's split into a
+platform-neutral engine plus per-platform drivers; see
+[docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
 
 **Background input has a native AppKit verification harness** with an independent
 foreground/cursor observer: `node scripts/verify-background-macos.mjs`.
