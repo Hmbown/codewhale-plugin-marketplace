@@ -48,7 +48,7 @@ const REPEATS = Number(opt("--repeats", TASKS_DOC.repeats ?? 5));
 // Named explicitly rather than defaulted: falling back to the X11 driver on a
 // platform that has none would fail deep inside xdotool instead of saying what
 // is missing. See docs/PORTING.md to add one.
-const DRIVERS = { darwin: "./lib/desktop-darwin.mjs", linux: "./lib/desktop-x11.mjs" };
+const DRIVERS = { darwin: "./lib/desktop-darwin.mjs", linux: "./lib/desktop-x11.mjs", win32: "./lib/desktop-win32.mjs" };
 if (!DRIVERS[process.platform]) {
   console.error(`parity-run: no desktop driver for ${process.platform}. Implement scripts/lib/desktop-${process.platform}.mjs (see docs/PORTING.md) and register it here.`);
   process.exit(2);
@@ -187,6 +187,17 @@ async function resolveTarget(spec, task, repCtx, server) { // repCtx carries the
     const org = desktop.clientOrigin(task.fixture, { window: spec.window ?? "main", repCtx });
     const [x, y] = spec.client_zoom;
     const px = toRasterPixels(org.x + x, org.y + y);
+    return { target: { type: "coordinate", ...px } };
+  }
+  if (spec.window_title) {
+    // A point inside a non-fixture window (native dialogs, choosers) located by
+    // title on the work display. `at` is an offset from the window's top-left;
+    // a negative component measures back from the far edge, so e.g. [-60,-40]
+    // stays on the bottom-right button however the WM sizes the window.
+    const g = desktop.windowGeometry?.(spec.window_title, repCtx);
+    if (!g) return { error: `window "${spec.window_title}" not found on the work display` };
+    const [ox, oy] = spec.at ?? [0, 0];
+    const px = toRasterPixels(g.x + (ox < 0 ? g.w + ox : ox), g.y + (oy < 0 ? g.h + oy : oy));
     return { target: { type: "coordinate", ...px } };
   }
   if (spec.element_by_label != null) {
@@ -414,7 +425,7 @@ async function runRep(task, repIdx, ctx) {
     await server.stop();
   })();
   activeCleanup = cleanup;
-  const vars = { UPLOAD_FILE: ctx.uploadFile, BROWSER_APP_NAME: "chrome", FIXTURE_PID: null };
+  const vars = { UPLOAD_FILE: ctx.uploadFile, BROWSER_APP_NAME: desktop.browserAppName?.() ?? "chrome", FIXTURE_PID: null };
   let afterLaunch = before;
 
   try {
@@ -506,7 +517,15 @@ async function main() {
   const reps = [];
   for (const task of tasks) {
     for (let i = 0; i < REPEATS; i++) {
-      const rep = await runRep(task, i + 1, ctx);
+      let rep = await runRep(task, i + 1, ctx);
+      // A runner-class failure means the fixture never ran the task — the rep
+      // is not a capability sample. Retry once and keep the retry visible in
+      // the receipt via launch_retry.
+      if (rep.status === "failed" && /^runner:/.test(rep.failReason ?? "")) {
+        const retry = await runRep(task, i + 1, ctx);
+        retry.launch_retry = rep.failReason;
+        rep = retry;
+      }
       reps.push(rep);
       const mark = rep.status === "ok" ? "ok" : rep.status === "skipped" ? `SKIP(${rep.reason})` : `FAIL(step ${rep.failStep}: ${rep.failReason})`;
       console.log(`  ${task.id} rep ${i + 1}/${REPEATS}: ${mark} [${rep.elapsed_ms}ms, ${rep.toolCalls} calls, drift=${rep.interference.pointer_displacement_px}px]`);

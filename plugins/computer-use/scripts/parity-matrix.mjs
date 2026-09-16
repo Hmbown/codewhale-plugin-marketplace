@@ -150,6 +150,10 @@ for (const dir of runDirs) {
     surfaces.set(meta.session_type === "wayland" ? "Wayland" : "Linux X11",
       `${demonstrated}/${repsByTask.size} tasks demonstrated at ${meta.repeats} repeats (${surface}, ${meta.date.slice(0, 10)})`);
   }
+  if (meta.platform === "win32") {
+    surfaces.set("Windows",
+      `${demonstrated}/${repsByTask.size} tasks demonstrated at ${meta.repeats} repeats (${surface}, ${meta.date.slice(0, 10)})`);
+  }
 
   const day = meta.date.slice(0, 10);
   const stem = `${meta.platform}-${meta.session_type}${meta.isolated ? "-isolated" : ""}-${day}`;
@@ -205,7 +209,7 @@ for (const file of summaryFiles) {
   }
   lines.push("");
   const demonstrated = Object.values(prior.tasks).filter((t) => t.status === "demonstrated").length;
-  const key = prior.platform.startsWith("linux") ? (prior.platform.includes("wayland") ? "Wayland" : "Linux X11") : prior.platform;
+  const key = prior.platform.startsWith("linux") ? (prior.platform.includes("wayland") ? "Wayland" : "Linux X11") : prior.platform.startsWith("win32") ? "Windows" : prior.platform;
   if (!surfaces.has(key)) {
     surfaces.set(key, `${demonstrated}/${Object.keys(prior.tasks).length} tasks demonstrated (${prior.platform}, ${prior.date.slice(0, 10)})`);
   }

@@ -1,0 +1,20 @@
+# Codewhale Computer Use, as a dsh bundle layer.
+#
+# The tool surface is the plugin's MCP server, which lives inside the installed,
+# signed desktop app — the helper owns the macOS Accessibility and Screen
+# Recording grants, so the app bundle is the runtime, not this package. Set
+# CODEWHALE_CU_SERVER to point at a different copy (a /Applications install, or
+# a source checkout's mcp/server.mjs).
+- insert:
+    - id: mcp-computer-use
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: computer-use
+        transport: stdio
+        # The Node already running dsh; the server needs Node 20 or newer.
+        command: !!js process.execPath
+        args:
+          - !!js process.env.CODEWHALE_CU_SERVER || `${process.env.HOME}/Applications/Codewhale Computer Use.app/Contents/Resources/plugin/mcp/server.mjs`
+        # Desktop actions wait on real windows; the 60s default is too tight.
+        toolCallTimeoutMs: 120000
+

@@ -8,16 +8,38 @@ true so they do not re-derive it.
 | platform | backend | parity driver | receipts |
 |---|---|---|---|
 | macOS (Aqua) | `src/backends/darwin.mjs` + `darwin-accessibility.m` | `scripts/lib/desktop-darwin.mjs` | 27 tasks × 5 repeats, 24 demonstrated — `parity/results/darwin-aqua-2026-09-07.json` |
-| Linux (X11) | `src/backends/linux.mjs` | `scripts/lib/desktop-x11.mjs` | 27 tasks × 5 repeats, 26 demonstrated — but recorded **before** the runner was split into engine + drivers, and not re-run since |
-| Windows | `src/backends/win32.mjs` | **none** | none |
+| Linux (X11) | `src/backends/linux.mjs` | `scripts/lib/desktop-x11.mjs` | 27 tasks × 5 repeats, 25 demonstrated + 2 documented skips on the isolated surface — `parity/results/linux-xvfb-isolated-2026-09-16.json`; the 2026-09-07 receipts predate the engine/driver split and are stale |
+| Windows | `src/backends/win32.mjs` | `scripts/lib/desktop-win32.mjs` | none yet — driver exists but needs a real Windows desktop run (see below) |
 | Wayland | `src/backends/linux.mjs` (wayland paths) | none (the X11 driver is X11-only) | none |
 
-**First job on Ubuntu:** re-run the existing suite and confirm the refactor
-was faithful. `npm run parity` and `npm run parity -- --isolated` should
-reproduce `parity/results/linux-x11-2026-09-06.json` and
-`parity/results/linux-xvfb-isolated-2026-09-07.json`. The X11 driver is a
-verbatim move of the code those runs used; nothing in it was rewritten. If a
-row moves, the refactor is where to look first.
+**You do not need an Ubuntu machine to start.** `docker/run.sh parity` builds
+a headless Linux desktop — Xvfb, a window manager, the X11 tools, an AT-SPI bus,
+Chromium and Tk — and runs the isolated route in it from anywhere Docker runs.
+What that does and does not qualify is in [docker/README.md](../docker/README.md);
+the short version is that it exercises the real X11 code paths but says nothing
+about Wayland or about a real login session's window manager.
+
+**First job on Ubuntu:** run the existing suite on a real login session.
+`npm run parity` on a desktop X11 session should reproduce the container
+result — 25 demonstrated, 2 documented skips, `native.modal_dialog` failing
+under the toolkit-modal limitation. The isolated-surface receipt is fresh
+(`parity/results/linux-xvfb-isolated-2026-09-16.json`); the older
+`linux-x11-2026-09-06.json` shared-session receipt still predates the
+engine/driver split. If a row moves, look at WM behavior first — the
+container runs openbox, real desktops differ.
+
+**First job on Windows:** the driver exists (`scripts/lib/desktop-win32.mjs`)
+but has no receipts. It needs a real interactive Windows desktop — a Windows
+VM (Parallels/UTM/VMware) or a cloud Windows host — with Node.js, Chrome and
+Python 3 + Tk (the python.org installer bundles tcl/tk). There is no
+`--isolated` route: Windows containers have no interactive desktop, and a
+second session is a different user's desktop, so the shared console session
+is the only surface and interference is measured, not engineered away.
+A CI `windows-latest` run is not a user's desktop; say plainly which produced
+any receipt. The suite file is `parity/tasks.win32.json`: held-input rows and
+`control.permission_denied` carry committed skip reasons, and `browser.upload`
+drives the common "Open" dialog (typed path + Return commits; no
+`window_title` click needed).
 
 ## How the runner is put together
 
@@ -40,6 +62,7 @@ which returns:
 | `killFixture(proc, repCtx)` | stop it and remove its scratch dirs |
 | `prelude(task, repCtx)` | DSL steps to run before the task's own (macOS binds input here); their tool calls are counted separately |
 | `clientOrigin(fixtureKey, { window, repCtx })` | the fixture's content origin in screen points |
+| `windowGeometry(title, repCtx)` | optional — origin and size of a **non-fixture** window (a native dialog or chooser) found by title on the work display; backs the `{window_title, at}` target. A driver without it fails that target with "window not found". |
 | `oracleState(task, repCtx)` | the fixture's state, read **outside** the tool surface |
 | `meta()` | environment facts for `run.json` |
 
@@ -53,8 +76,8 @@ Register it in the `DRIVERS` map at the top of `scripts/parity-run.mjs`.
   thing under test also reports the result, the run proves nothing.
 - **Interference is sampled by something that shares no code with the backend.**
   X11 uses `xdotool`; macOS uses `parity/darwin-probe.m`, a standalone
-  CoreGraphics/AppKit binary. Windows would want a small equivalent
-  (`GetCursorPos` + `GetForegroundWindow`).
+  CoreGraphics/AppKit binary; Windows uses `parity/win32-probe.ps1`, a
+  standalone `GetCursorPos` + `GetForegroundWindow` script.
 - **Fixtures report their own geometry where they can.** Measuring a window
   from outside means guessing where the title bar and decorations end.
   `parity/fixtures/native.py` and `native-macos.m` both publish their content

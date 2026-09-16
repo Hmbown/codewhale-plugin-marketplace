@@ -87,7 +87,7 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 | macOS Retina | local 0.2.1 development receipts on one arm64 Mac (macOS 26.1): 26-task run 129/130, dynamic-page retry 5/5, upload retry 5/5; all 27 workflows have five-trial passing evidence, with earlier failures retained; final artifact and full Codex parity remain separate |
 | macOS non-Retina | code-complete; every macOS receipt so far is from a 2x display |
 | macOS mixed | code-complete, no receipts (mixed-scale display moves are unprobed live) |
-| Windows | code-complete, no receipts (backend is PowerShell/user32; never executed here) |
+| Windows | code-complete, no receipts (backend is PowerShell/user32; never executed here). A parity driver now exists (`scripts/lib/desktop-win32.mjs`, `parity/tasks.win32.json`, `parity/win32-probe.ps1`) but needs a real Windows desktop run — Windows cannot be containerized and the shared console session is the only surface |
 | Wayland | code-complete, no receipts; `scroll` is unsupported on Wayland (`scroll on Wayland is not available in this build`), and ydotool input is never probed (the probe cannot move the pointer) |
 | HarmonyOS (hdc) | code-complete, no receipts (no device) |
 | SSH remote | experimental transport; persistent agent sessions (`agent --serve`) since 0.5.0, with one-shot fallback for older agents; no remote device receipts; see session limitation below |
@@ -363,9 +363,14 @@ listing remain available.
   across the agent's own tool calls is 0px on every macOS task (the cursor is
   restored); the foreground is taken on the tasks whose gestures have no
   accessibility equivalent, and the matrix names them.
-- **Tk modal dialogs under KWin (linux-x11 shared).** KWin does not give the
-  transient Tk dialog X input focus, so synthetic key events do not reach it.
-  `native.modal_dialog` fails 5/5 on the shared route and passes 5/5 isolated.
+- **Tk modal dialogs under stacking WMs (linux-x11 shared and isolated).** The
+  Tk `simpledialog` is only toolkit-modal (`WM_TRANSIENT_FOR` + `grab_set`, no
+  `_NET_WM_STATE_MODAL`), so a click on the parent takes X input focus under
+  KWin, openbox and metacity alike; the grab blocks the click's effect but the
+  typed answer then never reaches the dialog. `native.modal_dialog` fails on
+  every stacking WM tested (verified under openbox and metacity on the isolated
+  route, 2026-09-16); the 2026-09-07 isolated receipt's 5/5 predates a window
+  manager on `:99` or ran under different WM conditions — that receipt is stale.
 - **Tk posted menus do not receive synthetic key events.** `native.menu_command`
   was reworked to click the menu item with the pointer; keyboard traversal of
   a posted Tk menu is not achievable with XTEST input on this platform.

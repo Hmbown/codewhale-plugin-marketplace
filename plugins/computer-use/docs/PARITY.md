@@ -14,6 +14,7 @@ read, how host interference is measured — lives in a driver:
 |---|---|---|---|---|
 | Linux (X11/Xvfb) | `scripts/lib/desktop-x11.mjs` | Chrome `--app` page + Tk app (`parity/fixtures/native.py`) | `parity/tasks.json` | window title JSON via `xdotool`; state file |
 | macOS (Aqua) | `scripts/lib/desktop-darwin.mjs` | Chrome `--app` page + a purpose-built AppKit app (`parity/fixtures/native-macos.m`) | `parity/tasks.darwin.json` | loopback beacon from the page; state file |
+| Windows (console session) | `scripts/lib/desktop-win32.mjs` | Chrome `--app` page + Tk app (`parity/fixtures/native.py`) | `parity/tasks.win32.json` | loopback beacon from the page; state file |
 
 The suite is chosen by platform automatically (`parity/tasks.<platform>.json`
 when it exists, else `parity/tasks.json`); `--tasks <file>` overrides it.

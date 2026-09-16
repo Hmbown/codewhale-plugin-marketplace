@@ -39,7 +39,8 @@
       "id": "browser.dynamic_content", "issue": 2, "fixture": "browser",
       "goal": "Click Load; a premature click during loading must not confirm; after ready, Confirm succeeds.",
       "known_limitations": {
-        "linux-xvfb": "reps right after a fixture relaunch raced the oracle: the window mapped before Chromium published the CU-FIXTURE title state, so the first expect sampled nulls (observed 2026-09-16 as 1/5 then 2/5 fails across two runs). The X11 driver now waits for a readable oracle state before launchFixture returns; kept as a note on what the wait is for."
+        "linux-xvfb": "reps right after a fixture relaunch raced the oracle: the window mapped before Chromium published the CU-FIXTURE title state, so the first expect sampled nulls (observed 2026-09-16 as 1/5 then 2/5 fails across two runs). The X11 driver now waits for a readable oracle state before launchFixture returns; kept as a note on what the wait is for.",
+        "win32-desktop": "no equivalent race: the win32 driver gates fixture readiness on the page's own beacon, so the oracle is live before the first step."
       },
       "steps": [
         { "call": "screenshot" },
@@ -83,7 +84,8 @@
       "skip": "held-input gestures require a persistent input owner — the desktop helper or the agent --serve route; the direct in-process MCP surface refuses them (input_owner_required) by design so a disconnected client cannot leave buttons held",
       "known_limitations": {
         "linux-xvfb": "no Linux desktop helper exists; the local route has no input owner and left_click_drag is refused input_owner_required. The 2026-09-07 receipt predates the input-owner guard — its 5/5 for this row is stale.",
-        "linux-x11": "no Linux desktop helper exists; the local route refuses left_click_drag (input_owner_required). Held input is possible through the ssh agent --serve route, which is a separate surface this suite does not run."
+        "linux-x11": "no Linux desktop helper exists; the local route refuses left_click_drag (input_owner_required). Held input is possible through the ssh agent --serve route, which is a separate surface this suite does not run.",
+        "win32-desktop": "no Windows desktop helper exists; the local route has no input owner and held-input gestures are refused input_owner_required, by the same design as the Linux direct route."
       }
     },
     {
@@ -93,14 +95,14 @@
         { "call": "screenshot" },
         { "call": "left_click", "args": { "target": { "client": [120, 660] } } },
         { "sleep": 1500 },
-        { "key": "ctrl+l" },
         { "call": "type", "args": { "text": "${UPLOAD_FILE}" } },
-        { "call": "left_click", "args": { "target": { "window_title": "Open File", "at": [-60, -30] } } },
+        { "key": "return" },
         { "expect": { "path": "upload.text", "equals": "codewhale upload fixture\n" } }
       ],
       "known_limitations": {
         "linux-xvfb": "Chromium's GTK file chooser commits a typed location-entry path only via the Open button — Return in the entry closes the dialog with no selection (a stock GTK3 FileChooserDialog commits the same path on Return, so this is Chromium's wrapper). The dialog also carries no AT-SPI elements, so only a window-relative pointer click reaches it.",
-        "linux-x11": "same Chromium chooser behavior: type the path, then click Open; Return in the location entry discards it. On desktops where xdg-desktop-portal supplies the chooser instead, the dialog is a different application entirely and this window_title target will not resolve — record that honestly if it shows."
+        "linux-x11": "same Chromium chooser behavior: type the path, then click Open; Return in the location entry discards it. On desktops where xdg-desktop-portal supplies the chooser instead, the dialog is a different application entirely and this window_title target will not resolve — record that honestly if it shows.",
+        "win32-desktop": "Windows common file dialog: the File name field owns focus when it opens, so a typed absolute path + Return commits. No location-bar gesture is needed."
       }
     },
     {
@@ -156,7 +158,10 @@
         { "call": "zoom", "args": { "region": { "client": [300, 120, 300, 100] } } },
         { "call": "left_click", "args": { "target": { "type": "coordinate", "x": 5000, "y": 5000 } }, "expect_error": "target_outside_raster" },
         { "expect": { "path": "clicks", "equals": 0 } }
-      ]
+      ],
+      "known_limitations": {
+        "win32-desktop": "SendInput clamps out-of-range absolute coordinates rather than erroring at the OS level; this row verifies the backend refuses before dispatch, not that Windows refuses."
+      }
     },
     {
       "id": "browser.element_click", "issue": 2, "fixture": "browser", "optional_a11y": true,
@@ -224,7 +229,8 @@
       "skip": "held-input gestures require a persistent input owner — the desktop helper or the agent --serve route; the direct in-process MCP surface refuses them (input_owner_required) by design so a disconnected client cannot leave buttons held",
       "known_limitations": {
         "linux-xvfb": "no Linux desktop helper exists; the local route has no input owner and left_click_drag is refused input_owner_required. The 2026-09-07 receipt predates the input-owner guard — its 5/5 for this row is stale.",
-        "linux-x11": "no Linux desktop helper exists; the local route refuses left_click_drag (input_owner_required). Held input is possible through the ssh agent --serve route, which is a separate surface this suite does not run."
+        "linux-x11": "no Linux desktop helper exists; the local route refuses left_click_drag (input_owner_required). Held input is possible through the ssh agent --serve route, which is a separate surface this suite does not run.",
+        "win32-desktop": "no Windows desktop helper exists; the local route has no input owner and held-input gestures are refused input_owner_required, by the same design as the Linux direct route."
       }
     },
     {
@@ -246,7 +252,8 @@
       ],
       "known_limitations": {
         "linux-x11": "KWin does not give the transient Tk dialog X input focus, so typed text does not reach it; passes on the isolated Xvfb route",
-        "linux-xvfb": "Tk's simpledialog is toolkit-modal only: it sets WM_TRANSIENT_FOR + grab_set but no _NET_WM_STATE_MODAL, so a stacking WM lets the parent Apply click take X input focus (verified under openbox and metacity). The grab still blocks the click (applied stays empty) but the typed answer then goes to the parent and the dialog stays open. Passes where the WM keeps focus on the transient."
+        "linux-xvfb": "Tk's simpledialog is toolkit-modal only: it sets WM_TRANSIENT_FOR + grab_set but no _NET_WM_STATE_MODAL, so a stacking WM lets the parent Apply click take X input focus (verified under openbox and metacity). The grab still blocks the click (applied stays empty) but the typed answer then goes to the parent and the dialog stays open. Passes where the WM keeps focus on the transient.",
+        "win32-desktop": "Tk maps grab_set to a real OS-level capture on Windows, so the parent click should not steal focus the way X11 stacking WMs allow; if it fails anyway that is a Tk/Windows behavior worth recording, not an engine defect."
       }
     },
     {
@@ -296,12 +303,16 @@
     },
 
     {
-      "id": "control.permission_denied", "issue": 6, "fixture": null, "server_env": { "DISPLAY": "", "WAYLAND_DISPLAY": "", "XDG_SESSION_TYPE": "" },
+      "id": "control.permission_denied", "issue": 6, "fixture": null,
       "goal": "With no display session the probe reports an actionable failure and screenshot fails closed (no silent success).",
+      "skip": "there is no display-session env to blank on Windows; the refusal this task exercises (no session -> actionable DISPLAY error) has no win32 equivalent. The honest Windows analogue is a missing PowerShell/UIA capability, which cannot be induced per-task.",
       "steps": [
         { "call": "request_access", "expect_error_any": true, "expect_message_contains": "DISPLAY" },
         { "call": "screenshot", "expect_error_any": true }
-      ]
+      ],
+      "known_limitations": {
+        "win32-desktop": "skipped: no display-session concept to deny; UIA + SendInput need no per-session grant on the interactive desktop."
+      }
     },
     {
       "id": "control.cancellation", "issue": 6, "fixture": null,

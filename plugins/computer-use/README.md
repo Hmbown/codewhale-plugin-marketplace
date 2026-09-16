@@ -160,6 +160,7 @@ host at the server:
 |---|---|
 | Codewhale | Discovers the Agent Plugins v1 bundle (`plugin.json` + `mcp.json`); nothing to configure. |
 | Kimi Code | Run `/plugins install /path/to/codewhale-cu-plugin`, then `/reload`. The native `kimi.plugin.json` registers the server and skills. |
+| DeepSeek Harness (`dsh`) | `dsh plugin --profile web add @codewhale/computer-use-dsh`, then link `skills/` into `~/.dsh/skills`. See [DeepSeek Harness](#deepseek-harness-dsh). |
 | Claude Code | `claude mcp add computer -- node /path/to/mcp/server.mjs` |
 | Codex CLI | `~/.codex/config.toml`: `[mcp_servers.computer]` `command = "node"` `args = ["/path/to/mcp/server.mjs"]` |
 | Cursor / Windsurf / VS Code | `{"mcpServers":{"computer":{"command":"node","args":["/path/to/mcp/server.mjs"]}}}` |
@@ -187,6 +188,51 @@ The server needs Node 20 or newer on Kimi's PATH and uses the installed
 Codewhale permission helper. Existing MCP servers and model settings are
 preserved. Models without vision can read the default text observations and
 request local macOS OCR; models with vision can also request screenshots.
+
+### DeepSeek Harness (dsh)
+
+Install the desktop helper above first, then add the bundle in
+[`integrations/dsh`](integrations/dsh). `dsh` manages a profile's plugins as
+npm packages: `dsh plugin` forwards to pnpm in the profile directory and then
+reconciles `dsh.profile.bundles`, so one command installs the package *and*
+adds its patch layer to the profile.
+
+```bash
+dsh plugin --profile web add @codewhale/computer-use-dsh
+```
+
+Use the path to this checkout's `integrations/dsh` instead of the package name
+to install from source. The tools arrive as `mcp__computer-use__<name>`; the
+bundle runs the server from the installed app with the Node already running
+`dsh`, so nothing else needs configuring. Set `CODEWHALE_CU_SERVER` to point at
+a `/Applications` install or a source checkout's `mcp/server.mjs`.
+
+The two skills install separately. A profile whose agent presets own skill
+discovery — the `web` profile is one — disables the host-level
+`skill-filesystem` row, so a bundle cannot reach it. The user skill root is
+read in every composition:
+
+```bash
+PLUGIN="$HOME/Applications/Codewhale Computer Use.app/Contents/Resources/plugin"
+mkdir -p ~/.dsh/skills
+ln -sfn "$PLUGIN/skills/computer-use" ~/.dsh/skills/computer-use
+ln -sfn "$PLUGIN/skills/recording"    ~/.dsh/skills/recording
+```
+
+To scope desktop control to sessions that ask for it rather than every session
+on the profile, put the same `mcp-computer-use` row in an agent preset instead
+of installing the bundle: duplicate `standard` in the `dsh` UI, then add the
+row from `integrations/dsh/cordis.patch.yml` to the copy's `agent.cordis.yml`
+and set `customSkillDirs` on its `skill-filesystem`. A preset whose rows cannot
+be resolved is listed as broken with the reason, so a typo shows up in the
+picker rather than at session start.
+
+Verified with `dsh` 0.1.5-rc.1 and plugin 0.6.0 on macOS: `dsh plugin add`
+into a profile, 44 tools bridged, both skills in the catalog, and a live
+`computer_list` call returning from the helper. Remove it with `dsh plugin
+--profile web remove @codewhale/computer-use-dsh`. Models without vision read
+the default text observations and can request local macOS OCR; models with
+vision can also request screenshots, which `dsh` bridges as attachments.
 
 ## The desktop app
 

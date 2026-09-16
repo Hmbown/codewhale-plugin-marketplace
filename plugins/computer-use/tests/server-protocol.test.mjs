@@ -146,7 +146,13 @@ test("registering an ssh computer installs the agent and probes the platform", a
   const apps = await tool("list_apps", { computer: "box" });
   if (apps.ok) {
     assert.equal(apps.computer.id, "box");
-    assert.ok(Array.isArray(apps.apps) && apps.apps.length > 0, "apps returned over the wire");
+    assert.ok(Array.isArray(apps.apps), "an app list came back over the wire");
+    // An empty list is a real answer, not a broken one: the Linux box in
+    // docker/ runs a live X session with nothing on it. Only a login session
+    // is guaranteed to have an application in it.
+    if (process.platform === "darwin") {
+      assert.ok(apps.apps.length > 0, "apps returned over the wire");
+    }
   } else {
     assert.equal(process.platform, "linux", JSON.stringify(apps.error ?? {}));
     // A headless CI host fails closed with either shape: the modern
