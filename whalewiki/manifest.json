@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "36cfecaeed4df85a9e5fee6c0f462cbd5dca3cd54ab2def154140dfcccee14b1",
-          "bytes": 32594
+          "sha256": "6885f837ba70533af33868667b41d06e0a8495b4ba0b3a1078dc04591742bfc7",
+          "bytes": 33081
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -67,7 +67,7 @@
           "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-17T08:05:58.850Z"
+      "sealed_at": "2026-09-17T09:04:24.923Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -180,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-17T08:05:58.850Z"
+  "updated_at": "2026-09-17T09:04:24.924Z"
 }
