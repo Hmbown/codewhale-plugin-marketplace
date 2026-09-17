@@ -46,6 +46,16 @@ refusal; a read-only grant narrowed the surface to 19 tools, refused
 request_access; browser and session registry spot checks stayed green —
 25/25 (receipts in /tmp/cu-probe-082).
 
+Follow-up on the same release, from the first hosted CI run of the sync:
+`request_access` now reports the active grant on its *refusal* receipt too.
+The Linux CI environment has no `DISPLAY`, so the probe itself refuses with
+`no_session` before the grant was attached — a narrowed session on a headless
+host could not see its own bounds. The grant is a launch-time server fact; it
+now rides both the success and the refusal receipt, and the Linux suite (which
+runs the platform tests macOS skips) is green: 333 tests — 306 pass / 0 fail /
+27 skipped in a `node:22` Linux container; macOS 318 pass / 0 fail / 15
+skipped. This is a fix, not a feature: the release stays 0.8.0.
+
 ## 0.7.2 — browser control over CDP
 
 The capability axis we did not have: a Chromium-family browser driven over the

@@ -30,6 +30,8 @@ const recorder = createRecorder();
 let replaying = false;
 // Fixed at process start; nothing can widen it. See parseGrant for the form.
 const GRANT = parseGrant(process.env.CODEWHALE_CU_GRANT);
+/** The active capability grant, as `request_access` reports it on success or refusal. */
+const grantReport = () => (GRANT ? { mode: "narrowed", tools: [...GRANT].sort(), count: GRANT.size, note: "This session's tools were narrowed at launch (CODEWHALE_CU_GRANT); do not work around it." } : null);
 /** state_id -> { computerId, app_ref, windowIndex, elements } */
 const appStates = new Map();
 /** computerId -> state_id of its most recent observation */
@@ -832,8 +834,9 @@ async function callTool(params) {
         imageBlock = { type: "image", mimeType: bytes[0] === 0xff ? "image/jpeg" : "image/png", data: bytes.toString("base64") };
       }
     }
-    if (name === "request_access" && GRANT) {
-      data.grant = { mode: "narrowed", tools: [...GRANT].sort(), count: GRANT.size, note: "This session's tools were narrowed at launch (CODEWHALE_CU_GRANT); do not work around it." };
+    if (name === "request_access") {
+      const grant = grantReport();
+      if (grant) data.grant = grant;
     }
     const content = [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: name, switched, ...(sink.reacquired ? { target_reacquired: true } : {}), ...data })) }];
     if (imageBlock) content.push(imageBlock);
@@ -852,8 +855,13 @@ async function callTool(params) {
       try { await assertCurrentRoute(computer, binding, true); }
       catch { outcomeUnknown = true; }
     }
+    // The grant is a launch-time server fact: report it on refusal receipts too,
+    // so a narrowed session knows its bounds even when the probe itself failed
+    // (for example a headless Linux host with no DISPLAY to inspect).
+    const grant = name === "request_access" ? grantReport() : null;
     return { content: [{ type: "text", text: JSON.stringify(fail(computer, err.code ?? "tool_error", err.message ?? String(err), {
       tool: name, switched,
+      ...(grant ? { grant } : {}),
       ...(outcomeUnknown ? { request_dispatched: true, outcome_unknown: true,
         note: "Dispatch to the previous route was attempted; its effect is unconfirmed. Observe the current target; do not automatically retry the action." } : {}),
     })) }], isError: true };
