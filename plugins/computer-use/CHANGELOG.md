@@ -56,6 +56,14 @@ runs the platform tests macOS skips) is green: 333 tests — 306 pass / 0 fail /
 27 skipped in a `node:22` Linux container; macOS 318 pass / 0 fail / 15
 skipped. This is a fix, not a feature: the release stays 0.8.0.
 
+Second follow-up on the same release, from the muse-driven acceptance pass:
+macOS `open_application` reported `launched: true` even when it merely
+resolved an already-running process — the literal was hardcoded while the
+launch branch above it is conditional. It now reports whether this call
+actually ran the opener (linux/win32/harmonyos always spawn, so theirs was
+already accurate). macOS suite: 334 tests — 319 pass / 0 fail / 15 skipped.
+Still a fix: the release stays 0.8.0.
+
 ## 0.7.2 — browser control over CDP
 
 The capability axis we did not have: a Chromium-family browser driven over the

@@ -705,6 +705,7 @@ export function create({ exec }) {
     const find = {};
     if (pid) find.pid = pid; else if (bid) find.bundle_id = bid; else find.name = String(name).replace(/\.app$/, "");
     let p;
+    let launched = false;
     // Binding an already-running app must not ask LaunchServices to reopen
     // it: reopen can raise windows even with open -g on some applications.
     if (!urlArg) {
@@ -728,6 +729,7 @@ export function create({ exec }) {
           ? "app_not_found" : undefined;
         throw Object.assign(new ExecError(`open failed: ${stderr.slice(0, 200)}`), { code });
       }
+      launched = true;
       await new Promise((res) => setTimeout(res, 600));
       p = await native("app_info", { app_ref: find, activate });
     }
@@ -744,7 +746,7 @@ export function create({ exec }) {
       previewBusy = true;
       updatePreview(true).catch(() => {}).finally(() => { previewBusy = false; });
     }
-    return { launched: true, activate, keyboard_delivery: activate ? "foreground-guarded" : "process", input_scope: activate ? "shared-desktop" : "application", shared_pointer: !!activate, isolated_desktop: false, url: urlArg ?? null, resolved: p?.found ? { name: p.name, pid: p.pid, bundle_id: p.bundle_id, frontmost: p.frontmost } : null };
+    return { launched, activate, keyboard_delivery: activate ? "foreground-guarded" : "process", input_scope: activate ? "shared-desktop" : "application", shared_pointer: !!activate, isolated_desktop: false, url: urlArg ?? null, resolved: p?.found ? { name: p.name, pid: p.pid, bundle_id: p.bundle_id, frontmost: p.frontmost } : null };
   }
 
   /**

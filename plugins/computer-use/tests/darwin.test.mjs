@@ -288,6 +288,33 @@ test('macOS failed activation cannot leave a previous shared-desktop binding arm
   assert.ok(!calls.some(r=>r.tool==='pointer_sequence'));
 });
 
+test('macOS open_application reports launched only when it actually launched the app', async t => {
+  const bundle=fs.mkdtempSync(path.join(os.tmpdir(),'cu-launch-flag-'));
+  const old=process.env.CODEWHALE_CU_APP_BUNDLE;
+  t.after(()=>{ if(old===undefined) delete process.env.CODEWHALE_CU_APP_BUNDLE; else process.env.CODEWHALE_CU_APP_BUNDLE=old; fs.rmSync(bundle,{recursive:true,force:true}); });
+  fs.mkdirSync(path.join(bundle,'Contents','MacOS'),{recursive:true});
+  fs.writeFileSync(path.join(bundle,'Contents','MacOS','accessibility'),'');
+  let running=true;
+  const opens=[];
+  const backend=create({exec:{run:async(cmd,args)=>{
+    if(cmd==='open'){ opens.push(args); running=true; return {code:0,stderr:'',stdout:''}; }
+    const request=JSON.parse(args[0]);
+    if(request.tool==='app_info'){
+      if(!running) return {code:1,stderr:'application not found',stdout:''};
+      return {code:0,stderr:'',stdout:JSON.stringify({found:true,pid:321,name:'Fixture',bundle_id:'test.app',frontmost:false})};
+    }
+    return {code:0,stderr:'',stdout:JSON.stringify({action_sent:true})};
+  }}});
+  const rebound=await backend.open_application({name:'Fixture'});
+  assert.equal(rebound.launched,false);
+  assert.equal(opens.length,0);
+  running=false;
+  const fresh=await backend.open_application({name:'Fixture'});
+  assert.equal(fresh.launched,true);
+  assert.equal(opens.length,1);
+  assert.ok(opens[0].includes('-g'),'background launch stays in the background');
+});
+
 test('macOS strategy app posts a window-scoped pointer after accessibility misses', async t => {
   const {backend,calls}=stubBackend(t,r=>r.tool==='input_capabilities'?{input_lease:1,element_identity:1,background_actions:1}:r.tool==='hit_test'?NOT_PRESSABLE:null);
   await backend.open_application({name:'Fixture'});
