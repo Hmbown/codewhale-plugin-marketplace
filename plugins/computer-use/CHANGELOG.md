@@ -64,6 +64,16 @@ actually ran the opener (linux/win32/harmonyos always spawn, so theirs was
 already accurate). macOS suite: 334 tests — 319 pass / 0 fail / 15 skipped.
 Still a fix: the release stays 0.8.0.
 
+Third follow-up: front-lease interference accounting (SHA-6643 slice 1).
+Every taken window-record lease now reports its borrow window (`lease_ms`)
+and the hardware-input clock around it (`idle_before_s`, `idle_after_s`),
+plus the verdict `user_input_during_lease` — true only when the person's
+own input arrived mid-lease (synthesized events provably do not tick the
+clock, verified live 2026-09-17). The verdict is computed in one JS helper
+so it stays unit-tested; receipts from older helpers stay quiet instead of
+lying. macOS suite: 336 tests — 321 pass / 0 fail / 15 skipped. The release
+stays 0.8.0.
+
 ## 0.7.2 — browser control over CDP
 
 The capability axis we did not have: a Chromium-family browser driven over the

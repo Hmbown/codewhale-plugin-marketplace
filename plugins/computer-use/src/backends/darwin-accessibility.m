@@ -179,7 +179,7 @@ static BOOL cuWindowAtPointForPid(pid_t pid, CGPoint p, uint32_t *outWin, CGRect
  * menu closes the moment the lease ends. Chromium rebuilds its AX tree
  * lazily across the first transitions, so observes poll through the rebuild.
  */
-typedef struct { ProcessSerialNumber frontPSN, targetPSN; pid_t frontPid; pid_t targetPid; BOOL swapped; } cuBgLease;
+typedef struct { ProcessSerialNumber frontPSN, targetPSN; pid_t frontPid; pid_t targetPid; BOOL swapped; double t0, idleBefore, idleAfter, leaseMs; } cuBgLease;
 static BOOL axActivate(pid_t pid);
 static BOOL cuFrontmostIsPid(pid_t pid);
 static id attr(AXUIElementRef el, NSString *name);
@@ -187,6 +187,7 @@ static void axPrepare(AXUIElementRef app);
 static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL swap, cuBgLease *lease, NSString **why) {
   lease->targetPid = inputApp.processIdentifier;
   lease->swapped = NO;
+  lease->t0 = lease->idleBefore = lease->idleAfter = lease->leaseMs = 0;
   if(cuGetPSN(lease->targetPid, &lease->targetPSN) != 0) {
     *why = @"could not resolve the process serial number for a window-routed action; no input was sent";
     return NO;
@@ -204,6 +205,12 @@ static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL
       return NO;
     }
     lease->swapped = YES;
+    // Interference accounting (SHA-6643): the borrow window and the HID idle
+    // clock around it. Synthesized events do not tick this clock (verified
+    // 2026-09-17: a posted key leaves it advancing), so a clock that fails to
+    // advance across the window means hardware input arrived mid-lease.
+    lease->t0 = CFAbsoluteTimeGetCurrent();
+    lease->idleBefore = CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateHIDSystemState, kCGAnyInputEventType);
   }
   uint8_t rec[0xf8];
   memset(rec, 0, sizeof(rec));
@@ -214,6 +221,15 @@ static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL
   cuPostRecord(&lease->targetPSN, rec);
   usleep(30000);
   return YES;
+}
+static void cuLeaseAccounting(NSMutableDictionary *receipt, cuBgLease *lease) {
+  // No numbers when nothing was borrowed, or when the lease is still held
+  // across calls (menu path): a zero window would claim an instant lease.
+  // Millisecond precision: these ride every lease receipt and its trajectory.
+  if(!lease->swapped || lease->leaseMs <= 0) return;
+  receipt[@"lease_ms"] = @(round(lease->leaseMs * 1000.0) / 1000.0);
+  receipt[@"idle_before_s"] = @(round(lease->idleBefore * 1000.0) / 1000.0);
+  receipt[@"idle_after_s"] = @(round(lease->idleAfter * 1000.0) / 1000.0);
 }
 static BOOL cuBgLeaseEnd(cuBgLease *lease) {
   if(!lease->swapped) return YES; // nothing was borrowed
@@ -227,6 +243,10 @@ static BOOL cuBgLeaseEnd(cuBgLease *lease) {
     axActivate(lease->frontPid);
     usleep(50000);
   }
+  // Measured after restore: the borrow window runs take -> handed back, and
+  // input that lands during a struggling restore counts as mid-lease.
+  lease->idleAfter = CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateHIDSystemState, kCGAnyInputEventType);
+  lease->leaseMs = (CFAbsoluteTimeGetCurrent() - lease->t0) * 1000.0;
   return !cuFrontmostIsPid(lease->targetPid);
 }
 static BOOL cuFrontmostIsPid(pid_t pid) {
@@ -423,6 +443,7 @@ static NSDictionary *cuBgPointer(NSRunningApplication *inputApp, NSDictionary *a
   NSMutableDictionary *receipt = [@{@"action_sent":@YES, @"strategy":@"window-record", @"pointer_moved":@NO,
            @"front_lease":@(lease.swapped), @"window":@{@"id":@(winNum)}} mutableCopy];
   if(lease.swapped) receipt[@"front_restored"] = @(restored);
+  cuLeaseAccounting(receipt, &lease);
   if(menuLeaseHeld) receipt[@"menu_lease_held"] = @YES;
   return receipt;
 }
@@ -893,6 +914,7 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
                                   @"verified":@(verified),@"focused_role":role?:[NSNull null]} mutableCopy];
   if(leasing) receipt[@"window_focused"]=@YES;
   if(lease.swapped) receipt[@"front_restored"]=@(typeRestored);
+  cuLeaseAccounting(receipt,&lease);
   if(!verified) receipt[@"verification_required"]=@"screenshot";
   return receipt;
 }
@@ -1250,6 +1272,7 @@ static id execute(NSDictionary *p) {
     } @finally { keyRestored = cuBgLeaseEnd(&lease); }
     NSMutableDictionary *receipt = [@{@"action_sent":@YES, @"strategy":@"window-record", @"keyboard_delivery":@"window-record", @"front_lease":@(lease.swapped)} mutableCopy];
     if(lease.swapped) receipt[@"front_restored"] = @(keyRestored);
+    cuLeaseAccounting(receipt, &lease);
     return receipt;
   }
   if([tool isEqual:@"mouse_event"]) {

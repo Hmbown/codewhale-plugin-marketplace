@@ -152,7 +152,11 @@ Observe once, act once, then verify.
     explicit: `front_lease:true` plus `front_restored` when a lease was taken
     (a failed restore is stated in the receipt — report it to the user), and
     `front_lease:false` when the target was already frontmost and no lease was
-    needed. `key` chords that had no window to route through fall back to
+    needed. A taken lease also reports its borrow window (`lease_ms`) and the
+    hardware-input clock around it (`idle_before_s`, `idle_after_s`); the
+    verdict `user_input_during_lease:true` means the person's own input
+    arrived mid-lease — treat the outcome as contested, re-observe, and say
+    so. `key` chords that had no window to route through fall back to
     process delivery and say so instead of pretending.
     Only hover and held-button tools still need `activate:true`.
   - Shared-desktop gestures and foreground keyboard delivery require explicit

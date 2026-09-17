@@ -32,13 +32,47 @@ The macOS helper keeps permissions and human controls in one menu-bar app.
 [Background demo](docs/DEMO.md) · [Contributing](CONTRIBUTING.md) ·
 [Security](SECURITY.md)
 
+## Install
+
+Three doors, same destination — pick one:
+
+1. **Mac app (easiest).** Download the disk image from the latest stable
+   [GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases),
+   drag it to Applications, and open it. Open **Computer Use…** from the
+   whale menu-bar icon, grant what it asks (Accessibility, then Screen
+   Recording), and run the background check. No terminal, no Node, no
+   compiler needed.
+2. **Inside Codewhale.** Computer Use ships built in: review, trust and
+   enable it through Codewhale's plugin panel. The Mac app from door 1 is
+   what gives it real control; without it the tools load and tell you
+   what's missing instead of failing blind.
+3. **From source.** Clone, test, install:
+   ```bash
+   git clone https://github.com/Hmbown/codewhale-cu-plugin
+   cd codewhale-cu-plugin
+   npm test                # unit + protocol, no GUI input performed
+   npm run build:app       # dist/{macos,linux,windows}
+   npm run install:app     # puts the app in place, registers it, opens it once
+   ```
+   Needs Node 20+ and, on a Mac, Xcode Command Line Tools. Then wire your
+   host from the table in [Developer quick start](#developer-quick-start).
+
+**Verify (every door).** Ask your host for `request_access`: a working
+install reports `via: "app"`, `app.version` matching the plugin,
+Accessibility `granted` and screen capture `ok`. Anything else names the
+missing piece — install the app, add the grant, or check the host wiring,
+in that order. If it names a permission, the fix is in
+[Setup and troubleshooting](docs/TROUBLESHOOTING.md).
+
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
-macOS app is downloaded from
-[codewhale.net/computer-use](https://codewhale.net/computer-use), which serves
-the latest stable
-[GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases) of
-this repository; remaining qualification gates are tracked in
-[the release checklist](docs/RELEASE_CHECKLIST.md).
+notarized Mac app is published on this repository's
+[GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)
+(latest stable: v0.6.0; source here is 0.8.0 plus fixes — the next stable
+cuts after its qualification gates pass); remaining gates are tracked in
+[the release checklist](docs/RELEASE_CHECKLIST.md). The
+[setup page](https://codewhale.net/computer-use) will offer the disk image
+directly once its download section ships — until then, download from the
+releases page.
 
 The native setup panel, background check and updater require **macOS 13.5+**
 for the self-contained bundle. The source MCP server includes experimental
@@ -59,105 +93,25 @@ checkouts use Node 20+; the macOS distribution includes a pinned Node 24 LTS
 runtime. Codewhale still reviews, trusts and enables a plugin through its
 existing Engine authority before the model can use it.
 
-## Verification status
-
-**Source (this snapshot).** `npm test` on macOS: 286 passed, 0 failed,
-15 platform skips. The GitHub Actions workflow runs the same suite plus the
-receipt hygiene check on macOS and Ubuntu runners. Source tests exercise the
-protocol, routing, session and injected-runner paths; they perform no native
-input and do not qualify a distributed app.
-
-**Native macOS 0.4.0 (one maintainer Mac, arm64).** The 0.4.0 universal
-app was Developer ID signed and Apple-notarized from commit `249ae77`, then
-installed over the notarized 0.3.1 app on the maintainer Mac; the packaging
-facts are in [docs/releases/0.4.0.json](docs/releases/0.4.0.json). The AX
-primitives it adds (Return from `type`, filtered `get_app_state`, `focus`,
-`get_value`, `strategy:"app"`) are covered by the source suite; their native
-qualification on an installed build is still open.
-
-**Native macOS 0.3.1 (one maintainer Mac, arm64).** An earlier signed
-0.3.1 candidate passed the menu-bar owner crash and reopen check with
-isolated state. The updater's apply step replaced an installed notarized
-0.3.0 app with that candidate: the previous bundle was retained for rollback,
-the helper restarted with controls stopped, and all 33 runtime files plus the
-3 native executables in the installed bundle matched the build. The open
-qualification gates, and the build, signing and notarization facts for the
-public 0.3.1 archive, are in [CHANGELOG.md](CHANGELOG.md) and
-[docs/releases/0.3.1.json](docs/releases/0.3.1.json).
-
-**Live-verified during development: macOS (arm64, single Retina display,
-macOS 26.1).** Each of the 27 fixture workflows has a five-trial passing run.
-The broad 26-task run passed 129/130 trials; its dynamic-page failure was a
-fixture clock race, corrected and repeated 5/5. The repaired file-picker flow
-also passed 5/5 separately. The matrix retains the broad failure and both
-focused runs; these are 0.2.1 development receipts, not full Codex parity or
-final release qualification. Shared-desktop pointer displacement is measured
-and sometimes nonzero. OS permissions survived the signed 0.2.1 update. Commit
-identifiers inside the matrix and result files refer to the private
-pre-publication history, not to commits in this repository.
-
-**Text and vision use the same actions.** App observations default to a text
-summary containing controls, values, actions and layout. `detail:"full"`
-exposes nested menus and tree structure. On macOS, `include_ocr:true` adds
-on-device recognition of visible text with confidence and coordinate targets,
-without a vision model or remote service. The default does not capture an
-image. OCR was verified on a generated image and the actual Codewhale app;
-it does not interpret unlabeled icons, charts or other graphical meaning.
-Screenshots and zoom remain available to models that support images.
-
-**Live-verified: Linux X11** — the isolated Xvfb route re-ran at repeats 5 on
-2026-09-16: 25/27 demonstrated, 2 held-input rows skipped with committed
-reasons, `native.modal_dialog` failing under a documented toolkit-modal
-limitation (`parity/results/linux-xvfb-isolated-2026-09-16.json`). A shared
-login-session desktop has not been re-run since the runner's split into a
-platform-neutral engine plus per-platform drivers; see
-[docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
-
-**Background input has a native AppKit verification harness** with an independent
-foreground/cursor observer: `node scripts/verify-background-macos.mjs`.
-Older per-family receipts do not establish background isolation — details in
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md).
-
-**Not live-verified:** macOS non-Retina and mixed-DPI, Windows, Wayland,
-HarmonyOS, SSH remote — implemented, no device receipts. A
-[same-document native editing comparison](parity/results/native-text-comparison-darwin-2026-09-07.json)
-completed 5/5 trials with each of Codewhale and Codex; it covers one workflow,
-not the full task suite. A separate
-[public-browser navigation comparison](parity/results/public-browser-comparison-darwin-2026-09-07.json)
-also completed 5/5 trials on each surface, using Codewhale 0.2.1. Known behavioral limitations and the
-release gating checklist are in
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md) and
-[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
-the suite is in [docs/PARITY.md](docs/PARITY.md).
-
 ## The Mac app
 
-The Mac app is distributed through
-[codewhale.net/computer-use](https://codewhale.net/computer-use), also linked
-from Codewhale’s install page and plugin marketplace. That page offers the
-notarized universal app as a drag-to-Applications disk image, only from a
-published stable
-[GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases) of
-this repository whose `release.json` receipt qualifies; the ZIP archive on the
-same release is what the in-app updater installs. Release status is recorded
-in [CHANGELOG.md](CHANGELOG.md). To build and install from source
-instead, use the developer quick start below, which requires a Mac with Xcode
-Command Line Tools. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the
-packaging, notarization and release procedure.
+The notarized universal app ships as a drag-to-Applications disk image on
+this repository's
+[GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases),
+only from a published stable release whose `release.json` receipt qualifies;
+the ZIP archive on the same release is what the in-app updater installs.
+The plugin marketplace links there; the
+[setup page](https://codewhale.net/computer-use) will offer the image
+directly once its download section ships. Release
+status is recorded in [CHANGELOG.md](CHANGELOG.md). To build and install
+from source instead, use door 3 in [Install](#install). See
+[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the packaging,
+notarization and release procedure.
 
 ## Developer quick start
 
-```bash
-git clone https://github.com/Hmbown/codewhale-cu-plugin
-cd codewhale-cu-plugin
-npm test                # unit and protocol tests, no GUI input performed
-npm run build:app       # dist/{macos,linux,windows}
-npm run install:app     # puts the app in place, registers it, opens it once
-```
-
-Open **Computer Use…** from the whale menu-bar icon. Grant the missing
-permissions using its setup buttons, run the background check, and point your
-host at the server:
+Install the desktop helper first ([Install](#install), any door), then point
+your host at the server:
 
 | Host | Configuration |
 |---|---|
@@ -181,7 +135,8 @@ Install the desktop helper above first, then use Kimi's `/plugins install`
 command with this checkout's absolute path. Review the local plugin and choose
 **Trust and install**. Kimi copies it into its managed plugin directory and
 enables its MCP server. Run `/reload` in an existing session, then `/mcp`:
-`plugin-codewhale-computer-use:computer` should show **connected** and **39 tools**.
+`plugin-codewhale-computer-use:computer` should show **connected** and the
+tool list (36 advertised in 0.8.0; counts vary by host).
 `/plugins info codewhale-computer-use` shows the installed version and status.
 This flow was verified with Kimi Code 0.41.0. See the
 [Kimi plugin documentation](https://moonshotai.github.io/kimi-code/en/customization/plugins.html)
@@ -481,6 +436,93 @@ targets come from `dumpLayout`; input is touch-synthesis (click / swipe /
 inputText / keyEvent). Recording is honestly labeled `snapshot-series`
 (frame captures muxed on stop) because HarmonyOS exposes no CLI screen
 recorder.
+
+## Verification status
+
+**Source (this snapshot).** `npm test` is green on macOS: 334 tests, 319
+passed, 0 failed, 15 platform skips (per-release counts ride with the
+[release notes](CHANGELOG.md)). The GitHub Actions workflow runs the same
+suite plus the receipt hygiene check on macOS and Ubuntu runners. Source
+tests exercise the protocol, routing, session and injected-runner paths;
+they perform no native input and do not qualify a distributed app.
+
+**Live-verified: macOS 0.8.0 acceptance (one maintainer Mac, arm64,
+2026-09-17).** A muse-driven pass over the installed 0.8.0 plugin plus
+fixes: 36 advertised tools with hidden aliases callable; TextEdit
+invoke_menu open/close with `front_lease`/`front_restored` honesty on every
+key receipt; read-only grant narrowing (19 tools, `not_granted`, grant on
+refusal receipts too); a 3-turn trajectory with a refusal that replay
+stopped at; 143 installed apps with running flags; TextEdit frames with
+verified geometry and Calculator's fixed-size refusal via `ax_errors`;
+browser start/navigate/click/type/screenshot/stop in a self-owned profile
+with the user's Chrome untouched; session list, live preview refresh/hide,
+and verified `kill_app`; malformed calls failing as `bad_args`/`bad_target`
+(never TypeError); `element_stale` naming state and app; the kill switch
+failing closed; and the real pointer provably unmoved across background
+clicks. Tracked as Codewhale CU SHA-6642.
+
+**Native macOS 0.4.0 (one maintainer Mac, arm64).** The 0.4.0 universal
+app was Developer ID signed and Apple-notarized from commit `249ae77`, then
+installed over the notarized 0.3.1 app on the maintainer Mac; the packaging
+facts are in [docs/releases/0.4.0.json](docs/releases/0.4.0.json). The AX
+primitives it adds (Return from `type`, filtered `get_app_state`, `focus`,
+`get_value`, `strategy:"app"`) are covered by the source suite; their native
+qualification on an installed build is still open.
+
+**Native macOS 0.3.1 (one maintainer Mac, arm64).** An earlier signed
+0.3.1 candidate passed the menu-bar owner crash and reopen check with
+isolated state. The updater's apply step replaced an installed notarized
+0.3.0 app with that candidate: the previous bundle was retained for rollback,
+the helper restarted with controls stopped, and all 33 runtime files plus the
+3 native executables in the installed bundle matched the build. The open
+qualification gates, and the build, signing and notarization facts for the
+public 0.3.1 archive, are in [CHANGELOG.md](CHANGELOG.md) and
+[docs/releases/0.3.1.json](docs/releases/0.3.1.json).
+
+**Live-verified during development: macOS (arm64, single Retina display,
+macOS 26.1).** Each of the 27 fixture workflows has a five-trial passing run.
+The broad 26-task run passed 129/130 trials; its dynamic-page failure was a
+fixture clock race, corrected and repeated 5/5. The repaired file-picker flow
+also passed 5/5 separately. The matrix retains the broad failure and both
+focused runs; these are 0.2.1 development receipts, not full Codex parity or
+final release qualification. Shared-desktop pointer displacement is measured
+and sometimes nonzero. OS permissions survived the signed 0.2.1 update. Commit
+identifiers inside the matrix and result files refer to the private
+pre-publication history, not to commits in this repository.
+
+**Text and vision use the same actions.** App observations default to a text
+summary containing controls, values, actions and layout. `detail:"full"`
+exposes nested menus and tree structure. On macOS, `include_ocr:true` adds
+on-device recognition of visible text with confidence and coordinate targets,
+without a vision model or remote service. The default does not capture an
+image. OCR was verified on a generated image and the actual Codewhale app;
+it does not interpret unlabeled icons, charts or other graphical meaning.
+Screenshots and zoom remain available to models that support images.
+
+**Live-verified: Linux X11** — the isolated Xvfb route re-ran at repeats 5 on
+2026-09-16: 25/27 demonstrated, 2 held-input rows skipped with committed
+reasons, `native.modal_dialog` failing under a documented toolkit-modal
+limitation (`parity/results/linux-xvfb-isolated-2026-09-16.json`). A shared
+login-session desktop has not been re-run since the runner's split into a
+platform-neutral engine plus per-platform drivers; see
+[docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md).
+
+**Background input has a native AppKit verification harness** with an independent
+foreground/cursor observer: `node scripts/verify-background-macos.mjs`.
+Older per-family receipts do not establish background isolation — details in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+
+**Not live-verified:** macOS non-Retina and mixed-DPI, Windows, Wayland,
+HarmonyOS, SSH remote — implemented, no device receipts. A
+[same-document native editing comparison](parity/results/native-text-comparison-darwin-2026-09-07.json)
+completed 5/5 trials with each of Codewhale and Codex; it covers one workflow,
+not the full task suite. A separate
+[public-browser navigation comparison](parity/results/public-browser-comparison-darwin-2026-09-07.json)
+also completed 5/5 trials on each surface, using Codewhale 0.2.1. Known behavioral limitations and the
+release gating checklist are in
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md) and
+[docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md); how to run or extend
+the suite is in [docs/PARITY.md](docs/PARITY.md).
 
 ## Layout
 

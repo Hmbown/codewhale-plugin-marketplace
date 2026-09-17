@@ -154,6 +154,37 @@ export function selectApps(apps, all) {
   return apps.filter((a) => a.activation_policy === "regular" || a.frontmost === true);
 }
 
+/**
+ * Front-lease interference verdict (SHA-6643 slice 1). The native helper
+ * reports the borrow window (lease_ms) and the HID idle clock around it
+ * (idle_before_s/idle_after_s); synthesized events do not tick that clock,
+ * so a clock that fails to advance across the window means hardware input
+ * arrived mid-lease. Null when the reply carries no accounting (no borrow,
+ * or a helper that predates it) — receipts stay quiet then.
+ */
+const LEASE_IDLE_EPSILON_S = 0.25;
+export function leaseVerdict(r) {
+  if (r?.front_lease !== true) return null;
+  const leaseMs = r.lease_ms, before = r.idle_before_s, after = r.idle_after_s;
+  if (![leaseMs, before, after].every(Number.isFinite)) return null;
+  return after < before + leaseMs / 1000 - LEASE_IDLE_EPSILON_S;
+}
+
+/**
+ * Threads the interference accounting from a native lease reply into a
+ * model-facing receipt. Call sites that build receipts field-by-field
+ * spread this; verbatim flows (type) already carry it via native().
+ */
+export function leaseAccounting(r) {
+  if (r?.front_lease !== true) return {};
+  const out = {};
+  for (const k of ["lease_ms", "idle_before_s", "idle_after_s"]) {
+    if (Number.isFinite(r[k])) out[k] = r[k];
+  }
+  if (typeof r.user_input_during_lease === "boolean") out.user_input_during_lease = r.user_input_during_lease;
+  return out;
+}
+
 export function create({ exec }) {
   const runL = (cmd, args, opts) => exec.run(cmd, args, opts);
   // The preview panel is on by default: while a session is bound to an app,
@@ -239,6 +270,8 @@ export function create({ exec }) {
       throw error;
     }
     const result = tryJson(r.stdout, null);
+    const interference = leaseVerdict(result);
+    if (interference !== null) result.user_input_during_lease = interference;
     if (state.previewEnabled && state.inputApp && ["type", "key_event", "pointer_sequence", "bg_pointer", "bg_key", "set_value", "select_text", "perform_action", "hit_test", "click_element", "scroll_element", "focus_element"].includes(tool)) {
       try { await updatePreview(); } catch (error) { result.preview_error = error.message; }
     }
@@ -386,6 +419,7 @@ export function create({ exec }) {
           ...(a11yReason === "web_popup_requires_real_click" ? { menu_poll_ms: 6000 } : {}) });
         return { action_sent: true, strategy: "window-record", input_scope: "application-window",
                  at: { x, y }, button, clicks, pointer_moved: false, front_lease: r.front_lease ?? true,
+                 ...leaseAccounting(r),
                  ...(r.menu_lease_held ? { menu_lease_held: true } : {}),
                  window: r.window ?? null,
                  ...(a11yReason ? { a11y_reason: a11yReason } : {}) };
@@ -983,6 +1017,7 @@ export function create({ exec }) {
         const r = await native("bg_pointer", { steps });
         return { action_sent: true, strategy: "window-record", input_scope: "application-window",
                  from, to, pointer_moved: false, front_lease: r.front_lease === true, window: r.window ?? null,
+                 ...leaseAccounting(r),
                  ...(typeof r.front_restored === "boolean" ? { front_restored: r.front_restored } : {}) };
       }
       const r = await gesture(steps, { restore: true, guard: from });
@@ -1010,7 +1045,7 @@ export function create({ exec }) {
           const r = await native("bg_pointer", { steps });
           return { action_sent: true, strategy: "window-record", input_scope: "application-window",
                    direction, amount, pointer_moved: false, front_lease: r.front_lease === true, window: r.window ?? null,
-                   verified: false, verification_required: "observation",
+                   verified: false, verification_required: "observation", ...leaseAccounting(r),
                    ...(typeof r.front_restored === "boolean" ? { front_restored: r.front_restored } : {}) };
         }
         throw Object.assign(new ExecError(`No background scrollbar at this point (${receipt?.reason ?? "not_found"}); choose an observed scroll area or a separate computer.`), { code: "background_scroll_unavailable" });
@@ -1046,7 +1081,7 @@ export function create({ exec }) {
             if (i < n - 1) await wait(30);
           }
           return { action_sent: true, key, code, keyboard_delivery: "window-record", input_scope: "application-window",
-                   front_lease: last?.front_lease === true, repeat: n,
+                   front_lease: last?.front_lease === true, repeat: n, ...leaseAccounting(last),
                    ...(typeof last?.front_restored === "boolean" ? { front_restored: last.front_restored } : {}),
                    ...(last?.front_restored === false ? { note: "the momentary window-record lease did not hand the user's foreground back; their next keystrokes may land in this app. Tell the user." } : {}) };
         } catch (error) {

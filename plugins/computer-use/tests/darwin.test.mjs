@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
-import { create } from '../src/backends/darwin.mjs';
+import { create, leaseVerdict, leaseAccounting } from '../src/backends/darwin.mjs';
 import { withSignal, currentSignal, runInputLease } from '../src/exec.mjs';
 
 // Simulate the native lease process: it owns cleanup itself, keeping the
@@ -286,6 +286,36 @@ test('macOS failed activation cannot leave a previous shared-desktop binding arm
   await assert.rejects(backend.open_application({name:'Fixture',activate:true}),e=>e.code==='activation_not_confirmed');
   await assert.rejects(backend.mouse_move({target:{x:10,y:10}}),e=>e.code==='shared_pointer_required');
   assert.ok(!calls.some(r=>r.tool==='pointer_sequence'));
+});
+
+test('macOS lease verdict flags hardware input inside the borrow window only', () => {
+  const base = { front_lease: true, lease_ms: 120, idle_before_s: 5.0 };
+  assert.equal(leaseVerdict({ ...base, idle_after_s: 5.12 }), false);
+  assert.equal(leaseVerdict({ ...base, idle_after_s: 0.05 }), true);
+  assert.equal(leaseVerdict({ ...base, idle_after_s: 5.12 - 0.24 }), false);
+  assert.equal(leaseVerdict({ front_lease: false, lease_ms: 120, idle_before_s: 5, idle_after_s: 0.01 }), null);
+  assert.equal(leaseVerdict({ front_lease: true, lease_ms: 120 }), null);
+  assert.equal(leaseVerdict(null), null);
+  const threaded = leaseAccounting({ ...base, idle_after_s: 0.05, user_input_during_lease: true });
+  assert.deepEqual(threaded, { lease_ms: 120, idle_before_s: 5.0, idle_after_s: 0.05, user_input_during_lease: true });
+  assert.deepEqual(leaseAccounting({ front_lease: true }), {});
+  assert.deepEqual(leaseAccounting({ front_lease: false }), {});
+});
+
+test('macOS window-record key receipts carry the interference accounting', async t => {
+  const { backend } = stubBackend(t, (r) => {
+    if (r.tool === 'input_capabilities') return { input_lease: 1, window_record: 1 };
+    if (r.tool === 'bg_key') {
+      return { action_sent: true, front_lease: true, front_restored: true,
+        lease_ms: 120, idle_before_s: 5.0, idle_after_s: 0.05 };
+    }
+    return null;
+  });
+  const receipt = await backend.key({ text: 'cmd+w' });
+  assert.equal(receipt.keyboard_delivery, 'window-record');
+  assert.equal(receipt.lease_ms, 120);
+  assert.equal(receipt.idle_before_s, 5.0);
+  assert.equal(receipt.user_input_during_lease, true);
 });
 
 test('macOS open_application reports launched only when it actually launched the app', async t => {
