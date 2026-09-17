@@ -192,7 +192,11 @@ static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL
     return NO;
   }
   cuCheckCancelled();
-  if(swap) {
+  if(swap && !cuFrontmostIsPid(lease->targetPid)) {
+    // An already-frontmost target needs no swap: the record already addresses
+    // the window, and setting an app front of itself changes nothing. Skipping
+    // it keeps receipts truthful (front_lease:false) and avoids a restore
+    // attempt for focus that was never borrowed.
     NSRunningApplication *frontApp = NSWorkspace.sharedWorkspace.frontmostApplication;
     lease->frontPid = frontApp.processIdentifier;
     if(cuGetFront(&lease->frontPSN) != 0 || cuSetFront(&lease->targetPSN, 0, 0x400) != 0) {
@@ -211,17 +215,19 @@ static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL
   usleep(30000);
   return YES;
 }
-static void cuBgLeaseEnd(cuBgLease *lease) {
-  if(!lease->swapped) return;
+static BOOL cuBgLeaseEnd(cuBgLease *lease) {
+  if(!lease->swapped) return YES; // nothing was borrowed
   cuSetFront(&lease->frontPSN, 0, 0x400);
   // NSWorkspace's frontmost view is stale in a one-shot helper; the SLS
   // front-process read is authoritative. Re-assert through AX while the
-  // lease is still visible.
-  for(int i = 0; i < 10; i++) {
+  // lease is still visible. The outcome is reported, not assumed: a failed
+  // restore means the person's next keystrokes land in the wrong app.
+  for(int i = 0; i < 20; i++) {
     if(!cuFrontmostIsPid(lease->targetPid)) break;
     axActivate(lease->frontPid);
     usleep(50000);
   }
+  return !cuFrontmostIsPid(lease->targetPid);
 }
 static BOOL cuFrontmostIsPid(pid_t pid) {
   ProcessSerialNumber front, want;
@@ -367,6 +373,7 @@ static NSDictionary *cuBgPointer(NSRunningApplication *inputApp, NSDictionary *a
   if(!cuBgLeaseBegin(inputApp, winNum, YES, &lease, &why))
     @throw [NSException exceptionWithName:@"bg_dispatch_unavailable" reason:why userInfo:nil];
   BOOL menuLeaseHeld = NO;
+  BOOL restored = YES;
   @try {
     for(NSDictionary *step in steps) {
       cuCheckCancelled();
@@ -411,10 +418,11 @@ static NSDictionary *cuBgPointer(NSRunningApplication *inputApp, NSDictionary *a
     }
   } @finally {
     if(menuLeaseHeld) cuFrontLeaseHold(&lease);
-    else cuBgLeaseEnd(&lease);
+    else restored = cuBgLeaseEnd(&lease);
   }
   NSMutableDictionary *receipt = [@{@"action_sent":@YES, @"strategy":@"window-record", @"pointer_moved":@NO,
            @"front_lease":@(lease.swapped), @"window":@{@"id":@(winNum)}} mutableCopy];
+  if(lease.swapped) receipt[@"front_restored"] = @(restored);
   if(menuLeaseHeld) receipt[@"menu_lease_held"] = @YES;
   return receipt;
 }
@@ -847,6 +855,7 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
   }
   cuBgLease lease;
   BOOL leasing = NO;
+  BOOL typeRestored = YES;
   if(needsRecord && typeWin) {
     NSString *why = nil;
     leasing = cuBgLeaseBegin(inputApp, typeWin, YES, &lease, &why);
@@ -866,7 +875,7 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
       }
       i=NSMaxRange(range); usleep(10000);
     }
-  } @finally { if(leasing) cuBgLeaseEnd(&lease); }
+  } @finally { if(leasing) typeRestored = cuBgLeaseEnd(&lease); }
   if(cuCancelled) @throw [NSException exceptionWithName:@"cancelled" reason:@"computer request cancelled" userInfo:nil];
   NSString *after=nil;
   if(focused && !secure) {
@@ -883,6 +892,7 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
                                   @"keyboard_delivery":semantic?@"accessibility":[args[@"foreground_input"] boolValue]?@"foreground-guarded":leasing?@"window-record":@"process",
                                   @"verified":@(verified),@"focused_role":role?:[NSNull null]} mutableCopy];
   if(leasing) receipt[@"window_focused"]=@YES;
+  if(lease.swapped) receipt[@"front_restored"]=@(typeRestored);
   if(!verified) receipt[@"verification_required"]=@"screenshot";
   return receipt;
 }
@@ -984,8 +994,11 @@ static id execute(NSDictionary *p) {
   if([tool isEqual:@"permissions"]) return @{@"trusted":@(AXIsProcessTrusted())};
   if([tool isEqual:@"list_apps"]) {
     NSMutableArray *apps=[NSMutableArray array];
-    for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications)
-      [apps addObject:@{@"name":a.localizedName?:@"",@"pid":@(a.processIdentifier),@"bundle_id":a.bundleIdentifier?:@"",@"frontmost":@(a.active),@"hidden":@(a.hidden)}];
+    for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications) {
+      NSInteger policy = a.activationPolicy;
+      NSString *policyName = (policy >= 0 && policy <= 2) ? @[@"regular",@"accessory",@"prohibited"][policy] : @"unknown";
+      [apps addObject:@{@"name":a.localizedName?:@"",@"pid":@(a.processIdentifier),@"bundle_id":a.bundleIdentifier?:@"",@"frontmost":@(a.active),@"hidden":@(a.hidden),@"activation_policy":policyName}];
+    }
     return @{@"apps":apps};
   }
   if([tool isEqual:@"displays"]) {
@@ -1040,6 +1053,144 @@ static id execute(NSDictionary *p) {
     }
     return @{@"found":@YES,@"name":a.localizedName?:@"",@"pid":@(a.processIdentifier),@"bundle_id":a.bundleIdentifier?:@"",@"frontmost":@(a.active)};
   }
+  if([tool isEqual:@"kill_app"]) {
+    NSString *bundle=args[@"bundle_id"], *name=args[@"name"]; NSNumber *pidNum=args[@"pid"];
+    if(!bundle && !name && !pidNum) @throw [NSException exceptionWithName:@"args" reason:@"kill_app needs name, bundle_id or pid" userInfo:nil];
+    if(pidNum && (![pidNum isKindOfClass:NSNumber.class] || [pidNum doubleValue]<=0 || [pidNum doubleValue]>INT_MAX || [pidNum doubleValue]!=[pidNum intValue])) @throw [NSException exceptionWithName:@"args" reason:@"kill_app pid must be a positive integer" userInfo:nil];
+    // A name that matches two running apps must not guess which one to end.
+    NSMutableArray *hits=[NSMutableArray array];
+    for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications) {
+      if(pidNum && a.processIdentifier!=[pidNum intValue]) continue;
+      if(bundle && !matchesName(a.bundleIdentifier?:@"",bundle)) continue;
+      if(name && !matchesName(a.localizedName?:@"",name)) continue;
+      [hits addObject:a];
+    }
+    if(!hits.count) @throw [NSException exceptionWithName:@"app" reason:@"application not found" userInfo:nil];
+    if(hits.count>1) {
+      NSMutableArray *desc=[NSMutableArray array];
+      for(NSRunningApplication *a in hits) [desc addObject:[NSString stringWithFormat:@"%@ (pid %d)",a.localizedName?:@"?",a.processIdentifier]];
+      @throw [NSException exceptionWithName:@"app" reason:[NSString stringWithFormat:@"several running applications match (%@); pass pid to choose one",[desc componentsJoinedByString:@", "]] userInfo:nil];
+    }
+    NSRunningApplication *target=hits[0];
+    pid_t tp=target.processIdentifier;
+    // The helper, its host (the daemon or MCP server), and the app bundle that
+    // owns this process must never be terminable through the agent surface.
+    if([(target.bundleIdentifier?:@"") isEqual:@"net.codewhale.computer-use"] || tp==getpid() || tp==getppid())
+      @throw [NSException exceptionWithName:@"protected" reason:@"the Computer Use helper and its host cannot be terminated by this plugin" userInfo:nil];
+    [target terminate];
+    for(int i=0;i<60 && !target.isTerminated;i++) { cuCheckCancelled(); [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]]; }
+    BOOL forced=NO;
+    if(!target.isTerminated && [args[@"force"] boolValue]) {
+      [target forceTerminate]; forced=YES;
+      for(int i=0;i<40 && !target.isTerminated;i++) { cuCheckCancelled(); [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]]; }
+    }
+    return @{@"killed":@(target.isTerminated),@"pid":@(tp),@"name":target.localizedName?:@"",@"force_used":@(forced)};
+  }
+  if([tool isEqual:@"installed_apps"]) {
+    // Installed catalog: the apps a person could open, running or not. Root +
+    // one level of subdirectories (e.g. /Applications/Utilities); bundle
+    // identity comes from the bundle itself, never from the directory name.
+    NSMutableDictionary *running=@{}.mutableCopy;
+    for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications) {
+      if(a.bundleIdentifier) running[a.bundleIdentifier]=@(a.processIdentifier);
+    }
+    NSMutableDictionary *byId=@{}.mutableCopy;
+    NSFileManager *fm=NSFileManager.defaultManager;
+    NSArray *roots=@[@"/Applications", @"/System/Applications", [NSHomeDirectory() stringByAppendingPathComponent:@"Applications"]];
+    for(NSString *root in roots) {
+      cuCheckCancelled();
+      NSString *top=[root stringByResolvingSymlinksInPath];
+      NSMutableArray *dirs=[NSMutableArray array]; [dirs addObject:top];
+      for(NSString *sub in ([fm contentsOfDirectoryAtPath:top error:nil]?:@[])) {
+        if([sub hasPrefix:@"."]||[sub hasSuffix:@".app"]) continue;
+        NSString *p=[top stringByAppendingPathComponent:sub];
+        BOOL isDir=NO;
+        if([fm fileExistsAtPath:p isDirectory:&isDir] && isDir) [dirs addObject:p];
+      }
+      for(NSString *dir in dirs) {
+        for(NSString *item in ([fm contentsOfDirectoryAtPath:dir error:nil]?:@[])) {
+          if(![item hasSuffix:@".app"]) continue;
+          NSString *p=[dir stringByAppendingPathComponent:item];
+          NSBundle *b=[NSBundle bundleWithPath:p];
+          NSString *bid=b.bundleIdentifier;
+          if(!bid || byId[bid]) continue;
+          NSString *name=[b objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+          if(!name.length) name=[b objectForInfoDictionaryKey:@"CFBundleName"];
+          if(!name.length) name=[item stringByDeletingPathExtension];
+          byId[bid]=@{@"name":name,@"bundle_id":bid,@"path":p}; 
+        }
+      }
+    }
+    NSMutableArray *out=[NSMutableArray array];
+    for(NSString *bid in byId) {
+      NSMutableDictionary *e=[byId[bid] mutableCopy];
+      NSNumber *pid=running[bid];
+      e[@"running"]=(pid!=nil)?@YES:@NO;
+      if(pid) e[@"pid"]=pid;
+      [out addObject:e];
+    }
+    [out sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b){ return [a[@"name"] localizedCaseInsensitiveCompare:b[@"name"]]; }];
+    return @{@"apps":out,@"count":@(out.count)};
+  }
+  if([tool isEqual:@"set_window_frame"]) {
+    NSRunningApplication *a=resolve(args[@"app_ref"]);
+    if(!a) @throw [NSException exceptionWithName:@"app" reason:@"application not found" userInfo:nil];
+    NSDictionary *frame=args[@"frame"];
+    double fx=NAN,fy=NAN,fw=NAN,fh=NAN;
+    if([frame isKindOfClass:NSDictionary.class]) {
+      fx=[frame[@"x"] doubleValue]; fy=[frame[@"y"] doubleValue];
+      fw=[frame[@"w"] doubleValue]; fh=[frame[@"h"] doubleValue];
+    }
+    if(!isfinite(fx)||!isfinite(fy)||!isfinite(fw)||!isfinite(fh)||fw<=0||fh<=0)
+      @throw [NSException exceptionWithName:@"args" reason:@"set_window_frame needs frame {x,y,w,h} with positive w/h" userInfo:nil];
+    NSNumber *idxNum=args[@"window_id"];
+    if(![idxNum isKindOfClass:NSNumber.class] || [idxNum doubleValue]!=[idxNum intValue] || [idxNum intValue]<0)
+      @throw [NSException exceptionWithName:@"args" reason:@"set_window_frame needs window_id (a non-negative window index from list_windows)" userInfo:nil];
+    AXUIElementRef app=AXUIElementCreateApplication(a.processIdentifier);
+    axPrepare(app);
+    NSArray *windows=attr(app,@"AXWindows");
+    NSInteger idx=[idxNum intValue];
+    if(idx>=(NSInteger)windows.count) { CFRelease(app); @throw [NSException exceptionWithName:@"window" reason:@"window_id is out of range; call list_windows for valid indices" userInfo:nil]; }
+    AXUIElementRef win=(__bridge AXUIElementRef)windows[idx];
+    CGRect before=CGRectNull; cuFrame(win,&before);
+    cuCheckCancelled();
+    CGPoint p=CGPointMake(fx,fy); CGSize z=CGSizeMake(fw,fh);
+    AXValueRef pos=AXValueCreate(kAXValueCGPointType,&p), size=AXValueCreate(kAXValueCGSizeType,&z);
+    AXError pe=AXUIElementSetAttributeValue(win,(__bridge CFStringRef)@"AXPosition",pos);
+    AXError se=AXUIElementSetAttributeValue(win,(__bridge CFStringRef)@"AXSize",size);
+    // Some apps re-anchor a window's origin when its size changes; re-assert
+    // the position once after the size has had a run-loop turn to settle.
+    if(pe==kAXErrorSuccess) {
+      [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+      AXError pe2=AXUIElementSetAttributeValue(win,(__bridge CFStringRef)@"AXPosition",pos);
+      if(pe2!=kAXErrorSuccess) pe=pe2;
+    }
+    if(pos) CFRelease(pos); if(size) CFRelease(size);
+    if(pe!=kAXErrorSuccess && se!=kAXErrorSuccess) {
+      CFRelease(app);
+      @throw [NSException exceptionWithName:@"window" reason:@"the app refused the window frame change (it may be fullscreen, tiled or non-resizable)" userInfo:nil];
+    }
+    // Apps apply frame changes over a few run-loop turns; verify by reading the
+    // window's own geometry back, not by trusting the set call.
+    CGRect after=before;
+    for(int i=0;i<40;i++) {
+      cuCheckCancelled();
+      [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+      cuFrame(win,&after);
+      if(fabs(after.origin.x-fx)<1 && fabs(after.origin.y-fy)<1 && fabs(after.size.width-fw)<1 && fabs(after.size.height-fh)<1) break;
+    }
+    CFRelease(app);
+    BOOL verified = fabs(after.origin.x-fx)<1 && fabs(after.origin.y-fy)<1 && fabs(after.size.width-fw)<1 && fabs(after.size.height-fh)<1;
+    NSMutableDictionary *done=[@{@"action_sent":@YES,@"window_id":@(idx),
+             @"before":@{@"x":@(before.origin.x),@"y":@(before.origin.y),@"w":@(before.size.width),@"h":@(before.size.height)},
+             @"after":@{@"x":@(after.origin.x),@"y":@(after.origin.y),@"w":@(after.size.width),@"h":@(after.size.height)},
+             @"verified":@(verified)} mutableCopy];
+    if(pe!=kAXErrorSuccess || se!=kAXErrorSuccess) {
+      done[@"ax_errors"]=@{@"position":@(pe),@"size":@(se)};
+      done[@"note"]=@"the app constrained or refused part of the frame (minimum sizes and fixed-size windows are common); the after readback is what actually happened";
+    }
+    return done;
+  }
   NSRunningApplication *inputApp=nil;
   if([@[@"type",@"key_event",@"bg_key",@"mouse_event",@"scroll",@"hit_test",@"pointer_sequence",@"bg_pointer"] containsObject:tool]) {
     if(![args[@"input_app_ref"] isKindOfClass:NSDictionary.class]) @throw [NSException exceptionWithName:@"focus" reason:@"open_application first to bind the input destination" userInfo:nil];
@@ -1087,6 +1238,7 @@ static id execute(NSDictionary *p) {
     NSString *why = nil;
     if(!cuBgLeaseBegin(inputApp, keyWin, YES, &lease, &why))
       @throw [NSException exceptionWithName:@"bg_dispatch_unavailable" reason:why userInfo:nil];
+    BOOL keyRestored = YES;
     @try {
       for(int down = 1; down >= 0; down--) {
         CGEventRef event = CGEventCreateKeyboardEvent(NULL, [args[@"code"] unsignedShortValue], down ? true : false);
@@ -1095,8 +1247,10 @@ static id execute(NSDictionary *p) {
         CFRelease(event);
         usleep(30000);
       }
-    } @finally { cuBgLeaseEnd(&lease); }
-    return @{@"action_sent":@YES, @"strategy":@"window-record", @"keyboard_delivery":@"window-record", @"front_lease":@YES};
+    } @finally { keyRestored = cuBgLeaseEnd(&lease); }
+    NSMutableDictionary *receipt = [@{@"action_sent":@YES, @"strategy":@"window-record", @"keyboard_delivery":@"window-record", @"front_lease":@(lease.swapped)} mutableCopy];
+    if(lease.swapped) receipt[@"front_restored"] = @(keyRestored);
+    return receipt;
   }
   if([tool isEqual:@"mouse_event"]) {
     CGPoint p=CGPointMake([args[@"x"] doubleValue],[args[@"y"] doubleValue]);

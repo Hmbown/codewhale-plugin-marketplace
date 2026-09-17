@@ -9,6 +9,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { run as nativeRun, runOk, ExecError, tryJson, have as nativeHave, withSignal, throwIfAborted, wait } from "../exec.mjs";
 import { pngSize } from "../png-size.mjs";
+import { createBrowser } from "../browser-cdp.mjs";
 
 const XKEYS = {
   return: "Return", enter: "Return", tab: "Tab", escape: "Escape", esc: "Escape",
@@ -58,6 +59,7 @@ function outputPath(file) {
 export function create({ exec } = {}) {
   const run = exec?.run ?? nativeRun;
   const have = exec?.have ?? nativeHave;
+  const browser = createBrowser({ platform: "linux" });
   function requireInputOwner() {
     if (exec?.persistentInputOwner !== true) throw Object.assign(new ExecError(
       "This held-input gesture requires a connected Codewhale Computer Use desktop helper so a disconnected client cannot leave keys or buttons pressed. Start the helper and reconnect before retrying."
@@ -320,6 +322,14 @@ except Exception as e:
   return {
     platform: "linux",
     releaseInput,
+    browser_start: browser.start,
+    browser_status: browser.status,
+    browser_navigate: browser.navigate,
+    browser_click: browser.click,
+    browser_type: browser.type,
+    browser_screenshot: browser.screenshot,
+    browser_stop: browser.stop,
+    closeSession: async () => { await browser.close().catch(() => {}); },
     probe: async () => {
       const s = await probeSession();
       const caps = {

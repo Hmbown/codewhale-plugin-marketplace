@@ -446,6 +446,64 @@ test('macOS foreground delivery requires explicit activation and resets on backg
   assert.equal(calls.at(-1).args.foreground_input,false);
 });
 
+test('macOS background modifier chords ride the window-record route and say so', async t => {
+  const {backend,calls}=stubBackend(t,request=>request.tool==='input_capabilities'
+    ?{input_lease:1,window_record:1}
+    :request.tool==='bg_key'?{action_sent:true,front_lease:true}:null);
+  await backend.open_application({name:'Fixture'});
+  const r=await backend.key({text:'cmd+w'});
+  assert.equal(r.action_sent,true);
+  assert.equal(r.keyboard_delivery,'window-record');
+  assert.equal(r.front_lease,true);
+  const bg=calls.filter(c=>c.tool==='bg_key');
+  assert.equal(bg.length,1,'one bg_key call posts a complete press');
+  assert.equal(bg[0].args.code,13);
+  assert.equal(bg[0].args.flags,1<<20);
+  assert.equal(bg[0].args.input_app_ref.pid,321);
+  assert.ok(!calls.some(c=>c.tool==='key_event'),'no process-bound key may accompany a window-record press');
+  // Unmodified keys keep plain process delivery.
+  const plain=await backend.key({text:'tab'});
+  assert.equal(plain.keyboard_delivery,'process');
+});
+
+test('macOS background chord without a key window falls back honestly, not silently', async t => {
+  const {backend,calls}=stubBackend(t,request=>request.tool==='input_capabilities'
+    ?{input_lease:1,window_record:1}
+    :request.tool==='bg_key'?{nativeResult:{code:1,spawned:true,stdout:'',stderr:'no focused window for a window-routed key; focus a control first'}}:null);
+  await backend.open_application({name:'Fixture'});
+  const r=await backend.key({text:'cmd+n'});
+  assert.equal(r.keyboard_delivery,'process');
+  assert.match(r.note,/menu key equivalents/);
+  assert.deepEqual(calls.filter(c=>c.tool==='key_event').map(c=>c.args.down),[true,false]);
+});
+
+test('macOS background chord fails closed after the bound app exits', async t => {
+  const {backend,calls}=stubBackend(t,request=>request.tool==='input_capabilities'
+    ?{input_lease:1,window_record:1}
+    :request.tool==='bg_key'?{nativeResult:{code:1,spawned:true,stdout:'',stderr:'input application is no longer running; open_application again'}}:null);
+  await backend.open_application({name:'Fixture'});
+  await assert.rejects(backend.key({text:'cmd+w'}),/no longer running/);
+  assert.ok(!calls.some(c=>c.tool==='key_event'),'a dead app must not fall back to process delivery of a menu chord');
+});
+
+test('macOS input handlers refuse a missing target without dereferencing it', async t => {
+  const {backend,calls}=stubBackend(t,()=>null);
+  await backend.open_application({name:'Fixture'});
+  for (const call of [
+    ()=>backend.left_mouse_down({}),
+    ()=>backend.left_mouse_down(),
+    ()=>backend.mouse_move({}),
+    ()=>backend.left_click({}),
+    ()=>backend.scroll({}),
+    ()=>backend.select_text({}),
+    ()=>backend.set_value({value:'x'}),
+    ()=>backend.perform_action({action:'AXPress'}),
+  ]) {
+    await assert.rejects(call, error=>!(error instanceof TypeError));
+  }
+  assert.ok(!calls.some(c=>['pointer_sequence','bg_pointer','select_text','set_value','perform_action'].includes(c.tool)));
+});
+
 test('macOS foreground refusal never sends an unowned global key-up', async t => {
   const { backend, calls } = stubBackend(t, request => request.tool === 'key_event' && request.args.down
     ? { nativeResult: { code: 1, spawned: true, stdout: '', stderr: 'foreground changed to Mail (pid 999); expected Fixture (pid 321)' } } : null);
@@ -637,6 +695,183 @@ test('macOS type passes the native verification receipt through untouched', asyn
   const { preview_error, ...receipt } = await backend.type({ text: 'hello' });
   assert.deepEqual(receipt, nativeReceipt);
   assert.ok(preview_error, 'preview refresh failure is reported, not swallowed');
+});
+
+// ---------- dogfood 2026-09-17: app_not_found, live preview, sessions, kill ----------
+
+const nap = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withEnv(t, vars) {
+  const old = {};
+  for (const [k, v] of Object.entries(vars)) {
+    old[k] = process.env[k];
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+  t.after(() => { for (const [k, v] of Object.entries(old)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+}
+
+function fakeBundle(t) {
+  const bundle = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-fake-bundle-'));
+  t.after(() => fs.rmSync(bundle, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(bundle, 'Contents', 'MacOS'), { recursive: true });
+  fs.writeFileSync(path.join(bundle, 'Contents', 'MacOS', 'accessibility'), '');
+  return bundle;
+}
+
+test('open_application on an unknown name, bundle or pid fails as app_not_found', async (t) => {
+  withEnv(t, { CODEWHALE_CU_APP_BUNDLE: fakeBundle(t) });
+  const backend = create({ exec: {
+    async run(cmd, args) {
+      if (cmd === 'open') {
+        const stderr = args.includes('-b')
+          ? 'LSCopyApplicationURLsForBundleIdentifier() failed while trying to determine the application with bundle identifier com.nonexistent.app.'
+          : "Unable to find application named 'NoSuchAppZZZ'";
+        return { code: 1, stderr, stdout: '' };
+      }
+      const request = JSON.parse(args[0]);
+      if (request.tool === 'app_info') {
+        const pid = request.args?.app_ref?.pid;
+        return pid
+          ? { code: 1, stderr: `no running application with pid ${pid}`, stdout: '' }
+          : { code: 1, stderr: 'application not found', stdout: '' };
+      }
+      return { code: 0, stderr: '', stdout: '{}' };
+    },
+    async runInputLease() { throw new Error('not used'); },
+  } });
+  await assert.rejects(backend.open_application({ name: 'NoSuchAppZZZ' }),
+    (e) => e.code === 'app_not_found' && /open failed: Unable to find application/.test(e.message),
+    'a name that resolves nowhere is app_not_found, not tool_error');
+  await assert.rejects(backend.open_application({ bundle_id: 'com.nonexistent.app' }),
+    (e) => e.code === 'app_not_found', 'a bundle id that resolves nowhere is app_not_found');
+  await assert.rejects(backend.open_application({ pid: 999999 }),
+    (e) => e.code === 'app_not_found', 'a dead pid is app_not_found');
+});
+
+test('preview goes live after a real capture; mute and session close tear it down', async (t) => {
+  withEnv(t, {
+    CODEWHALE_CU_APP_BUNDLE: fakeBundle(t),
+    CODEWHALE_CU_STATE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'cu-preview-state-')),
+    CODEWHALE_CU_PREVIEW_REFRESH_MS: '60',
+  });
+  const calls = [];
+  const backend = create({ exec: {
+    async run(cmd, args) {
+      if (cmd === 'screencapture') {
+        fs.writeFileSync(args[args.length - 1], 'png');
+        calls.push({ tool: 'screencapture' });
+        return { code: 0, stderr: '', stdout: '' };
+      }
+      const request = JSON.parse(args[0]);
+      calls.push(request);
+      const body = request.tool === 'app_info' ? { found: true, pid: 123, bundle_id: 'test.app', name: 'TextEdit' }
+        : request.tool === 'window_info' ? { window_id: 9, name: 'TextEdit', points: { x: 0, y: 0, w: 100, h: 100 } }
+        : request.tool === 'cursor_position' ? { x: 1, y: 2 }
+        : { updated: true };
+      return { code: 0, stderr: '', stdout: JSON.stringify(body) };
+    },
+    async runInputLease() { throw new Error('not used'); },
+  } });
+  const captures = () => calls.filter((c) => c.tool === 'window_info').length;
+
+  await backend.open_application({ name: 'TextEdit' });
+  await nap(400);
+  const live = captures();
+  assert.ok(live >= 2, `the panel refreshes on a timer while bound (${live} captures)`);
+  assert.ok(calls.some((c) => c.tool === 'preview_notify' && c.args?.enabled === true), 'binding shows the panel');
+
+  await backend.preview({ enabled: false });
+  assert.ok(calls.some((c) => c.tool === 'preview_notify' && c.args?.enabled === false), 'mute hides the panel');
+  const muted = captures();
+  await nap(300);
+  assert.equal(captures(), muted, 'muting stops the refresh loop');
+
+  await backend.preview({ enabled: true });
+  await nap(300);
+  assert.ok(captures() > muted, 're-enabling restarts the loop');
+
+  await backend.closeSession();
+  assert.equal(calls.at(-1).tool, 'preview_notify');
+  assert.equal(calls.at(-1).args.enabled, false, 'session close hides the panel it showed');
+  const closed = captures();
+  await nap(300);
+  assert.equal(captures(), closed, 'session close stops the loop');
+});
+
+test('CODEWHALE_CU_PREVIEW_REFRESH_MS=0 keeps the panel a single frame', async (t) => {
+  withEnv(t, {
+    CODEWHALE_CU_APP_BUNDLE: fakeBundle(t),
+    CODEWHALE_CU_STATE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'cu-preview-off-')),
+    CODEWHALE_CU_PREVIEW_REFRESH_MS: '0',
+  });
+  const calls = [];
+  const backend = create({ exec: {
+    async run(cmd, args) {
+      if (cmd === 'screencapture') { fs.writeFileSync(args[args.length - 1], 'png'); return { code: 0, stderr: '', stdout: '' }; }
+      const request = JSON.parse(args[0]);
+      calls.push(request);
+      const body = request.tool === 'app_info' ? { found: true, pid: 123, bundle_id: 'test.app', name: 'TextEdit' }
+        : request.tool === 'window_info' ? { window_id: 9, name: 'TextEdit', points: { x: 0, y: 0, w: 10, h: 10 } }
+        : request.tool === 'cursor_position' ? { x: 0, y: 0 }
+        : { updated: true };
+      return { code: 0, stderr: '', stdout: JSON.stringify(body) };
+    },
+    async runInputLease() { throw new Error('not used'); },
+  } });
+  await backend.open_application({ name: 'TextEdit' });
+  await nap(350);
+  assert.equal(calls.filter((c) => c.tool === 'window_info').length, 1, 'exactly the bind capture, no timer');
+});
+
+test('list_sessions in direct mode reports this process as the only session', async (t) => {
+  const { backend } = stubBackend(t, (r) => (r.tool === 'app_info' ? { found: true, pid: 321, bundle_id: 'test.app', name: 'TextEdit' } : null));
+  assert.equal((await backend.list_sessions()).sessions[0].target, null, 'unbound direct session has no target');
+  await backend.open_application({ name: 'TextEdit' });
+  const s = await backend.list_sessions();
+  assert.equal(s.via, 'direct');
+  assert.equal(s.count, 1);
+  assert.deepEqual(s.sessions[0].target, { pid: 321, bundle_id: 'test.app', name: 'TextEdit' });
+  assert.equal(s.sessions[0].mode, 'background');
+  assert.equal(s.sessions[0].inputHeld, false);
+});
+
+test('list_apps {installed:true} returns the installed catalog with running flags', async (t) => {
+  const catalog = { apps: [{ name: 'Safari', bundle_id: 'com.apple.Safari', path: '/Applications/Safari.app', running: true, pid: 42 }, { name: 'Calculator', bundle_id: 'com.apple.calculator', path: '/System/Applications/Calculator.app', running: false }], count: 2 };
+  const { backend, calls } = stubBackend(t, (r) => (r.tool === 'installed_apps' ? catalog : null));
+  const r = await backend.list_apps({ installed: true });
+  assert.equal(r.installed, true);
+  assert.equal(r.apps.length, 2);
+  assert.equal(r.apps[0].running, true);
+  assert.equal(r.apps[1].running, false);
+  assert.match(r.note, /takes a moment/);
+  assert.ok(calls.some((c) => c.tool === 'installed_apps'));
+  assert.ok(!calls.some((c) => c.tool === 'list_apps'), 'the running-process list is not consulted');
+});
+
+test('set_window_frame validates geometry and the window index, then passes the readback through', async (t) => {
+  const receipt = { action_sent: true, window_id: 0, before: { x: 0, y: 0, w: 100, h: 100 }, after: { x: 40, y: 40, w: 300, h: 200 }, verified: true };
+  const { backend, calls } = stubBackend(t, (r) => (r.tool === 'set_window_frame' ? receipt : null));
+  await assert.rejects(backend.set_window_frame({ window_id: 0, frame: { x: 1, y: 2, w: 0, h: 5 } }), (e) => e.code === 'bad_args');
+  await assert.rejects(backend.set_window_frame({ window_id: -1, frame: { x: 1, y: 2, w: 3, h: 5 } }), (e) => e.code === 'bad_args');
+  await assert.rejects(backend.set_window_frame({ window_id: 0, frame: { x: 1, y: 2, w: Number.NaN, h: 5 } }), (e) => e.code === 'bad_args');
+  const r = await backend.set_window_frame({ window_id: 0, frame: { x: 40, y: 40, w: 300, h: 200 } });
+  assert.equal(r.verified, true);
+  assert.deepEqual(r.after, { x: 40, y: 40, w: 300, h: 200 });
+  const sent = calls.filter((c) => c.tool === 'set_window_frame').at(-1);
+  assert.deepEqual(sent.args.frame, { x: 40, y: 40, w: 300, h: 200 });
+  assert.equal(sent.args.window_id, 0);
+});
+
+test('kill_app validates its identity client-side and passes the native receipt through', async (t) => {
+  const receipt = { killed: true, pid: 321, name: 'TextEdit', force_used: false };
+  const { backend, calls } = stubBackend(t, (r) => (r.tool === 'kill_app' ? receipt : null));
+  await assert.rejects(backend.kill_app({}), (e) => e.code === 'bad_args', 'an identity is required');
+  assert.deepEqual(await backend.kill_app({ pid: 321 }), receipt);
+  const sent = calls.filter((c) => c.tool === 'kill_app').at(-1);
+  assert.equal(sent.args.pid, 321);
+  assert.equal(sent.args.force, false, 'force defaults to a graceful quit');
+  await backend.kill_app({ name: 'TextEdit', force: true });
+  assert.equal(calls.filter((c) => c.tool === 'kill_app').at(-1).args.force, true, 'force passes through');
 });
 
 // A 1x1 PNG is enough: screenshot reads its IHDR for the pixel ground truth.

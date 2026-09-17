@@ -4,11 +4,14 @@
 // computer switching as a default: every tool accepts `computer`, and using a
 // computer id switches the sticky active computer.
 import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
 import * as registry from "../src/registry.mjs";
 import { backendFor, installRemoteAgent, executorFor, closeAppSession, routeFingerprint, closeSshChannel } from "../src/transport.mjs";
-import { TOOLS, TOOL_NAMES, READ_ONLY_TOOLS, REMOTE_TOOLS, BACKEND_METHOD } from "../src/tools.mjs";
+import { TOOLS, TOOL_NAMES, REQUIRED_ARGS, ELEMENT_ONLY_TARGET, READ_ONLY_TOOLS, REMOTE_TOOLS, BACKEND_METHOD, resolveTool, parseGrant, MERGED_EXPANSION } from "../src/tools.mjs";
 import { tryJson, withSignal, throwIfAborted, wait } from "../src/exec.mjs";
 import { APP_VERSION } from "../src/app-socket.mjs";
+import { createRecorder, readTrajectory, listTrajectories, resolveTrajectory, isTrajectoryTool } from "../src/trajectory.mjs";
 
 const SERVER_NAME = "codewhale-cu";
 
@@ -23,6 +26,10 @@ let inFlight = 0; // actions currently dispatching to a backend/executor
 const cancelled = new Set();
 const requests = new Map();
 let dispatch = Promise.resolve();
+const recorder = createRecorder();
+let replaying = false;
+// Fixed at process start; nothing can widen it. See parseGrant for the form.
+const GRANT = parseGrant(process.env.CODEWHALE_CU_GRANT);
 /** state_id -> { computerId, app_ref, windowIndex, elements } */
 const appStates = new Map();
 /** computerId -> state_id of its most recent observation */
@@ -143,7 +150,7 @@ function resolveElement(target, computer) {
     : "no observation on this computer yet — call get_app_state first");
   const el = st.elements[target.index];
   if (!el) throw new ServerError("unknown_element", `element index ${target.index} is outside state ${stateId} (0..${st.elements.length - 1})`);
-  return { state: st, element: el };
+  return { state: st, element: el, stateId };
 }
 
 class ServerError extends Error {
@@ -181,24 +188,28 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
     return { x: Math.round(pt.x), y: Math.round(pt.y), strategy: "event", coordinate_space: "raster" };
   }
   if (target?.type === "element") {
-    const { state, element } = resolveElement(target, computer);
+    const { state, element, stateId } = resolveElement(target, computer);
     if (state.computerId && state.computerId !== computer.id) {
-      throw new ServerError("state_wrong_computer", `state_id "${target.state_id}" belongs to computer "${state.computerId}", not "${computer.id}" — call get_app_state on that computer again`);
+      throw new ServerError("state_wrong_computer", `state_id "${stateId}" belongs to computer "${state.computerId}", not "${computer.id}" — call get_app_state on that computer again`);
     }
+    // The receipt must name the observation actually resolved — a bare index
+    // binds the computer's latest state, so reporting `target.state_id` would
+    // say "undefined" for the common case.
+    const where = `state ${stateId} (${state.app_ref?.name ?? state.app_ref?.bundle_id ?? `pid ${state.app_ref?.pid}`})`;
     let fresh = null;
     if (resolve) {
       const res = await resolve({ app_ref: state.app_ref, windowIndex: element.windowIndex ?? 0, path: element.path });
       if (!res?.found || !res.element) {
-        throw new ServerError("element_stale", `element ${target.index} of ${target.state_id} no longer resolves (${res?.reason ?? "not_found"}) — call get_app_state again`);
+        throw new ServerError("element_stale", `element ${target.index} of ${where} no longer resolves (${res?.reason ?? "not_found"}) — the user or the app may have changed it; call get_app_state again`);
       }
       fresh = res.element;
       if (fresh.role !== element.role) {
-        throw new ServerError("element_stale", `element ${target.index} of ${target.state_id} changed role (${element.role} → ${fresh.role}) — call get_app_state again`);
+        throw new ServerError("element_stale", `element ${target.index} of ${where} changed role (${element.role} → ${fresh.role}) — call get_app_state again`);
       }
       // In-place replacement: same role and geometry but a different label is
       // still a different element (e.g. "Load" → "Confirm").
       if (fresh.label !== element.label) {
-        throw new ServerError("element_stale", `element ${target.index} of ${target.state_id} changed label (${element.label} → ${fresh.label}) — call get_app_state again`);
+        throw new ServerError("element_stale", `element ${target.index} of ${where} changed label (${element.label} → ${fresh.label}) — call get_app_state again`);
       }
     }
     if (kind === "semantic") {
@@ -212,7 +223,7 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
       fresh.size?.w !== element.size?.w || fresh.size?.h !== element.size?.h);
     const pos = fresh?.position ?? element.position;
     const sz = fresh?.size ?? element.size;
-    if (!pos || !sz) throw new ServerError("element_no_geometry", `element ${target.index} has no cached geometry — use a coordinate target`);
+    if (!pos || !sz) throw new ServerError("element_no_geometry", `element ${target.index} of ${where} has no cached geometry — use a coordinate target`);
     if (moved && sink) sink.reacquired = true;
     // Keep the element identity as well as geometry: semantic clicks must not
     // substitute whichever element happens to occupy an oversized AX center.
@@ -364,7 +375,7 @@ function observeState(computer, app_ref, result, args = {}) {
     truncated: filtered.truncated,
     note: ephemeral
       ? "Ephemeral poll: elements are not bound to a state_id."
-      : "Target observed elements with {type:'element', index}; the index addresses this latest observation's cached tree, including rows omitted from this page. Pin an older observation with state_id. Filter with query/role/limit/offset instead of requesting a larger dump. Missing labels or values are unknown; do not guess.",
+      : "Indices target this observation's cached tree (including rows not shown); pin it with state_id, or re-observe after the app changes.",
   };
   if (compact && data.ocr && args.include_ocr !== true) delete data.ocr;
   return fitStatePayload(data, STATE_CHAR_BUDGET);
@@ -435,11 +446,36 @@ async function waitFor(computer, args, switched) {
 
 // ---------- tool dispatch ----------
 async function callTool(params) {
-  const name = params.name;
-  if (!TOOL_NAMES.has(name)) {
-    return { content: [{ type: "text", text: JSON.stringify({ ok: false, error: { code: "unknown_tool", message: `unknown tool "${name}"` } }) }], isError: true };
+  const requested = params.name;
+  if (!TOOL_NAMES.has(requested)) {
+    return { content: [{ type: "text", text: JSON.stringify({ ok: false, error: { code: "unknown_tool", message: `unknown tool "${requested}"` } }) }], isError: true };
   }
+  // Merged tools (click, pointer, clipboard, recording, computer, key+duration)
+  // resolve to the wire tool they dispatch to before any gate below, so they
+  // cannot bypass required args, the kill switch or routing. Wire names stay
+  // callable as aliases.
+  let name = requested;
   let args = params.arguments ?? {};
+  try {
+    ({ name, args } = resolveTool(requested, args));
+  } catch (err) {
+    return { content: [{ type: "text", text: JSON.stringify(fail(null, err.code ?? "bad_args", err.message)) }], isError: true };
+  }
+  // A narrowed session (CODEWHALE_CU_GRANT) refuses anything outside its grant
+  // before required-arg or routing behavior can leak. stop_computer_control
+  // stays reachable as the safety valve; the daemon enforces the same set.
+  if (GRANT && requested !== "stop_computer_control" && !GRANT.has(requested) && !GRANT.has(name)) {
+    return { content: [{ type: "text", text: JSON.stringify(fail(null, "not_granted", `"${requested}" is outside this session's capability grant (${GRANT.size} tools). The host narrowed this session deliberately; do not look for a workaround.`)) }], isError: true };
+  }
+  // Hosts are not required to enforce inputSchema. Check declared `required`
+  // fields here so a missing argument becomes bad_args instead of a backend
+  // crash or an opaque native error. The message names the tool the caller
+  // asked for, not the wire name it resolved to.
+  for (const field of REQUIRED_ARGS.get(name) ?? []) {
+    if (args[field] === undefined || args[field] === null) {
+      return { content: [{ type: "text", text: JSON.stringify(fail(null, "bad_args", `${requested} requires "${field}"`)) }], isError: true };
+    }
+  }
 
   if (name === "stop_computer_control") {
     controlStopped = true;
@@ -461,6 +497,50 @@ async function callTool(params) {
     const s = Math.max(0, Math.min(30, Number(args.seconds) || 1));
     await wait(s * 1000);
     return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, waitedSec: s })) }] };
+  }
+
+  if (name === "trajectory_start") {
+    const r = recorder.start();
+    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_start", ...r, note: "Every tool call this session makes is appended to a local JSONL. Arguments are stored verbatim so replay is faithful — start it only when the person knows it runs." })) }] };
+  }
+  if (name === "trajectory_stop") {
+    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_stop", ...recorder.stop() })) }] };
+  }
+  if (name === "trajectory_status") {
+    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_status", ...recorder.status(), recent: listTrajectories(5) })) }] };
+  }
+  if (name === "trajectory_replay") {
+    let file;
+    try { file = resolveTrajectory(args.id); } catch (err) {
+      return { content: [{ type: "text", text: JSON.stringify(fail(null, err.code ?? "bad_args", err.message)) }], isError: true };
+    }
+    const calls = readTrajectory(file).filter((entry) => entry.type === "call" && typeof entry.tool === "string" && !isTrajectoryTool(entry.tool));
+    if (calls.length > 200) {
+      return { content: [{ type: "text", text: JSON.stringify(fail(null, "replay_too_large", `this trajectory has ${calls.length} calls; replay is limited to 200 at a time`)) }], isError: true };
+    }
+    const dryRun = args.dry_run === true;
+    const results = [];
+    if (!dryRun) {
+      replaying = true;
+      try {
+        for (const call of calls) {
+          if (controlStopped && !READ_ONLY_TOOLS.has(call.tool)) { results.push({ tool: call.tool, ok: false, code: "control_stopped" }); break; }
+          let body = null;
+          try {
+            const r = await callTool({ name: call.tool, arguments: call.args ?? {} });
+            body = JSON.parse(r?.content?.[0]?.text ?? "null");
+          } catch (err) {
+            results.push({ tool: call.tool, ok: false, code: err?.code ?? "replay_failed", message: String(err?.message ?? err).slice(0, 200) });
+            break;
+          }
+          const ok = body?.ok !== false;
+          results.push({ tool: call.tool, ok, ...(ok ? {} : { code: body?.error?.code ?? "refused" }) });
+          if (!ok) break; // a trajectory is a sequence — replay stops where it broke
+        }
+      } finally { replaying = false; }
+    }
+    const failed = results.filter((r) => r.ok === false).length;
+    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_replay", trajectory: path.basename(file), dry_run: dryRun, turns_in_file: calls.length, replayed: results.length, failed, ...(dryRun ? { plan: calls.map((c) => c.tool) } : { results }), note: dryRun ? "Nothing was executed. Run again without dry_run:true to replay through the normal gates." : "Replay re-entered the normal pipeline; grants, permissions and the kill switch still apply." })) }] };
   }
 
   if (name === "computer_list") {
@@ -589,7 +669,7 @@ async function callTool(params) {
     }
     // Out-of-process runners (the desktop app for the local computer, the
     // remote agent for ssh computers) get the request over the wire.
-    const backendMethod = BACKEND_METHOD[name] === "request_access" ? "probe" : BACKEND_METHOD[name];
+    const backendMethod = BACKEND_METHOD[name];
     let data;
     const ex = computer.transport === "local" || computer.transport === "ssh" ? await executorFor(computer, binding) : null;
     if (ex?.kind === "app") binding.usedApp = true;
@@ -662,6 +742,14 @@ async function callTool(params) {
         data = observeState(computer, wireArgs.app_ref, data, args);
       }
       if (backendMethod === "probe") Object.assign(data, { via: ex.kind, app: ex.app ?? null });
+      if (backendMethod === "probe" && data?.app?.version && data.app.version !== APP_VERSION) {
+        // The helper owns the modules it loaded at start, so a plugin update
+        // without a helper restart serves the previous build's behavior. Say
+        // so instead of letting the agent debug a build that is not running.
+        data.app.bundled_version = APP_VERSION;
+        data.app.stale = true;
+        data.note = [data.note, `The running helper reports ${data.app.version} but this plugin is ${APP_VERSION} — restart the Codewhale Computer Use app to load the current build.`].filter(Boolean).join(" ");
+      }
     } else {
       const backend = await getBackend(computer, binding);
       if (typeof backend[backendMethod] !== "function") {
@@ -694,6 +782,25 @@ async function callTool(params) {
       }
     }
 
+    // Binding a different app retires this computer's element cache: a bare
+    // index must never silently address the previous app's observation —
+    // under a concurrent user that mistake clicks the wrong window.
+    if (name === "open_application" && data?.resolved) {
+      const latestId = latestStateByComputer.get(computer.id);
+      const latest = latestId ? appStates.get(latestId) : null;
+      if (latest) {
+        const a = latest.app_ref ?? {};
+        const b = data.resolved;
+        const sameApp = a.pid != null && b.pid != null
+          ? a.pid === b.pid
+          : (a.bundle_id && b.bundle_id ? a.bundle_id === b.bundle_id : a.name === b.name);
+        if (!sameApp) {
+          latestStateByComputer.delete(computer.id);
+          data.note = [data.note, "Element indices from earlier observations belonged to a different app — call get_app_state before targeting."].filter(Boolean).join(" ");
+        }
+      }
+    }
+
     if (name === "get_app_state" && args.include_ocr) {
       data.ocr ??= { status: "unavailable", reason: "Text recognition is not available on this backend", blocks: [] };
       if (data.ocr.raster) {
@@ -709,7 +816,7 @@ async function callTool(params) {
     // disk and still bound, so zoom or a narrower capture returns a viewable
     // image. Never trade the session for one screenshot.
     let imageBlock = null;
-    if ((name === "screenshot" || name === "zoom") && computer.transport === "local" && (data.file || data.path)) {
+    if ((name === "screenshot" || name === "zoom" || name === "browser_screenshot") && computer.transport === "local" && (data.file || data.path)) {
       const file = data.file || data.path;
       const size = fs.statSync(file).size;
       if (encodedSize(size) > INLINE_IMAGE_MAX_BYTES) {
@@ -725,9 +832,13 @@ async function callTool(params) {
         imageBlock = { type: "image", mimeType: bytes[0] === 0xff ? "image/jpeg" : "image/png", data: bytes.toString("base64") };
       }
     }
+    if (name === "request_access" && GRANT) {
+      data.grant = { mode: "narrowed", tools: [...GRANT].sort(), count: GRANT.size, note: "This session's tools were narrowed at launch (CODEWHALE_CU_GRANT); do not work around it." };
+    }
     const content = [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: name, switched, ...(sink.reacquired ? { target_reacquired: true } : {}), ...data })) }];
     if (imageBlock) content.push(imageBlock);
     if ((name === "screenshot" && (data?.file || data?.path) && data?.pixels?.w > 0 && data?.pixels?.h > 0) ||
+        (name === "browser_screenshot" && !!data?.file) ||
         (name === "get_app_state" && data?.found !== false && Array.isArray(data?.elements))) {
       binding.needsObservation = false;
     }
@@ -766,7 +877,15 @@ async function prepareArgs(computer, name, args, resolve, sink) {
   const semantic = new Set(["set_value", "select_text", "perform_action", "focus", "get_value"]);
   for (const key of ["target", "from_target", "to"]) {
     const given = out[key];
-    if (!given?.type) continue;
+    if (given == null) continue;
+    // Hosts that don't enforce inputSchema can hand us any shape. Refuse
+    // before it reaches a backend as an opaque native error or a TypeError.
+    if (typeof given !== "object" || Array.isArray(given) || (given.type !== "coordinate" && given.type !== "element")) {
+      throw new ServerError("bad_target", `${key} must be {type:'coordinate',x,y[,space]} or {type:'element',index[,state_id]} — got ${JSON.stringify(given)?.slice(0, 120)}`);
+    }
+    if (key === "target" && ELEMENT_ONLY_TARGET.has(name) && given.type !== "element") {
+      throw new ServerError("bad_target", `${name} accepts element targets only — observe the control with get_app_state and pass {type:'element',index}`);
+    }
     const kind = key === "target" && semantic.has(name) ? "semantic" : "pointer";
     out[key] = { ...given, ...(await normalizeTarget(computer, given, kind, resolve, sink)) };
   }
@@ -795,16 +914,114 @@ function respondError(id, code, message) {
   process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } }) + "\n");
 }
 
+/** JSON-RPC invalid-params error that survives the dispatch catch below. */
+function paramError(message) {
+  return Object.assign(new Error(message), { rpcCode: -32602 });
+}
+
+// ---------- bundled skill pack ----------
+// The operating guide travels with the server and is served as MCP resources
+// (skill://codewhale-cu/…) so any host can read the loop, the failure codes and
+// the safety rules without paying for them in every receipt. The pack is loaded
+// once at startup; a trimmed install without skills/ simply serves none.
+const SKILL_NAME = "computer-use";
+const SKILL_ROOT_URI = `skill://codewhale-cu/SKILL.md`;
+
+function parseFrontmatter(text) {
+  if (!text.startsWith("---\n")) return null;
+  const end = text.indexOf("\n---", 4);
+  if (end === -1) return null;
+  const out = {};
+  let key = null;
+  for (const line of text.slice(4, end).split("\n")) {
+    const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+    if (m) { key = m[1]; out[key] = [">-", ">"].includes(m[2]) ? "" : m[2].replace(/^["']|["']$/g, ""); continue; }
+    if (key && /^\s+\S/.test(line)) out[key] = `${out[key] ? `${out[key]} ` : ""}${line.trim()}`;
+  }
+  return out;
+}
+
+const skillPack = (() => {
+  const root = new URL("../skills/computer-use/", import.meta.url);
+  const files = [
+    ["SKILL.md", "text/markdown"],
+    ["references/quick-reference.md", "text/markdown"],
+    ["references/refusal-codes.md", "text/markdown"],
+  ];
+  const pack = [];
+  for (const [rel, mime] of files) {
+    try {
+      const bytes = fs.readFileSync(new URL(rel, root));
+      const text = bytes.toString("utf8");
+      pack.push({
+        rel, uri: `skill://codewhale-cu/${rel}`, mime, size: bytes.length, text,
+        frontmatter: rel === "SKILL.md" ? parseFrontmatter(text) : null,
+        sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+      });
+    } catch { /* no pack on disk — serve nothing */ }
+  }
+  return pack;
+})();
+const SKILL_DESCRIPTION = skillPack.find((f) => f.rel === "SKILL.md")?.frontmatter?.description ?? "Computer-use operating guide";
+
+/**
+ * callTool plus optional trajectory recording. Recording wraps every call the
+ * session makes (refusals included — they are part of what happened); the
+ * recorder's own tools and replayed calls are never re-recorded.
+ */
+async function callToolRecorded(params) {
+  const result = await callTool(params);
+  if (recorder.active && !replaying && !isTrajectoryTool(params?.name)) {
+    let body = null;
+    try { body = JSON.parse(result?.content?.[0]?.text ?? "null"); } catch { /* non-JSON receipts record without an outcome */ }
+    recorder.append({ tool: params.name, args: params.arguments ?? {}, ok: body?.ok !== false, code: body?.error?.code ?? null });
+  }
+  return result;
+}
+
 const HANDLERS = {
   initialize(params) {
     return {
       protocolVersion: params?.protocolVersion ?? "2025-06-18",
-      capabilities: { tools: { listChanged: false } },
+      capabilities: {
+        tools: { listChanged: false },
+        resources: { listChanged: false, subscribe: false },
+        experimental: { "io.modelcontextprotocol/skills": {} },
+      },
       serverInfo: { name: SERVER_NAME, version: APP_VERSION, platforms: ["darwin", "win32", "linux", "harmonyos"], transports: ["local", "ssh", "hdc"] },
     };
   },
   "tools/list"() {
-    return { tools: TOOLS };
+    // The advertised surface is what every session pays for; merged-away wire
+    // names stay callable as aliases but are never listed. A capability grant
+    // narrows the listing further, never widens it.
+    const advertised = TOOLS.filter((t) => t.hidden !== true);
+    if (!GRANT) return { tools: advertised };
+    return { tools: advertised.filter((t) => t.name === "stop_computer_control" || GRANT.has(t.name) || (MERGED_EXPANSION[t.name] ?? []).some((wire) => GRANT.has(wire))) };
+  },
+  "resources/list"() {
+    return { resources: skillPack.map(({ uri, rel, mime, size }) => ({ uri, name: rel, mimeType: mime, size })) };
+  },
+  "resources/read"(params) {
+    const file = skillPack.find((f) => f.uri === params?.uri);
+    if (!file) throw paramError(`resource "${params?.uri ?? ""}" is not part of the bundled skill pack — resources/list names the readable URIs`);
+    return { contents: [{ uri: file.uri, mimeType: file.mime, text: file.text }] };
+  },
+  "skills/list"() {
+    return {
+      skills: [{
+        uri: SKILL_ROOT_URI, name: SKILL_NAME, description: SKILL_DESCRIPTION,
+        files: skillPack.map(({ uri, sha256, size }) => ({ uri, sha256, bytes: size })),
+      }],
+    };
+  },
+  "skills/get"(params) {
+    const entry = skillPack.find((f) => f.uri === (params?.uri ?? SKILL_ROOT_URI));
+    if (!entry) throw paramError(`skill "${params?.uri ?? ""}" is unknown — skills/list names the catalog`);
+    return {
+      skill: { uri: entry.uri, name: SKILL_NAME, description: SKILL_DESCRIPTION, frontmatter: entry.frontmatter, content: entry.text },
+      manifest: skillPack.map(({ uri, sha256, size }) => ({ uri, sha256, bytes: size })),
+    };
   },
   async "tools/call"(params) {
     if (params?.name === "stop_computer_control") return callTool(params);
@@ -814,7 +1031,7 @@ const HANDLERS = {
     try {
       await previous;
       throwIfAborted();
-      return await callTool(params ?? {});
+      return await callToolRecorded(params ?? {});
     } catch (err) {
       if (err?.code !== "cancelled") throw err;
       return { content: [{ type: "text", text: JSON.stringify(fail(null, controlStopped ? "control_stopped" : "cancelled", err.message)) }], isError: true };
@@ -899,7 +1116,7 @@ async function handleLine(line) {
       respond(id, result);
     }
   } catch (err) {
-    if (id != null && !cancelled.delete(id)) respondError(id, -32603, err?.message ?? String(err));
+    if (id != null && !cancelled.delete(id)) respondError(id, Number.isInteger(err?.rpcCode) ? err.rpcCode : -32603, err?.message ?? String(err));
   } finally {
     if (id != null) requests.delete(id);
   }

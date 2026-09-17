@@ -87,6 +87,7 @@ export function create() {
     async double_click({ target } = {}) { record("double_click", { target }); return { action_sent: true, at: { x: target?.x, y: target?.y } }; },
     async mouse_move({ target } = {}) { record("mouse_move", { target }); return { action_sent: true, at: { x: target?.x, y: target?.y } }; },
     async perform_action(args) { record("perform_action", args); return { action_sent: true, strategy: "a11y" }; },
+    async select_text(args) { record("select_text", args); return { action_sent: true, strategy: "a11y" }; },
     async set_value(args) { record("set_value", args); return { action_sent: true, strategy: "a11y", verified: true, after: args.value }; },
     async type(args) { record("type", args); return { action_sent: true, text: args.text, verified: true, bound_app: boundApp?.name ?? null }; },
     async key(args) { record("key", args); return { action_sent: true, key: args.text ?? "return" }; },

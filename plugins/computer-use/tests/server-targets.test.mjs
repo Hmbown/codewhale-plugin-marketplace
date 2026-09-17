@@ -366,6 +366,71 @@ test("a state_id issued on another computer fails state_wrong_computer", async (
   }
 });
 
+test("missing required arguments fail bad_args before any backend call", async () => {
+  const counted = ["left_mouse_down", "select_text", "key", "set_value"];
+  const before = counted.reduce((n, m) => n + calls(m).length, 0);
+  for (const [name, args, field] of [
+    ["left_mouse_down", {}, "target"],
+    ["left_click", {}, "target"],
+    ["select_text", {}, "target"],
+    ["key", {}, "text"],
+    ["set_value", { value: "x" }, "target"],
+    ["hold_key", { text: "a" }, "duration"],
+  ]) {
+    const r = await tool(name, args);
+    assert.equal(r.ok, false, `${name} must refuse missing args`);
+    assert.equal(r.error.code, "bad_args", `${name}: ${JSON.stringify(r.error)}`);
+    assert.match(r.error.message, new RegExp(field));
+  }
+  const after = counted.reduce((n, m) => n + calls(m).length, 0);
+  assert.equal(after, before, "no request may reach the backend");
+});
+
+test("element-only tools refuse coordinate or malformed targets with bad_target", async () => {
+  for (const [name, args] of [
+    ["set_value", { target: { x: 10, y: 10 }, value: "x" }],
+    ["set_value", { target: { type: "coordinate", space: "screen", x: 1, y: 2 }, value: "x" }],
+    ["select_text", { target: { type: "coordinate", space: "screen", x: 1, y: 2 } }],
+    ["perform_action", { target: { type: "coordinate", space: "screen", x: 1, y: 2 }, action: "AXPress" }],
+    ["left_click", { target: "5,5" }],
+    ["left_click", { target: { type: "nonsense" } }],
+    ["left_click", { target: 42 }],
+  ]) {
+    const r = await tool(name, args);
+    assert.equal(r.ok, false, `${name}: ${JSON.stringify(r)}`);
+    assert.equal(r.error.code, "bad_target", `${name}: ${JSON.stringify(r.error)}`);
+  }
+});
+
+test("a stale element error names the resolved state and app, not 'undefined'", async () => {
+  const st = await freshState();
+  setControl({ found: false, element: null, reason: "window_not_found" });
+  try {
+    // Bare index binds the latest observation — the message must say which.
+    const r = await tool("left_click", { target: { type: "element", index: 1 } });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.code, "element_stale");
+    assert.match(r.error.message, new RegExp(`state ${st.state_id}`));
+    assert.match(r.error.message, /FakeApp/);
+    assert.doesNotMatch(r.error.message, /undefined/);
+  } finally {
+    setControl(null);
+  }
+});
+
+test("binding a different app retires bare element indices but keeps pinned states", async () => {
+  const st = await freshState();
+  const opened = await tool("open_application", { name: "OtherApp" });
+  assert.equal(opened.ok, true, JSON.stringify(opened.error));
+  assert.match(opened.note ?? "", /different app/);
+  const bare = await tool("left_click", { target: { type: "element", index: 1 } });
+  assert.equal(bare.ok, false);
+  assert.equal(bare.error.code, "unknown_state");
+  // An explicit state_id still resolves through its own pinned observation.
+  const pinned = await tool("left_click", { target: { type: "element", state_id: st.state_id, index: 1 } });
+  assert.equal(pinned.ok, true, JSON.stringify(pinned.error));
+});
+
 test("notifications/cancelled drops the in-flight response but not the server", async () => {
   const { id, p } = rpcId("tools/call", { name: "wait", arguments: { seconds: 3 } });
   await new Promise((r) => setTimeout(r, 200));

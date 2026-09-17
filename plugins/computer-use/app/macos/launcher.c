@@ -105,27 +105,40 @@ static void alert(const char *message) {
 }
 
 // The agent pointer is drawn in an app preview, never by moving the user's
-// hardware pointer. The nonactivating panel accepts no keyboard focus.
+// hardware pointer. The user's own cursor is drawn too (white, "you") so
+// the preview shows where the hardware pointer actually is on screen.
+// The nonactivating panel accepts no keyboard focus.
+static void cuDrawCursor(CGFloat x, CGFloat y, NSColor *fill, NSString *label) {
+  NSBezierPath *cursor=[NSBezierPath bezierPath];
+  [cursor moveToPoint:NSMakePoint(x,y)]; [cursor lineToPoint:NSMakePoint(x+3,y+24)]; [cursor lineToPoint:NSMakePoint(x+10,y+17)]; [cursor lineToPoint:NSMakePoint(x+20,y+16)]; [cursor closePath];
+  [fill setFill]; [cursor fill]; [[NSColor blackColor] setStroke]; cursor.lineWidth=1.5; [cursor stroke];
+  if(label) [label drawAtPoint:NSMakePoint(x+23,y+12) withAttributes:@{NSFontAttributeName:[NSFont boldSystemFontOfSize:12],NSForegroundColorAttributeName:fill,NSBackgroundColorAttributeName:[NSColor colorWithCalibratedWhite:0.08 alpha:0.9]}];
+}
 @interface CUPreviewView : NSView
 @property(retain) NSImage *image;
+@property(retain) NSString *caption;
 @property CGFloat pointerX;
 @property CGFloat pointerY;
+@property CGFloat userX;
+@property CGFloat userY;
 @end
 @implementation CUPreviewView
 - (BOOL)isFlipped { return YES; }
 - (void)drawRect:(NSRect)dirty {
   [[NSColor colorWithCalibratedWhite:0.08 alpha:1] setFill]; NSRectFill(self.bounds);
+  if(self.caption.length)
+    [self.caption drawAtPoint:NSMakePoint(8,6) withAttributes:@{NSFontAttributeName:[NSFont boldSystemFontOfSize:11],NSForegroundColorAttributeName:[NSColor whiteColor],NSBackgroundColorAttributeName:[NSColor colorWithCalibratedWhite:0.08 alpha:0.75]}];
   if (!self.image) return;
   NSSize size=self.image.size;
   CGFloat scale=MIN(self.bounds.size.width/size.width,self.bounds.size.height/size.height);
   NSRect frame=NSMakeRect((self.bounds.size.width-size.width*scale)/2,(self.bounds.size.height-size.height*scale)/2,size.width*scale,size.height*scale);
   [self.image drawInRect:frame fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
-  if(self.pointerX<0 || self.pointerX>1 || self.pointerY<0 || self.pointerY>1) return;
-  CGFloat x=frame.origin.x+self.pointerX*frame.size.width, y=frame.origin.y+self.pointerY*frame.size.height;
-  NSBezierPath *cursor=[NSBezierPath bezierPath];
-  [cursor moveToPoint:NSMakePoint(x,y)]; [cursor lineToPoint:NSMakePoint(x+3,y+24)]; [cursor lineToPoint:NSMakePoint(x+10,y+17)]; [cursor lineToPoint:NSMakePoint(x+20,y+16)]; [cursor closePath];
-  [[NSColor colorWithCalibratedRed:0.2 green:0.88 blue:0.94 alpha:1] setFill]; [cursor fill]; [[NSColor blackColor] setStroke]; cursor.lineWidth=1.5; [cursor stroke];
-  [@"Codewhale" drawAtPoint:NSMakePoint(x+23,y+12) withAttributes:@{NSFontAttributeName:[NSFont boldSystemFontOfSize:12],NSForegroundColorAttributeName:[NSColor colorWithCalibratedRed:0.2 green:0.88 blue:0.94 alpha:1],NSBackgroundColorAttributeName:[NSColor colorWithCalibratedWhite:0.08 alpha:0.9]}];
+  if(self.pointerX>=0 && self.pointerX<=1 && self.pointerY>=0 && self.pointerY<=1)
+    cuDrawCursor(frame.origin.x+self.pointerX*frame.size.width, frame.origin.y+self.pointerY*frame.size.height,
+      [NSColor colorWithCalibratedRed:0.2 green:0.88 blue:0.94 alpha:1], @"Codewhale");
+  if(self.userX>=0 && self.userX<=1 && self.userY>=0 && self.userY<=1)
+    cuDrawCursor(frame.origin.x+self.userX*frame.size.width, frame.origin.y+self.userY*frame.size.height,
+      [NSColor whiteColor], @"you");
 }
 @end
 @interface CUPreviewPanel : NSPanel
@@ -154,16 +167,23 @@ static void alert(const char *message) {
   if (![data[@"enabled"] boolValue]) { [self.previewPanel orderOut:nil]; return; }
   if (!self.previewPanel) {
     NSRect screen=NSScreen.mainScreen.visibleFrame;
-    self.previewPanel=[[CUPreviewPanel alloc] initWithContentRect:NSMakeRect(NSMaxX(screen)-580,NSMinY(screen)+40,560,360) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskResizable|NSWindowStyleMaskNonactivatingPanel backing:NSBackingStoreBuffered defer:NO];
+    // Borderless: no titlebar or edge chrome — the preview floats as the
+    // captured window alone. It still moves by background drag and closes
+    // via preview(enabled:false) or the control panel.
+    self.previewPanel=[[CUPreviewPanel alloc] initWithContentRect:NSMakeRect(NSMaxX(screen)-580,NSMinY(screen)+40,560,360) styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel backing:NSBackingStoreBuffered defer:NO];
     self.previewPanel.releasedWhenClosed=NO; self.previewPanel.hidesOnDeactivate=NO;
+    self.previewPanel.movableByWindowBackground=YES; self.previewPanel.hasShadow=YES;
+    self.previewPanel.opaque=NO; self.previewPanel.backgroundColor=[NSColor clearColor];
     self.previewView=[[CUPreviewView alloc] initWithFrame:NSMakeRect(0,0,560,360)];
     self.previewView.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
+    self.previewView.wantsLayer=YES; self.previewView.layer.cornerRadius=10; self.previewView.layer.masksToBounds=YES;
     self.previewPanel.contentView=self.previewView;
   }
   NSString *file=[NSHomeDirectory() stringByAppendingPathComponent:@".codewhale-cu/preview/latest.png"];
   self.previewView.image=[[[NSImage alloc] initWithContentsOfFile:file] autorelease];
-  self.previewView.pointerX=[data[@"x"] doubleValue]; self.previewView.pointerY=[data[@"y"] doubleValue];
-  self.previewPanel.title=[data[@"title"] isKindOfClass:NSString.class]?data[@"title"]:@"Codewhale activity";
+  self.previewView.pointerX=data[@"x"]?[data[@"x"] doubleValue]:-1; self.previewView.pointerY=data[@"y"]?[data[@"y"] doubleValue]:-1;
+  self.previewView.userX=data[@"user_x"]?[data[@"user_x"] doubleValue]:-1; self.previewView.userY=data[@"user_y"]?[data[@"user_y"] doubleValue]:-1;
+  self.previewView.caption=[data[@"title"] isKindOfClass:NSString.class]?data[@"title"]:@"Codewhale activity";
   [self.previewView setNeedsDisplay:YES];
   if([data[@"show"] boolValue]) [self.previewPanel orderFrontRegardless];
 }

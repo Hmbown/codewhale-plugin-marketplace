@@ -7,11 +7,12 @@ import { exec } from "./remote-runtime.mjs";
 import { withSignal, throwIfAborted } from "./exec.mjs";
 
 export const ALLOWED = new Set([
-  "preview", "platform", "probe", "list_displays", "switch_display", "list_apps", "list_windows",
-  "open_application", "get_app_state", "resolve_element", "screenshot", "zoom",
+  "preview", "platform", "probe", "list_displays", "switch_display", "list_apps", "list_sessions", "list_windows",
+  "open_application", "kill_app", "set_window_frame", "get_app_state", "resolve_element", "screenshot", "zoom",
+  "browser_start", "browser_status", "browser_navigate", "browser_click", "browser_type", "browser_screenshot", "browser_stop",
   "left_click", "double_click", "triple_click", "right_click", "middle_click",
   "mouse_move", "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll",
-  "type", "key", "hold_key", "set_value", "focus", "get_value", "select_text", "perform_action",
+  "type", "key", "hold_key", "set_value", "focus", "get_value", "select_text", "perform_action", "invoke_menu",
   "read_clipboard", "write_clipboard", "cursor_position",
   "recordingStart", "recordingStop", "recordingStatus", "recordingList",
 ]);
@@ -20,7 +21,7 @@ const backends = new Map();
 const heldPointers = new Map();
 const INPUT_MUTATIONS = new Set([
   "open_application", "left_click", "double_click", "triple_click", "right_click", "middle_click", "mouse_move",
-  "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll", "type", "key", "hold_key", "set_value", "focus", "select_text", "perform_action",
+  "left_click_drag", "left_mouse_down", "left_mouse_up", "scroll", "type", "key", "hold_key", "set_value", "focus", "select_text", "perform_action", "invoke_menu",
 ]);
 let queue = Promise.resolve();
 
@@ -118,6 +119,30 @@ export function closeAllSessions() {
     const colon = key.indexOf(":");
     return closeSession(key.slice(colon + 1), key.slice(0, colon));
   }));
+}
+
+/**
+ * Content-free session registry view for agents: which sessions are live,
+ * what each is bound to, what it is doing right now, and whether any session
+ * holds a pointer. App identity and action names only — task text never
+ * reaches this process, so none can leak. Read-only by construction.
+ */
+export function summarizeSessions() {
+  const live = [...sessions.entries()].filter(([, s]) => !s.closed);
+  return {
+    control: controlMode,
+    count: live.length,
+    sessions: live.map(([key, s]) => {
+      const computerId = key.slice(0, key.indexOf(":"));
+      return {
+        target: s.target ?? null,
+        mode: s.mode ?? null,
+        action: s.action ?? null,
+        ageSec: Math.max(0, Math.round((Date.now() - s.touched) / 1000)),
+        inputHeld: heldPointers.get(computerId) === key,
+      };
+    }),
+  };
 }
 
 /**
