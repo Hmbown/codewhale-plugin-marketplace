@@ -1,7 +1,7 @@
 {
   "name": "codewhale-whalewiki",
-  "version": "0.1.0",
-  "description": "Codewhale WhaleWiki: an evidence-bound repository wiki with computed staleness and a read-only MCP surface.",
+  "version": "0.2.0",
+  "description": "Understand a repository, find where to make a change, and keep its explanations current: source-cited pages, documentation impact lookup and a searchable offline reader.",
   "license": "MIT",
   "skills": "./skills/",
   "commands": "./commands/",
@@ -13,7 +13,9 @@
   "mcpServers": {
     "whalewiki": {
       "command": "node",
-      "args": ["mcp/server.mjs"],
+      "args": [
+        "mcp/server.mjs"
+      ],
       "startupTimeoutMs": 30000,
       "toolTimeoutMs": 30000
     }

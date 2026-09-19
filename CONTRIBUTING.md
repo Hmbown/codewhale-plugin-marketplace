@@ -11,6 +11,9 @@ Choose the smallest surface that completes the user's job:
   tests and an explicit statement of what has been exercised live.
 - `skills/`: reusable workflows. The bundled mirror has a separate Core owner;
   preserve unrelated edits and synchronize changes through that owner.
+  Commit the reviewed Core assets first, then run `npm run sync:skills`.
+  The active catalog matrix determines membership; retained migration assets
+  do not become installable skills.
 
 An integration must not add a model loop, provider key store, approval authority
 or scheduler parallel to Codewhale. Reuse shared clients before implementing a
@@ -23,6 +26,11 @@ vendored bridges. Edit their canonical Core sources first, then refresh the
 whole changed source/test set and the hashes here. Do not silently fork an
 existing bridge. Marketplace-owned adapters such as `webhook-bridge` sit beside
 that snapshot and use its shared helpers.
+
+Every bundle must show a copyable first task, prerequisites, data destinations
+and how to recognize success or a setup failure. Include README.md and LICENSE
+in the package itself, not only at the repository root. Stable catalog IDs are
+installation identities; improve `display_name` instead of renaming IDs.
 
 Run `npm run check` and `npm test && npm run check:web`. Tests must exercise the
 installed package or real protocol boundary where it matters. CI, real service

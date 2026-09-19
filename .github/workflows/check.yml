@@ -40,6 +40,7 @@ jobs:
       - run: npm run check:web
       - run: npm run package:plugin -- whalewiki
       - run: npm run package:plugin -- computer-use
+      - run: npm run package:plugin -- whalesong
       - run: npm run package:plugin -- cloudflare-docs
       - run: npm run package:plugin -- codewhale-skills
       - uses: actions/upload-artifact@v4

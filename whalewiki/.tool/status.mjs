@@ -9,7 +9,8 @@
 //   whalewiki.mjs manifest set <page> --sources a.rs,b.rs [--root name]
 //   whalewiki.mjs manifest show
 //   whalewiki.mjs status [--short|--json|--exit-stale|--mark]
-//   whalewiki.mjs search <query>      grep-ranked page matches
+//   whalewiki.mjs search <query>      ranked page matches
+//   whalewiki.mjs impact <path...>    pages citing a source file/directory
 //   whalewiki.mjs export [--out f.html]
 
 import { createHash, randomUUID } from "node:crypto";
@@ -260,7 +261,7 @@ export function statusReport(wiki = wikiDir(), { receipt = false } = {}) {
   const roots = sourceRoots(wiki);
   const pages = [];
   for (const [page, entry] of Object.entries(manifest.pages || {})) {
-    pages.push({ page, title: entry.title || "", sealed_at: entry.sealed_at, ...pageVerdict(entry, roots, wiki, page) });
+    pages.push({ page, title: entry.title || "", sealed_at: entry.sealed_at, sources: entry.sources.map(src => ({root: src.root || "repo", path: src.path})), ...pageVerdict(entry, roots, wiki, page) });
   }
   const pagesDir = path.join(wiki, "pages");
   const sealed = new Set(Object.keys(manifest.pages || {}));
@@ -268,7 +269,7 @@ export function statusReport(wiki = wikiDir(), { receipt = false } = {}) {
     if (fs.lstatSync(pagesDir).isSymbolicLink()) throw new Error("pages directory must not be a symlink");
     for (const f of fs.readdirSync(pagesDir).filter(f => f.endsWith(".md")).sort()) {
       const rel = `pages/${f}`;
-      if (!sealed.has(rel)) pages.push({ page: rel, title: "", verdict: "unsealed", changed: [], touched: [], missing: [], page_changed: false });
+      if (!sealed.has(rel)) pages.push({ page: rel, title: "", sources: [], verdict: "unsealed", changed: [], touched: [], missing: [], page_changed: false });
     }
   }
   const counts = { fresh: 0, stale: 0, touched: 0, orphaned: 0, unsealed: 0 };
@@ -400,31 +401,64 @@ export function codemap(root = repoRoot()) {
 
 // ---------- search -----------------------------------------------------------
 
+// Tokenize once for both the CLI/MCP and offline reader. Bound query work and
+// count distinct matched terms before frequency so repeated words cannot swamp
+// a page that covers the whole question. This is lexical, not semantic search.
+export function searchTerms(query) {
+  return [...new Set(String(query).toLowerCase().slice(0, 1000).match(/[\p{L}\p{N}_]+/gu) || [])];
+}
+
 export function searchWiki(query, wiki = wikiDir(), limit = 8) {
   limit = Math.max(1, Math.min(50, Number.isFinite(limit) ? Math.floor(limit) : 8));
-  const terms = query.toLowerCase().split(/[^\p{L}\p{N}_]+/u).filter(Boolean);
+  const terms = searchTerms(query);
+  if (!terms.length) return [];
   const pagesDir = path.join(wiki, "pages");
-  const results = [];
   const docs = fs.existsSync(pagesDir)
-    ? fs.readdirSync(pagesDir).filter((f) => f.endsWith(".md")).map((f) => path.join(pagesDir, f))
-    : [];
-  for (const doc of [...docs, path.join(wiki, "INDEX.md"), path.join(wiki, "codemap.md")]) {
-    if (!fs.existsSync(doc)) continue;
-    const text = readWikiFile(wiki, path.relative(wiki, doc).split(path.sep).join("/"));
-    const lines = text.split("\n");
+    ? fs.readdirSync(pagesDir).filter(f => f.endsWith(".md")).sort().map(f => `pages/${f}`) : [];
+  const manifest = loadManifest(wiki), roots = sourceRoots(wiki), results = [];
+  for (const page of [...docs, "INDEX.md", "codemap.md"]) {
+    if (!fs.existsSync(path.join(wiki, page))) continue;
+    const body = readWikiFile(wiki, page), matched = new Set(), hits = [];
     let score = 0;
-    const hits = [];
-    lines.forEach((line, i) => {
-      const low = line.toLowerCase();
-      const lineHits = terms.filter((t) => low.includes(t));
-      if (lineHits.length) {
-        score += lineHits.length * (line.startsWith("#") ? 3 : 1);
-        if (hits.length < 3) hits.push({ line: i + 1, text: line.trim().slice(0, 160) });
+    body.split("\n").forEach((text, index) => {
+      const found = terms.filter(term => text.toLowerCase().includes(term));
+      found.forEach(term => matched.add(term));
+      if (found.length) {
+        const weight = found.length * (text.startsWith("#") ? 3 : 1);
+        score += weight;
+        hits.push({line: index + 1, text: text.trim().slice(0, 160), weight});
       }
     });
-    if (score) results.push({ page: path.relative(wiki, doc).split(path.sep).join("/"), score, hits });
+    if (!matched.size) continue;
+    const entry = manifest.pages[page];
+    const verdict = entry ? pageVerdict(entry, roots, wiki, page).verdict : "unsealed";
+    results.push({page, title: /^#\s+(.+)$/m.exec(body)?.[1] || page, score,
+      matched_terms: matched.size, query_terms: terms.length, verdict,
+      sources: (entry?.sources || []).map(src => ({root: src.root || "repo", path: src.path})),
+      hits: hits.sort((a,b) => b.weight-a.weight || a.line-b.line).slice(0,3).map(({weight,...hit}) => hit)});
   }
-  return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  return results.sort((a,b) => b.matched_terms-a.matched_terms || b.score-a.score || a.page.localeCompare(b.page)).slice(0,limit);
+}
+
+export function impactReport(paths, wiki = wikiDir()) {
+  if (!Array.isArray(paths) || !paths.length || paths.length > 100) throw new Error("impact needs 1–100 source paths");
+  const roots = sourceRoots(wiki), report = statusReport(wiki);
+  const requested = paths.map(spec => {
+    if (typeof spec !== "string" || spec.length > 1000) throw new Error("invalid source path");
+    const colon = spec.indexOf(":"), root = colon < 0 ? "repo" : spec.slice(0,colon);
+    const rel = (colon < 0 ? spec : spec.slice(colon+1)).replace(/\/$/, "");
+    if (!Object.hasOwn(roots,root) || !rel || rel.includes("\\") || rel.includes(":" ) || /[\x00-\x1f]/.test(rel) || rel.split("/").some(p => !p || p === "." || p === "..")) throw new Error(`invalid source path: ${spec}`);
+    return {input:spec,root,path:rel};
+  });
+  const matched = new Set();
+  const pages = report.pages.flatMap(page => {
+    const matches = requested.filter(request => page.sources.some(src => src.root === request.root && (src.path === request.path || src.path.startsWith(request.path+"/"))));
+    if (!matches.length) return [];
+    matches.forEach(request => matched.add(request.input));
+    return [{...page, matched_paths: matches.map(request => request.input)}];
+  });
+  return {paths, pages, uncovered: paths.filter(p => !matched.has(p)),
+    limitation: "Declared wiki evidence only, not a code dependency graph. Uncovered paths may need new documentation; they are not proof of no impact."};
 }
 
 // ---------- scaffold ---------------------------------------------------------
@@ -582,9 +616,11 @@ export function exportHtml(wiki = wikiDir()) {
   const nav = entries.map(({rel, title, v}) => `<li data-page="${pageId(rel)}"><a href="#${pageId(rel)}"><span>${esc(title)}</span>${v ? `<small class="v-${v.verdict}">${v.verdict}</small>` : ""}</a></li>`).join("");
   const sections = entries.map(({rel, md, v}) => {
     const reasons = v ? [v.page_changed ? "Page edited since sealing." : "", ...v.changed.map(s => `Changed source: ${s}`), ...v.missing.map(s => `Missing or unreadable: ${s}`)].filter(Boolean) : [];
-    return `<section id="${pageId(rel)}" tabindex="-1" data-verdict="${v?.verdict || "navigation"}"><div class="page-meta"><span>${esc(rel)}</span>${v ? `<strong class="v-${v.verdict}">${v.verdict}</strong>` : ""}</div>${v && v.verdict !== "fresh" ? `<aside class="notice"><strong>Check the sources before relying on this page.</strong><p>${esc(reasons.join(" ") || "This page needs to be sealed against its current prose and sources.")}</p></aside>` : ""}${mdToHtml(md, rel, wiki)}</section>`;
+    const evidence = v?.sources?.length ? `<details class="evidence"><summary>Source evidence · ${v.sources.length} file${v.sources.length === 1 ? "" : "s"}</summary><p>Checked ${esc(report.checked_at)}. Read these files in your checkout to verify the claims.</p><ul>${v.sources.map(src => `<li><code>${esc((src.root === "repo" ? "" : src.root + ":") + src.path)}</code></li>`).join("")}</ul></details>` : "";
+    return `<section id="${pageId(rel)}" tabindex="-1" data-verdict="${v?.verdict || "navigation"}"><div class="page-meta"><span>${esc(rel)}</span>${v ? `<strong class="v-${v.verdict}">${v.verdict}</strong>` : ""}</div>${v && v.verdict !== "fresh" ? `<aside class="notice"><strong>Check the sources before relying on this page.</strong><p>${esc(reasons.join(" ") || "This page needs to be sealed against its current prose and sources.")}</p></aside>` : ""}${mdToHtml(md, rel, wiki)}${evidence}</section>`;
   }).join("\n");
   const script = `(() => {
+    const searchTerms = ${searchTerms.toString()};
     const pages = [...document.querySelectorAll('main section')];
     const items = [...document.querySelectorAll('nav li[data-page]')];
     const input = document.getElementById('search');
@@ -592,10 +628,10 @@ export function exportHtml(wiki = wikiDir()) {
     const filter = document.getElementById('freshness');
     const contents = new Map(pages.map(p => [p.id, p.textContent.toLocaleLowerCase()]));
     function search() {
-      const query = input.value.trim().toLocaleLowerCase(); let count = 0;
+      const terms = searchTerms(input.value); let count = 0;
       items.forEach(item => {
         const page = document.getElementById(item.dataset.page);
-        const match = (!query || contents.get(page.id).includes(query)) && (filter.value === 'all' || !['fresh', 'navigation'].includes(page.dataset.verdict));
+        const match = terms.every(term => contents.get(page.id).includes(term)) && (filter.value === 'all' || !['fresh', 'navigation'].includes(page.dataset.verdict));
         item.hidden = !match; if (match) count++;
       });
       status.textContent = count ? count + ' pages found' : 'No matching pages. Try another word or show all pages.';
@@ -610,6 +646,9 @@ export function exportHtml(wiki = wikiDir()) {
       if (focus && chosen) { chosen.focus({preventScroll:true}); (target || chosen).scrollIntoView(); }
     }
     input.addEventListener('input', search); filter.addEventListener('change', search);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { const first = items.find(item => !item.hidden)?.querySelector('a'); if (first) { first.click(); select(true); } }
+    });
     addEventListener('hashchange', () => select(true));
     document.getElementById('clear-search').addEventListener('click', () => { input.value = ''; filter.value = 'all'; search(); input.focus(); });
     document.addEventListener('keydown', e => { if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); document.getElementById('browse').open = true; input.focus(); } });
@@ -628,11 +667,11 @@ nav{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 22px;border-in
 summary{cursor:pointer;padding:12px 0;font-weight:600}nav summary{display:none}label{display:block;font-size:14px;font-weight:600;margin:16px 0 5px}input,select,button{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:5px;padding:9px 10px;max-width:100%;caret-color:var(--accent)}input,select{width:100%}button{cursor:pointer;font-size:14px;margin-top:8px}button:hover{border-color:var(--accent)}
 #search-status{font-size:14px;color:var(--muted);min-height:24px;margin:12px 0}nav ul{list-style:none;padding:0;margin:18px 0}nav li{margin:2px 0}nav li a{display:flex;align-items:baseline;gap:10px;justify-content:space-between;color:var(--text);padding:10px 8px;text-decoration:none;border-radius:4px;overflow-wrap:anywhere}nav li a:hover,nav li a[aria-current]{background:var(--selection)}nav li a[aria-current]{font-weight:600}small{font-size:12px;font-weight:600;white-space:nowrap}
 footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}main{padding:48px clamp(24px,5vw,80px);min-width:0}section{max-width:74ch;margin:0 auto 72px;overflow-wrap:anywhere;scroll-margin-top:24px}section:focus{outline:none}.page-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:var(--muted);font-size:13px;margin-bottom:24px;font-variant-numeric:tabular-nums}
-h1{font-size:clamp(30px,4vw,42px);line-height:1.15;letter-spacing:-.03em;margin:0 0 24px;text-wrap:balance}h2{font-size:25px;line-height:1.3;margin:40px 0 14px;letter-spacing:-.02em}h3{font-size:20px;margin:30px 0 10px}p{margin:0 0 18px}li{margin:6px 0}pre{background:var(--code);padding:20px;overflow:auto;border-radius:6px;line-height:1.6}code{font:14px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code{background:var(--code);padding:2px 4px;border-radius:3px}.table-scroll{overflow:auto;margin-block:24px}table{border-collapse:collapse;width:100%;text-align:start;font-size:14px}td,th{padding:12px;border-bottom:1px solid var(--line);text-align:start}th{background:var(--panel)}blockquote{margin:24px 0;padding:16px 20px;background:var(--panel)}hr{border:0;border-top:1px solid var(--line);margin:32px 0}.notice{padding:18px;background:var(--panel);border:1px solid var(--line);margin-bottom:26px}.notice p{margin:6px 0 0;font-size:14px}.v-fresh{color:var(--accent)}.v-stale,.v-unsealed{color:var(--warn)}.v-orphaned{color:var(--danger)}
+h1{font-size:clamp(30px,4vw,42px);line-height:1.15;letter-spacing:-.03em;margin:0 0 24px;text-wrap:balance}h2{font-size:25px;line-height:1.3;margin:40px 0 14px;letter-spacing:-.02em}h3{font-size:20px;margin:30px 0 10px}p{margin:0 0 18px}li{margin:6px 0}pre{background:var(--code);padding:20px;overflow:auto;border-radius:6px;line-height:1.6}code{font:14px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}p code,li code{background:var(--code);padding:2px 4px;border-radius:3px}.table-scroll{overflow:auto;margin-block:24px}table{border-collapse:collapse;width:100%;text-align:start;font-size:14px}td,th{padding:12px;border-bottom:1px solid var(--line);text-align:start}th{background:var(--panel)}blockquote{margin:24px 0;padding:16px 20px;background:var(--panel)}hr{border:0;border-top:1px solid var(--line);margin:32px 0}.evidence{border-top:1px solid var(--line);margin-top:32px;font-size:14px}.evidence p{color:var(--muted)}.notice{padding:18px;background:var(--panel);border:1px solid var(--line);margin-bottom:26px}.notice p{margin:6px 0 0;font-size:14px}.v-fresh{color:var(--accent)}.v-stale,.v-unsealed{color:var(--warn)}.v-orphaned{color:var(--danger)}
 @media(prefers-color-scheme:dark){:root{--bg:#18221f;--panel:#202c27;--text:#e0e7df;--muted:#b1beb5;--line:#435249;--accent:#9bdbbb;--code:#24332b;--warn:#efd391;--danger:#ffb2b2;--selection:#334b3e}}
 @media(max-width:760px){nav summary{display:list-item}body{display:block}nav{position:static;height:auto;padding:22px;border-inline-end:0;border-bottom:1px solid var(--line)}nav ul{max-height:240px;overflow:auto}.intro{margin-bottom:14px}main{padding:30px 22px}.page-meta{font-size:12px}footer{margin-top:18px}}
 @media print{body{display:block}nav,.skip{display:none}main{padding:0}main section[hidden]{display:block!important}section{break-after:page}pre{white-space:pre-wrap}}
-</style></head><body><a class="skip" href="#content">Skip to content</a><nav aria-label="Wiki pages"><p class="brand">WhaleWiki</p><p class="intro">Read the code. Keep the context.</p><details id="browse" open><summary>Browse pages and search</summary><label for="search">Search this wiki</label><input id="search" type="search" placeholder="Find a page or phrase" autocomplete="off"><label for="freshness">Show</label><select id="freshness"><option value="all">All pages</option><option value="attention">Needs review</option></select><button id="clear-search" type="button">Clear filters</button><p id="search-status" role="status" aria-live="polite"></p><ul>${nav}</ul></details><footer>${report.counts.fresh} fresh · ${report.counts.stale + report.counts.orphaned + report.counts.unsealed} need review<br>Snapshot checked ${esc(report.checked_at)}<br>Fresh means unchanged evidence, not verified claims. Re-export to refresh.</footer></nav><main id="content" tabindex="-1">${sections || '<section><h1>Your wiki is ready for its first page</h1><p>Run /whalewiki init in Codewhale to read your repository, write pages and seal their sources.</p></section>'}</main><script>${script}</script></body></html>`;
+</style></head><body><a class="skip" href="#content">Skip to content</a><nav aria-label="Wiki pages"><p class="brand">WhaleWiki</p><p class="intro">Understand this repo. Find where to change it.</p><details id="browse" open><summary>Browse pages and search</summary><label for="search">Search this wiki</label><input id="search" type="search" placeholder="Try: install plugin, source evidence" autocomplete="off"><label for="freshness">Show</label><select id="freshness"><option value="all">All pages</option><option value="attention">Needs review</option></select><button id="clear-search" type="button">Clear filters</button><p id="search-status" role="status" aria-live="polite"></p><ul>${nav}</ul></details><footer>${report.counts.fresh} fresh · ${report.counts.stale + report.counts.orphaned + report.counts.unsealed} need review<br>Snapshot checked ${esc(report.checked_at)}<br>Fresh means unchanged evidence, not verified claims. Re-export to refresh.</footer></nav><main id="content" tabindex="-1">${sections || '<section><h1>Your wiki is ready for its first page</h1><p>Run /whalewiki init in Codewhale to read your repository, write pages and seal their sources.</p></section>'}</main><script>${script}</script></body></html>`;
 }
 
 // ---------- output helpers ---------------------------------------------------
@@ -726,7 +765,7 @@ export function main(argv = process.argv.slice(2)) {
           return { path: rel, root: srcRoot, sha256: sha256(abs), bytes: fs.statSync(abs).size };
         });
         manifest.pages[page] = {
-          title: page.replace(/^pages\/|\.md$/g, "").replace(/[-_]/g, " "),
+          title: /^#\s+(.+)$/m.exec(fs.readFileSync(pageFile, "utf8"))?.[1] || page.replace(/^pages\/|\.md$/g, "").replace(/[-_]/g, " "),
           page_sha256: sha256(pageFile),
           sources, sealed_at: new Date().toISOString(),
         };
@@ -761,10 +800,22 @@ export function main(argv = process.argv.slice(2)) {
       }
       break;
     }
+    case "impact": {
+      const result = impactReport(rest.filter(r => r !== "--json"));
+      if (flag("--json")) console.log(JSON.stringify(result, null, 2));
+      else {
+        for (const page of result.pages) console.log(`${page.page} [${page.verdict}] — ${page.matched_paths.join(", ")}`);
+        if (result.uncovered.length) console.log(`No declared evidence: ${result.uncovered.join(", ")}`);
+        console.log(result.limitation);
+      }
+      break;
+    }
     case "search": {
       const q = rest.filter((r) => !r.startsWith("-")).join(" ");
-      for (const r of searchWiki(q)) {
-        console.log(`${r.page} (score ${r.score})`);
+      const results = searchWiki(q);
+      if (!results.length) console.log("No matching pages. Try a module or file name, or inspect the source when coverage is missing.");
+      for (const r of results) {
+        console.log(`${r.page} (score ${r.score}) [${r.verdict}]`);
         for (const h of r.hits) console.log(`  ${h.line}: ${h.text}`);
       }
       break;
@@ -778,7 +829,7 @@ export function main(argv = process.argv.slice(2)) {
     default:
       console.log(`whalewiki — evidence-bound repo wiki
   scaffold | scan [--json] | map | manifest set <page> --sources a,b [--root n] | manifest show
-  status [--short|--json|--exit-stale|--mark] | search <q> | export [--out f.html]`);
+  status [--short|--json|--exit-stale|--mark] | search <q> | impact <path...> [--json] | export [--out f.html]`);
       if (cmd && cmd !== "help" && cmd !== "--help") process.exitCode = 1;
   }
 }

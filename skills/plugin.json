@@ -1,15 +1,23 @@
 {
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "codewhale-skills",
-  "version": "1.0.0",
-  "description": "The Codewhale skill set as one reviewed plugin: implement, debug, test, review, verify, release, handoff and the rest of the bundled workflow skills. Installing surfaces each skill namespaced as codewhale-skills:<name>.",
-  "author": { "name": "Codewhale" },
+  "version": "1.1.0",
+  "description": "47 workflows for coding, research, documents, email, calendar, travel, shopping and local audio. Account and tool setup is separate; see the skill directory.",
+  "author": {
+    "name": "Codewhale"
+  },
   "license": "MIT",
-  "keywords": ["skills", "workflow", "codewhale"],
+  "keywords": [
+    "skills",
+    "workflow",
+    "codewhale"
+  ],
   "extensions": {
     "net.codewhale": {
       "display_name": "Codewhale Skills",
-      "skills": { "path": "." }
+      "skills": {
+        "path": "."
+      }
     }
   }
 }

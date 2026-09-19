@@ -99,7 +99,7 @@ const call=(id,name,args)=>JSON.stringify({jsonrpc:'2.0',id,method:'tools/call',
 test('MCP uses explicit workspace from an installed directory and remains read-only',t=>{
   const f=fixture(t);let input=JSON.stringify({jsonrpc:'2.0',id:0,method:'tools/list'})+'\n';
   for(const [i,name] of ['wiki_structure','wiki_read','wiki_search','wiki_status','wiki_codemap'].entries())input+=call(i+1,name,{workspace:f.repo,page:'pages/test.md',query:'context'});
-  const out=rpc(f,input);assert.equal(out[0].result.tools.length,5);assert.ok(out[0].result.tools.every(x=>x.annotations.readOnlyHint));
+  const out=rpc(f,input);assert.equal(out[0].result.tools.length,6);assert.ok(out[0].result.tools.every(x=>x.annotations.readOnlyHint));
   assert.match(out[2].result.content[0].text,/freshness: fresh/);assert.match(out[3].result.content[0].text,/fresh/);
   assert.equal(fs.existsSync(path.join(f.wiki,'.last-run.json')),false);
 });
@@ -114,4 +114,13 @@ test('MCP handles parse errors, null, notifications and subsequent valid request
 test('MCP discards oversized frames and recovers at the next newline',t=>{
   const f=fixture(t);const out=rpc(f,'x'.repeat(300*1024)+'\n'+JSON.stringify({jsonrpc:'2.0',id:3,method:'ping'})+'\n');
   assert.equal(out.length,2);assert.match(out[0].error.message,/256 KiB/);assert.equal(out[1].id,3);
+});
+
+test('MCP impact returns scoped evidence without creating receipts',t=>{
+  const f=fixture(t);
+  const out=rpc(f,call(1,'wiki_impact',{workspace:f.repo,paths:['source.py','missing.py']})+call(2,'wiki_impact',{workspace:f.repo,paths:['../private']}));
+  const report=JSON.parse(out[0].result.content[0].text);
+  assert.equal(report.pages[0].verdict,'fresh');assert.deepEqual(report.uncovered,['missing.py']);
+  assert.equal(out[1].result.isError,true);
+  assert.equal(fs.existsSync(path.join(f.wiki,'.last-run.json')),false);
 });

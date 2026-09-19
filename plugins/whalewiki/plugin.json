@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "whalewiki",
-  "version": "0.1.0",
-  "description": "An evidence-bound wiki for the repo: generated pages sealed against the source files they were written from, computed staleness, a zero-install CI drift gate, and a read-only MCP surface for other agents.",
+  "version": "0.2.0",
+  "description": "Understand a repository, find where to make a change, and keep its explanations current: source-cited pages, documentation impact lookup and a searchable offline reader.",
   "author": {
     "name": "Codewhale"
   },

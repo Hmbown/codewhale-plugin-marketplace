@@ -7,10 +7,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  wikiDir, loadManifest, statusReport, searchWiki, pageVerdict, sourceRoots, readWikiFile,
+  wikiDir, loadManifest, statusReport, searchWiki, impactReport, pageVerdict, sourceRoots, readWikiFile,
 } from "../scripts/whalewiki.mjs";
 
 const TOOLS = [
+  {
+    name: "wiki_impact",
+    description: "Before changing a source file or directory, find the wiki pages that cite it and their current freshness. Also reports paths without documentation coverage; this is not a code dependency graph.",
+    inputSchema: {type: "object", properties: {paths: {type: "array", minItems: 1, maxItems: 100, items: {type: "string"}, description: "Repository-relative source paths or directories; named roots use api:src/routes.ts."}}, required: ["paths"]},
+  },
   {
     name: "wiki_structure",
     description: "List the wiki's pages with titles and per-page freshness verdicts (fresh/stale/orphaned/unsealed).",
@@ -29,7 +34,7 @@ const TOOLS = [
   },
   {
     name: "wiki_search",
-    description: "Ranked search over wiki pages and the codemap. Returns matching pages with line snippets.",
+    description: "Find explanations by topic or symbol. Returns ranked pages, line snippets, source paths and freshness. Read the cited code for consequential claims.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,11 +97,10 @@ function callTool(name, args) {
     case "wiki_search": {
       if (typeof args.query !== "string" || args.query.length > 1000) throw new Error("query must be a string of at most 1000 characters");
       if (args.max_results !== undefined && (!Number.isInteger(args.max_results) || args.max_results < 1 || args.max_results > 50)) throw new Error("max_results must be an integer from 1 to 50");
-      const manifest = loadManifest(wiki), roots = sourceRoots(wiki);
-      return text(searchWiki(args.query, wiki, args.max_results || 8).map(result => ({
-        ...result, verdict: manifest.pages[result.page] ? pageVerdict(manifest.pages[result.page], roots, wiki, result.page).verdict : "unsealed",
-      })));
+      return text(searchWiki(args.query, wiki, args.max_results || 8));
     }
+    case "wiki_impact":
+      return text(impactReport(args.paths, wiki));
     case "wiki_status":
       return text(statusReport(wiki, { receipt: false }));
     case "wiki_codemap": {
@@ -123,7 +127,7 @@ function handle(msg) {
       return { id, result: {
         protocolVersion: ["2024-11-05", "2025-03-26", "2025-06-18"].includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOL_VERSION,
         capabilities: { tools: {} },
-        serverInfo: { name: "whalewiki", version: "0.1.0" },
+        serverInfo: { name: "whalewiki", version: "0.2.0" },
       } };
     case "notifications/initialized":
     case "initialized":

@@ -13,7 +13,9 @@
     "check:web": "playwright test",
     "package:plugin": "node scripts/package-plugin.mjs",
     "connections": "node scripts/connections.mjs",
-    "integrations": "node scripts/integrations.mjs"
+    "integrations": "node scripts/integrations.mjs",
+    "skills": "node scripts/skills.mjs",
+    "sync:skills": "node scripts/skills.mjs --write --core ../codewhale"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"

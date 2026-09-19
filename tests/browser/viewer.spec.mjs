@@ -24,6 +24,12 @@ test('navigate, search, review filter, empty state and safe offline rendering',a
   await page.locator('main').getByRole('link',{name:'Architecture'}).click();
   await expect(page.getByRole('heading',{name:'Evidence',exact:true})).toBeVisible();
   await expect(page.locator('nav a[aria-current="page"]')).toHaveText(/Architecture/);
+  await page.getByText('Source evidence · 1 file',{exact:true}).click();
+  await expect(page.locator('.evidence code')).toHaveText('engine.mjs');
+  await page.getByLabel('Search this wiki').fill('deterministic receipts');
+  await expect(page.locator('nav li:visible')).toHaveCount(1);
+  await page.getByLabel('Search this wiki').press('Enter');
+  await expect(page.getByRole('heading',{name:'Architecture',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'Next page'}).click();await expect(page.getByRole('heading',{name:'Operations',exact:true})).toBeVisible();
   await expect(page.getByText('Check the sources before relying on this page.')).toBeVisible();
   await page.getByLabel('Search this wiki').fill('中文');await expect(page.locator('nav li:visible')).toHaveCount(1);

@@ -1,8 +1,20 @@
 # WhaleWiki
 
-A repository wiki that shows when its evidence has changed. Codewhale reads
-the source and writes the pages; the plugin seals each page and its source
-files, checks drift, and gives humans and agents a useful way to read them.
+Understand an unfamiliar repo, find where a change belongs, and see which
+explanations need review when code moves. WhaleWiki keeps the answers beside
+the source, with citations you can inspect and an offline reader you can share.
+
+| When you need to… | Try this | You get |
+| --- | --- | --- |
+| Get oriented | `/whalewiki init` | A source-backed starting guide, architecture and change recipes |
+| Find where to work | `/whalewiki ask Where would I add a new provider?` | Relevant pages, code references and freshness |
+| Check a change's documentation impact | `/whalewiki impact src/providers` | Pages that cite that directory, plus gaps in coverage |
+| Repair outdated explanations | `/whalewiki update` | Reviewed changes to affected pages, then new seals |
+| Share the context | `/whalewiki export` | A searchable HTML file that works offline |
+
+**Start here:** install the plugin, run `/whalewiki init` in a repository, then
+ask “How do I run this project, and where does a request enter?” Read the cited
+files to check the answer. If a wiki already exists, ask your question directly.
 
 ## Use it
 
@@ -23,7 +35,8 @@ provider/model and can incur its normal inference cost. The deterministic CLI
 
 `export` creates a single offline HTML reader: full-text page search, review
 filter, relative page/heading links, keyboard navigation, mobile navigation,
-dark-mode support and print output. `/` focuses search. The viewer needs no CDN,
+dark-mode support, per-page source evidence and print output. Search matches
+multiple words across a page; Enter opens the first matching page. `/` focuses search. The viewer needs no CDN,
 server or separate credentials. Markdown code fences, lists, tables and links
 are supported; Mermaid blocks remain readable diagram source, not rendered art.
 
@@ -52,6 +65,7 @@ path through `/plugin show whalewiki`:
 node /installed/plugin/scripts/whalewiki.mjs scaffold
 node /installed/plugin/scripts/whalewiki.mjs scan --json
 node /installed/plugin/scripts/whalewiki.mjs map
+node /installed/plugin/scripts/whalewiki.mjs impact src/providers --json
 node /installed/plugin/scripts/whalewiki.mjs manifest set pages/architecture.md --sources src/main.ts,package.json
 node /installed/plugin/scripts/whalewiki.mjs status --json
 node /installed/plugin/scripts/whalewiki.mjs export --out /path/to/wiki.html
@@ -76,7 +90,8 @@ rows. No session-start hook automatically executes code from the target repo.
 
 ## Agent read tools
 
-`wiki_structure`, `wiki_read`, `wiki_search`, `wiki_status`, and `wiki_codemap`
+`wiki_structure`, `wiki_read`, `wiki_search`, `wiki_status`, `wiki_codemap`,
+and `wiki_impact`
 are read-only. Pass `workspace` as the absolute repository path when the host
 starts the MCP server in its install directory:
 
@@ -88,7 +103,13 @@ That is a `wiki_read` argument object. An operator can instead bind the server
 with `WHALEWIKI_DIR=/projects/example/whalewiki`. A missing wiki returns an
 explicit error and setup instruction. Reads accept only wiki pages, `INDEX.md`
 and `codemap.md`; they reject traversal, symlink files/parents, directories and
-files over 2 MiB. Search results include page freshness.
+files over 2 MiB. Search results include titles, relevant line snippets, matched-term counts,
+source paths and page freshness. Search is lexical, not an AI answer generator.
+
+`wiki_impact` takes `paths: ["src/providers", "api:src/routes.ts"]`. It matches
+exact source paths and directory boundaries, including deleted files. It finds
+**declared documentation dependencies**, not transitive code dependencies. An
+uncovered path is a documentation gap to investigate, not proof a change is safe.
 
 ## Multiple repositories
 

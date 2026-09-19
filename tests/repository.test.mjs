@@ -21,18 +21,32 @@ test('packaged Computer Use fits the host cap and excludes local recordings and 
   const r=packagePlugin('computer-use',out);assert.ok(r.bytes<5*1024*1024);assert.ok(fs.existsSync(path.join(r.path,'mcp/server.mjs')));assert.ok(!fs.existsSync(path.join(r.path,'receipts')));
   assert.throws(()=>packagePlugin('computer-use',out),/already exists/);
 });
-test('packaged WhaleWiki serves five real tools from an unrelated working directory',t=>{
+test('packaged WhaleWiki serves six real tools from an unrelated working directory',t=>{
   const out=fs.mkdtempSync(path.join(os.tmpdir(),'cw-wiki-package-'));t.after(()=>fs.rmSync(out,{recursive:true,force:true}));
   const r=packagePlugin('whalewiki',out),manifest=JSON.parse(fs.readFileSync(path.join(r.path,'plugin.json')));
   assert.equal(manifest.extensions['net.codewhale'].hooks,undefined);
   const response=execFileSync(process.execPath,[path.join(r.path,'mcp/server.mjs')],{cwd:out,encoding:'utf8',input:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'})+'\n'});
-  assert.equal(JSON.parse(response).result.tools.length,5);
+  assert.equal(JSON.parse(response).result.tools.length,6);
+  const engine=path.join(r.path,'scripts/whalewiki.mjs');
+  const env={...process.env,WHALEWIKI_DIR:''};
+  execFileSync(process.execPath,[engine,'scaffold'],{cwd:out,env});
+  fs.writeFileSync(path.join(out,'main.js'),'export const value = 1;');
+  fs.writeFileSync(path.join(out,'whalewiki/pages/start.md'),'# Start here\n\nRead main.js for the entry point.');
+  execFileSync(process.execPath,[engine,'manifest','set','pages/start.md','--sources','main.js'],{cwd:out,env});
+  const input=JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'wiki_impact',arguments:{workspace:out,paths:['main.js']}}})+'\n';
+  const reply=JSON.parse(execFileSync(process.execPath,[path.join(r.path,'mcp/server.mjs')],{cwd:r.path,env,encoding:'utf8',input}));
+  const impact=JSON.parse(reply.result.content[0].text);
+  assert.equal(impact.pages[0].page,'pages/start.md');assert.equal(impact.pages[0].verdict,'fresh');
+  assert.equal(fs.existsSync(path.join(out,'whalewiki/.last-run.json')),false);
+
 });
 function contractFixture(t,source='plugins/test') {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'cw-contract-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   fs.mkdirSync(path.join(root,'scripts'));fs.copyFileSync(path.join(ROOT,'scripts/check-marketplace.mjs'),path.join(root,'scripts/check-marketplace.mjs'));
   fs.mkdirSync(path.join(root,source),{recursive:true});
   execFileSync('git',['init','-q'],{cwd:root});
+  fs.writeFileSync(path.join(root,source,'README.md'),'A fixture with a useful task.');
+  fs.writeFileSync(path.join(root,source,'LICENSE'),'Fixture license.');
   const manifest={name:'test',version:'1.0.0',extensions:{'net.codewhale':{capabilities:{network_hosts:['example.com']}}}};
   fs.writeFileSync(path.join(root,source,'plugin.json'),JSON.stringify(manifest));
   fs.writeFileSync(path.join(root,source,'mcp.json'),JSON.stringify({mcpServers:{remote:{url:'https://example.com/mcp'}}}));
@@ -79,4 +93,28 @@ test('packaging rejects a symlinked source directory',{skip:process.platform==='
   fs.symlinkSync(path.join(f.root,'actual'),path.join(f.root,f.source),'dir');
   const r=spawnSync(process.execPath,['scripts/package-plugin.mjs','test'],{cwd:f.root,encoding:'utf8'});
   assert.equal(r.status,1);assert.match(r.stderr,/symlink/);
+});
+
+test('skill roots cannot escape the reviewed bundle',t=>{
+  const f=contractFixture(t);f.manifest.extensions['net.codewhale'].skills={path:'../../outside'};
+  fs.writeFileSync(path.join(f.root,f.source,'plugin.json'),JSON.stringify(f.manifest));
+  const r=f.run();assert.equal(r.status,1);assert.match(r.stderr,/skills path escapes bundle/);
+});
+test('package includes every active skill and resource, and excludes retired bodies',t=>{
+  const out=fs.mkdtempSync(path.join(os.tmpdir(),'cw-skills-package-'));t.after(()=>fs.rmSync(out,{recursive:true,force:true}));
+  const r=packagePlugin('codewhale-skills',out),pin=JSON.parse(fs.readFileSync(path.join(r.path,'upstream.json')));
+  for(const [file,digest] of Object.entries(pin.files))assert.equal(createHash('sha256').update(fs.readFileSync(path.join(r.path,file))).digest('hex'),digest,file);
+  for(const retired of ['v4-best-practices','contributor-onboarding','feedback','feishu'])assert.equal(fs.existsSync(path.join(r.path,retired)),false);
+  assert.ok(pin.skills.includes('gmail'));assert.ok(pin.skills.includes('tts'));
+});
+test('skill provenance check catches added, removed and altered resources without Core',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'cw-skill-pin-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  fs.mkdirSync(path.join(root,'scripts'));fs.copyFileSync(path.join(ROOT,'scripts/skills.mjs'),path.join(root,'scripts/skills.mjs'));
+  fs.cpSync(path.join(ROOT,'skills'),path.join(root,'skills'),{recursive:true});
+  const run=()=>spawnSync(process.execPath,['scripts/skills.mjs','--check'],{cwd:root,encoding:'utf8'});
+  assert.equal(run().status,0);
+  const file=path.join(root,'skills/gmail/SKILL.md'),original=fs.readFileSync(file);
+  fs.appendFileSync(file,'changed');assert.equal(run().status,1);fs.writeFileSync(file,original);
+  fs.unlinkSync(file);assert.equal(run().status,1);fs.writeFileSync(file,original);
+  fs.writeFileSync(path.join(root,'skills/gmail/unreviewed.sh'),'echo example');assert.equal(run().status,1);
 });

@@ -14,14 +14,19 @@ open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
 
 | Job | Start here | What is available |
 | --- | --- | --- |
-| Understand and maintain a repository wiki | [WhaleWiki](plugins/whalewiki/README.md) | Source and page seals, freshness checks, five read tools, searchable offline reader |
+| Understand a repo and find where to change it | [WhaleWiki](plugins/whalewiki/README.md) | Cited explanations, documentation impact lookup, six read tools and an offline reader |
 | Operate a computer | [Computer Use](https://codewhale.net/computer-use) | Source v0.11.2: app scripting, isolated Linux desktops, per-app consent, busy-user refusal and complete spawn packaging. Pair it with the Mac app for one-grant control — the notarized build is published as the [v0.6.0 GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.6.0); without the app the tools run on the host's own grants. [Source and platform support](plugins/computer-use/README.md) |
 | Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
-| Add workflows to an agent | [Skills](skills/) | Codewhale's bundled skills as one reviewed plugin |
+| Add workflows to an agent | [47 skills, organized by task](skills/README.md) | Coding, research, documents, email, calendar, travel, shopping, photos and audio; setup requirements shown |
+| Understand an agent run | [Whalesong](plugins/whalesong/skills/whalesong-analyze/SKILL.md) | Trace analysis, comparisons and audio from a local Whalesong platform |
 | Connect Linear, GitHub or another service | [Connections](docs/CONNECTIONS.md) | Official endpoints and honest setup/qualification status; no empty connector plugins |
 | Use Telegram, WeChat, WeCom or Feishu | [Chat integrations](integrations/README.md) | Existing Core bridges, packaged here with source provenance |
 | Receive Slack mentions or Linear webhooks | [Webhook bridge](integrations/webhook-bridge/README.md) | Signed, allowlisted intake, durable queue and explicit runtime dispatch; reply delivery remains open |
 | Build a review bot | [Review bot guide](docs/REVIEW-BOT.md) | Review workflow, implementation boundaries and required host integration |
+
+Try “summarize my unread email”, “make an audio briefing”, or “review this PR”.
+The [skill directory](skills/README.md) explains which tools or accounts each
+workflow needs. Installing instructions does not establish those connections.
 
 ## Install a plugin
 
@@ -68,8 +73,14 @@ On macOS, browser checks use an installed Google Chrome when available. Set
 Tests never require live service credentials or model calls. Native tests skip
 platforms unavailable on the host; those skips are not platform acceptance.
 
+`npm run skills -- email` searches the complete skill directory. After a reviewed
+Core skill commit, `npm run sync:skills` updates the active skills, all supporting
+resources, source hashes and directory together. Retired migration bodies are
+excluded. `npm run check -- --core ../codewhale` detects upstream drift as well
+as local packaging errors.
+
 `npm run check:cu-sync` compares the Computer Use mirror against sibling source
-checkouts. [Validation evidence](docs/VALIDATION-20260911.md) records the current
+checkouts. [Validation evidence](docs/MARKETPLACE-REVIEW-20260919.md) records the current
 source, packaging, local checks and remaining qualification work.
 
 Core embeds this catalog for offline browsing and installs each selected bundle

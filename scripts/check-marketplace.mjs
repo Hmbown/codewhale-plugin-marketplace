@@ -17,9 +17,8 @@
 //   * every SKILL.md under a bundle's skills roots has parseable frontmatter
 //     with a name and a non-empty description.
 //
-// Optional: --core <path-to-codewhale-repo> also checks that skills/<name>/
-// mirrors crates/tui/assets/skills/<name>/SKILL.md byte-for-byte, so the
-// readable mirror can never silently drift from what the binary ships.
+// Optional --core checks the active Core catalog and all skill resources;
+// the default check validates the local inventory against its pinned hashes.
 //
 // Exit 0 on success; prints one line per problem and exits 1 otherwise.
 import fs from "node:fs";
@@ -111,6 +110,7 @@ function checkSkillMd(file, label) {
   const name = /^name:[ \t]*(.*)$/m.exec(fm)?.[1]?.trim();
   const desc = /^description:[ \t]*(.*)$/m.exec(fm);
   if (!name) fail(`${label}: SKILL.md frontmatter missing name`);
+  else if (name !== path.basename(path.dirname(file)) || name.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) fail(`${label}: skill name must match its directory and use lowercase hyphens`);
   if (!desc) { fail(`${label}: SKILL.md frontmatter missing description`); return; }
   let value = desc[1].trim();
   // Core supports folded/literal block scalars. Require their indented text,
@@ -160,7 +160,11 @@ function checkMcpContract(dir, manifest, label) {
 
 function checkSkillRoots(bundleDir, manifest) {
   for (const rel of manifest.skillsRoots ?? []) {
-    const root = path.join(bundleDir, rel);
+    if (typeof rel !== "string") { fail(`${bundleDir}: skills path must be a string`); continue; }
+    const root = path.resolve(bundleDir, rel);
+    const relative = path.relative(bundleDir, root);
+    if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) { fail(`${bundleDir}: skills path escapes bundle`); continue; }
+    if (fs.existsSync(root) && fs.realpathSync(root) !== fs.realpathSync(bundleDir) + (relative ? path.sep + relative : "")) { fail(`${bundleDir}: skills path traverses a symlink`); continue; }
     if (!fs.existsSync(root)) { fail(`${bundleDir}: declared skills path '${rel}' does not exist`); continue; }
     const walk = (dir, depth) => {
       if (depth > 8) return;
@@ -218,6 +222,12 @@ if (catalog) {
       if (!manifest) { fail(`${name}: ${rel} has no ${MANIFESTS.join("/")} — not installable as a plugin bundle`); continue; }
       if (manifest.name && manifest.name !== name) fail(`${name}: manifest name is '${manifest.name}' — install would place it under '${manifest.name}'`);
       if (entry.version && manifest.version && entry.version !== manifest.version) fail(`${name}: catalog version ${entry.version} != manifest version ${manifest.version}`);
+      // First-party admission: an installable package must explain its first
+      // useful task and carry the license it declares.
+      for (const required of ["README.md", "LICENSE"]) {
+        const file = path.join(dir, required);
+        if (!fs.existsSync(file)) fail(`${name}: missing ${required}`);
+      }
       checkMcpContract(dir, manifest, name);
       // The host installer copies the working tree, so disk size decides a
       // `path:` install; tracked size decides what a clone/tarball ships. A
@@ -248,31 +258,17 @@ if (catalog) {
       const rel = `${top}/${e.name}`;
       const listed = (catalog.plugins ?? []).some((p) => p.source === `path:${rel}`);
       const hasManifest = MANIFESTS.some((m) => fs.existsSync(path.join(base, e.name, m)));
-      if (hasManifest && !listed) note(`${rel}: bundle exists but is not in the catalog`);
+      if (hasManifest && !listed) fail(`${rel}: bundle exists but is not in the catalog`);
     }
   }
 }
 
-// --- mirror check against Core's bundled skills ---
-if (CORE) {
-  const coreSkills = path.join(CORE, "crates", "tui", "assets", "skills");
-  const mirror = path.join(ROOT, "skills");
-  if (!fs.existsSync(coreSkills)) {
-    fail(`--core ${CORE}: no crates/tui/assets/skills there`);
-  } else {
-    const coreSet = new Set(fs.readdirSync(coreSkills, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name));
-    const mirrorSet = new Set(fs.readdirSync(mirror, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name));
-    for (const name of coreSet) {
-      if (!mirrorSet.has(name)) { fail(`skills/${name}: bundled in Core but missing from the marketplace mirror`); continue; }
-      const a = fs.readFileSync(path.join(coreSkills, name, "SKILL.md"));
-      const bPath = path.join(mirror, name, "SKILL.md");
-      if (!fs.existsSync(bPath)) { fail(`skills/${name}: missing SKILL.md`); continue; }
-      if (!a.equals(fs.readFileSync(bPath))) fail(`skills/${name}/SKILL.md differs from Core's bundled copy — sync or mark the fork deliberately`);
-    }
-    for (const name of mirrorSet) {
-      if (!coreSet.has(name)) note(`skills/${name}: marketplace-only skill (not bundled in Core)`);
-    }
-  }
+// Active membership and every supporting resource use Core's versioned catalog.
+if (catalog?.plugins?.some(entry => entry.name === "codewhale-skills")) {
+  try {
+    const output = execFileSync(process.execPath, [path.join(ROOT, "scripts/skills.mjs"), "--check", ...(CORE ? ["--core", CORE] : [])], {encoding: "utf8", stdio: ["ignore", "pipe", "pipe"]});
+    note(output.trim());
+  } catch (error) { fail(error.stderr?.toString().trim() || error.message); }
 }
 
 for (const m of notes) console.log(`note: ${m}`);

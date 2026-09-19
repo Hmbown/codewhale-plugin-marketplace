@@ -161,3 +161,37 @@ test("map writes a deterministic codemap", () => {
   assert.match(map, /`Engine`/);
   assert.match(map, /\.ts/);
 });
+
+// Reproduced search failure: repeated boilerplate outranked complete coverage.
+test("search ranks distinct coverage first and reports evidence and live drift", () => {
+  const repo = scaffoldedRepo();
+  seal(repo);
+  fs.writeFileSync(path.join(repo, 'whalewiki/pages/noise.md'), '# Noise\n' + 'engine\n'.repeat(100));
+  const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e',
+    `import {searchWiki} from ${JSON.stringify(ENGINE)}; console.log(JSON.stringify(searchWiki('engine turns engine', ${JSON.stringify(path.join(repo,'whalewiki'))})));`], {encoding:'utf8'}));
+  assert.equal(result[0].page, 'pages/architecture.md');
+  assert.equal(result[0].query_terms, 2);
+  assert.equal(result[0].verdict, 'fresh');
+  assert.deepEqual(result[0].sources, [{root:'repo',path:'src/engine.ts'}]);
+  fs.appendFileSync(path.join(repo,'src/engine.ts'), 'changed');
+  assert.match(run(repo,['search','engine turns']), /architecture.md.*stale/);
+});
+
+test("impact reports exact and directory evidence, gaps, deleted sources and named roots", () => {
+  const repo = scaffoldedRepo();
+  seal(repo);
+  let report=JSON.parse(run(repo,['impact','src','src/engine.ts','src/eng','new.ts','--json']));
+  assert.equal(report.pages.length,1);
+  assert.deepEqual(report.pages[0].matched_paths,['src','src/engine.ts']);
+  assert.deepEqual(report.uncovered,['src/eng','new.ts']);
+  fs.unlinkSync(path.join(repo,'src/engine.ts'));
+  report=JSON.parse(run(repo,['impact','src/engine.ts','--json']));
+  assert.equal(report.pages[0].verdict,'orphaned');
+  for(const invalid of ['../src','/src','unknown:src','src//engine.ts','src/../engine.ts'])
+    assert.throws(()=>run(repo,['impact',invalid]));
+  fs.writeFileSync(path.join(repo,'whalewiki/whalewiki.toml'), '[[sources]]\nname = "api"\nroot = "."\n');
+  seal(repo,'pages/named.md','api:index.ts');
+  report=JSON.parse(run(repo,['impact','api:index.ts','index.ts','--json']));
+  assert.equal(report.pages[0].page,'pages/named.md');
+  assert.deepEqual(report.uncovered,['index.ts']);
+});

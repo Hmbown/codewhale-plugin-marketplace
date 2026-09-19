@@ -24,8 +24,8 @@ is reported as orphaned. Invalid manifest structure fails closed.
 
 ## Reading and authoring
 
-Five read-only MCP tools return structure, page text, ranked search, freshness
-and codemap. `workspace` binds each request to an explicit repository when the
+Six read-only MCP tools return structure, page text, ranked search, freshness
+codemap and direct documentation impact. `workspace` binds each request to an explicit repository when the
 plugin host uses its installed directory as cwd. `WHALEWIKI_DIR` is an operator
 binding. Arbitrary wiki-relative files cannot be read as pages.
 
@@ -43,7 +43,8 @@ or shipped by this workflow.
 
 Mode: Read. Preserve the compact documentation layout with a quiet green accent,
 clear headings, readable measure, semantic tables and ordinary links. Search
-filters the page list by full text. Freshness filters identify pages needing
+filters pages by distinct Unicode terms across full text; Enter opens a match.
+Each sealed page exposes its declared source basis in an evidence disclosure. Freshness filters identify pages needing
 review. A single selected page, deep links and native collapsible mobile
 navigation avoid an endless concatenated document. All content remains readable
 without JavaScript and in print.
@@ -65,3 +66,8 @@ its footer records the check time and tells readers to re-export for new status.
 - Named source roots support cross-repository seals. Codemap generation currently
   covers one active repository.
 - Static exports cannot re-read local source files or validate newer changes.
+
+`wiki_impact` matches exact source paths and directory boundaries in the existing
+manifest. It never guesses transitive dependencies or treats missing coverage as
+proof of safety. Search ranks distinct term coverage before weighted frequency,
+so repeated boilerplate cannot bury a page covering the full query.

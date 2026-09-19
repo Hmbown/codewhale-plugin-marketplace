@@ -3,7 +3,7 @@
 This repository has five installable bundles: Computer Use, WhaleSong,
 WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The catalog
 declares
-relative sources and versions. An entry offers installation; it does not grant
+relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
 Computer Use source 0.11.2 is a macOS beta candidate. It combines app
@@ -58,6 +58,26 @@ Review the packaged capabilities before trusting and enabling them. Computer
 Use can accumulate local receipts large enough to exceed the host's cap; the
 packager avoids shipping those artifacts. Installation remains a host operation.
 
+## Find a skill by the job you need done
+
+The [skill directory](../../skills/README.md) groups 47 current Core skills into
+software work, research/documents, everyday tasks and agent extension. Run
+`npm run skills -- email` or `npm run skills -- audio` for a filtered list.
+Each skill installs as `codewhale-skills:<name>`; accounts, tools and permissions
+are separate prerequisites.
+
+The active set comes from Core's catalog matrix, not every retained asset
+folder. `skills/upstream.json` records its source commit and hashes. The mirror
+includes supporting resources and excludes old generation bodies. Repository
+skills (`feedback`, `contributor-onboarding`), optional Feishu and retired v4
+instructions do not become current defaults merely because their files remain
+in Core for migration.
+
+After committing a reviewed Core update, `npm run sync:skills` refreshes the
+mirror and directory. It refuses dirty source assets or locally edited skill
+content. `npm run check` validates pinned bytes; adding `-- --core ../codewhale`
+also catches upstream changes to membership, wording or resources.
+
 ## Evidence before readiness
 
 Run `npm run check` and `npm test && npm run check:web`. The catalog check covers
@@ -76,6 +96,8 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
 - `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
 - `package.json`: executable repository gates.
+- `scripts/skills.mjs`, `skills/upstream.json`, `skills/README.md`: active catalog,
+  provenance, resource checks and user-facing workflow directory.
 - `plugins/computer-use/docs/DISTRIBUTION.md`: build, notarization and website qualification procedure.
 - `plugins/computer-use/docs/RELEASE_CHECKLIST.md`: qualification record and the human-only publication steps.
 - `plugins/computer-use/docs/releases/0.6.0.json`: packaging and notarization receipt for the signed 0.6.0 macOS build.
