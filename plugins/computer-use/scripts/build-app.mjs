@@ -24,7 +24,7 @@ import { APP_ID, APP_NAME, APP_VERSION } from "../src/app-socket.mjs";
 import { ICON_NAME, buildIcons } from "./build-icons.mjs";
 
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
-export const RUNTIME_ENTRIES = ["plugin.json", "mcp.json", "package.json", "LICENSE", "agent.mjs", "app", "mcp", "src", "commands", "skills"];
+export const RUNTIME_ENTRIES = ["plugin.json", "mcp.json", "package.json", "package-lock.json", ".dockerignore", "LICENSE", "agent.mjs", "app", "mcp", "src", "commands", "skills", "docker"];
 export const MAC_BUNDLE = `${APP_NAME}.app`;
 export const LINUX_DIR = "codewhale-computer-use";
 export const WIN_DIR = APP_NAME;

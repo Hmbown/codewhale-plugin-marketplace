@@ -32,5 +32,7 @@ export DISPLAY="$HOST_DISPLAY"
 # AT-SPI rides the session bus, and at-spi-bus-launcher is activated from it on
 # demand. Without a session bus every semantic tool fails at the accessibility
 # tree, so wrap the whole command rather than starting a daemon and hoping the
-# address is inherited.
-exec dbus-run-session -- "$@"
+# address is inherited. The inner sh also records the session env for
+# docker/agent-exec.sh, so `docker exec`'d agents join this same display+bus
+# instead of starting blind.
+exec dbus-run-session -- sh -c 'printf "DISPLAY=%s\nDBUS_SESSION_BUS_ADDRESS=%s\n" "$DISPLAY" "$DBUS_SESSION_BUS_ADDRESS" > /tmp/cu-session.env; exec "$@"' sh "$@"

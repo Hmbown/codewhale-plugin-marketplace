@@ -290,9 +290,13 @@ Write-Output ('{"windows": ' + $json + '}');`, { timeoutMs: 25_000 });
         const encoded = Buffer.from(quoted, "utf16le").toString("base64");
         argumentsScript = `$launchArg = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${encoded}')); `;
       }
-      const r = await ps(`${argumentsScript}Start-Process -FilePath "${target}"${urlArg != null ? " -ArgumentList $launchArg" : ""}; Write-Output '{"launched": true}'`, { timeoutMs: 20_000 });
+      // activate defaults to background on every platform: a minimized
+      // launch leaves the user's foreground window alone. Windows input is
+      // still shared-surface — this only controls the launch, not input.
+      const windowStyle = activate === true ? "" : " -WindowStyle Minimized";
+      const r = await ps(`${argumentsScript}Start-Process -FilePath "${target}"${windowStyle}${urlArg != null ? " -ArgumentList $launchArg" : ""}; Write-Output '{"launched": true}'`, { timeoutMs: 20_000 });
       if (r.code !== 0) throw new ExecError(`Start-Process failed: ${r.stderr.trim().slice(0, 200)}`, r);
-      return { launched: true, name: target, url: urlArg ?? null, activate };
+      return { launched: true, name: target, url: urlArg ?? null, activate: activate === true };
     },
     get_app_state: async (args = {}) => {
       if (Object.hasOwn(args, "window_id")) throw unsupportedSelector("Windows get_app_state does not support window_id");

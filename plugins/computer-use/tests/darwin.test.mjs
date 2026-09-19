@@ -239,6 +239,19 @@ function stubBackend(t, reply) {
 }
 
 const PRESSABLE = { found: true, element: { role: 'AXButton', label: 'Tab B', actions: ['AXPress'] }, action: 'AXPress', action_sent: true };
+
+test('busy native input keeps its typed refusal through ordinary and held-input routes', async t => {
+  const { backend } = stubBackend(t, r => {
+    if (r.tool === 'input_capabilities') return { input_lease: 1 };
+    if (r.tool === 'type' || r.tool === 'key_event') return { nativeResult: {
+      code: 1, stdout: '', stderr: 'user_busy: no quiet input window became available; no input was sent.',
+    } };
+    return null;
+  });
+  await backend.open_application({ name: 'Fixture' });
+  await assert.rejects(backend.type({ text: 'hello' }), { code: 'user_busy' });
+  await assert.rejects(backend.key({ text: 'a' }), { code: 'user_busy' });
+});
 const NOT_PRESSABLE = { found: false, reason: 'no_pressable_element' };
 const FILES_TARGET = { type:'element', app_ref:{pid:321,bundle_id:'test.app'}, windowIndex:0, path:[0,4,2],
   role:'AXMenuItem', label:'Files', x:1607, y:692 };
@@ -324,6 +337,7 @@ test('macOS open_application reports launched only when it actually launched the
   t.after(()=>{ if(old===undefined) delete process.env.CODEWHALE_CU_APP_BUNDLE; else process.env.CODEWHALE_CU_APP_BUNDLE=old; fs.rmSync(bundle,{recursive:true,force:true}); });
   fs.mkdirSync(path.join(bundle,'Contents','MacOS'),{recursive:true});
   fs.writeFileSync(path.join(bundle,'Contents','MacOS','accessibility'),'');
+  process.env.CODEWHALE_CU_APP_BUNDLE=bundle;
   let running=true;
   const opens=[];
   const backend=create({exec:{run:async(cmd,args)=>{
@@ -711,7 +725,7 @@ test('native type verifies delivery against the focused control and fails closed
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-type-native-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const binary = path.join(dir, 'native');
-  const build = spawnSync('clang', ['-DCU_TEST=1', '-fobjc-arc', '-Os', '-framework', 'Cocoa', '-framework', 'ApplicationServices', '-framework', 'ScreenCaptureKit', '-framework', 'AVFoundation', '-framework', 'CoreMedia', '-framework', 'Vision', 'src/backends/darwin-accessibility.m', '-o', binary], { encoding: 'utf8' });
+  const build = spawnSync('clang', ['-DCU_TEST=1', '-ftrivial-auto-var-init=pattern', '-fobjc-arc', '-Os', '-framework', 'Cocoa', '-framework', 'ApplicationServices', '-framework', 'ScreenCaptureKit', '-framework', 'AVFoundation', '-framework', 'CoreMedia', '-framework', 'Vision', 'src/backends/darwin-accessibility.m', '-o', binary], { encoding: 'utf8' });
   assert.equal(build.status, 0, build.stderr);
   const type = (args) => spawnSync(binary, [JSON.stringify({ tool: 'inspect_type', args })], { encoding: 'utf8' });
 
@@ -742,7 +756,30 @@ test('native type verifies delivery against the focused control and fails closed
     assert.equal(receipt.verified, false);
     assert.equal(receipt.verification_required, 'screenshot');
   }
-  assert.equal(JSON.parse(type({ text: 'hi', focused: null }).stdout).focused_role, null);
+  const unleased = JSON.parse(type({ text: 'hi', focused: null }).stdout);
+  assert.equal(unleased.focused_role, null);
+  for (const field of ['front_restored', 'lease_ms', 'idle_before_s', 'idle_after_s']) {
+    assert.ok(!(field in unleased), `${field} must not be invented for typing without a lease`);
+  }
+
+  // Exercise the real wait with a deterministic HID clock, without posting
+  // input. Reuse this native build; cancellation and a busy deadline refuse.
+  const yieldToUser = (args) => spawnSync(binary, [JSON.stringify({ tool: 'inspect_user_yield',
+    args: { yield_gap_ms: 450, yield_wait_ms: 60, ...args } })], { encoding: 'utf8' });
+  const idle = yieldToUser({ idle_seconds: 1 });
+  assert.equal(idle.status, 0, idle.stderr);
+  assert.ok(Number.isFinite(JSON.parse(idle.stdout).yield_ms));
+  for (const idle_seconds of [0, -1]) {
+    const busy = yieldToUser({ idle_seconds });
+    assert.equal(busy.status, 1, 'busy or unavailable HID clock must refuse');
+    assert.match(busy.stderr, /^user_busy:.*no input was sent/);
+    assert.equal(busy.stdout, '');
+  }
+  const cancelled = yieldToUser({ idle_seconds: 0, cancelled: true });
+  assert.equal(cancelled.status, 1);
+  assert.match(cancelled.stderr, /computer request cancelled/);
+  assert.equal(JSON.parse(yieldToUser({ idle_seconds: 0, yield_gap_ms: 0 }).stdout).yield_ms, 0);
+
 });
 
 test('macOS type passes the native verification receipt through untouched', async (t) => {

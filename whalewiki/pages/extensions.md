@@ -6,34 +6,24 @@ declares
 relative sources and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.8.0, the macOS beta, controls apps without moving the
-user's cursor: a window-routed background pointer reaches occluded windows,
-web content opens through `AXWebArea` traversal with flat-index element
-targets and real key events into web fields, and a CDP route drives a
-Chromium-family browser in a self-owned profile, never the user's own
-browser, profile or logins. The advertised surface is 36 tools (earlier wire
-names remain callable as hidden aliases), with documented refusal codes and
-MCP annotations for host approval policy. Sessions can record and replay
-trajectories, move windows to an exact frame, browse the installed-app
-catalog, hold launch-time capability grants that nothing can widen, kill an
-app, watch a live preview and see other live sessions through
-`list_sessions`. The darwin parity suite demonstrates 28/28 tasks
-against these surfaces (`parity/results/darwin-aqua-2026-09-15.json` and
-`parity/results/improvement-log.md` carry the run record and the kimi-cu
-comparison). The
-marketplace enables it on macOS only. Windows and Linux remain experimental
-source-only backends. The native macOS helper provides permission setup, a
-background check, human Pause/Stop and on-demand verified updates. The
-Developer ID-signed, notarized 0.6.0 macOS build is published as the v0.6.0
-GitHub release, with its packaging receipt in
-`plugins/computer-use/docs/releases/0.6.0.json`. The
-[official setup page](https://codewhale.net/computer-use) reports whether the
-download is available, and the
-[Computer Use CHANGELOG](../../plugins/computer-use/CHANGELOG.md) records the
-release and qualification status. Clean-machine, installed-Engine, non-admin
-update and post-publication update-check qualification remain open. The
-source repository starts with a clean initial commit and preserves the MIT
-license and attribution.
+Computer Use source 0.11.2 is a macOS beta candidate. It combines app
+scripting, accessibility and window-routed input, CDP browser control, and
+session-owned Linux desktops through Docker. Local apps require per-app
+consent; foreground activation needs a separate decision. Shared input waits
+for a quiet hardware-input window and refuses `user_busy` if the person
+remains active. Input arriving mid-action is still a documented limitation.
+
+The 0.11.2 patch fixes uninitialized typing receipts and includes the Docker
+build context in installed app bundles. Source tests and simulated clocks do
+not establish complete Codex parity, clean-machine acceptance, or production
+Linux/Windows readiness. The marketplace remains enabled on macOS only.
+
+The published installer is still the notarized 0.6.0 build; 0.11.2 source is
+not a claim of a published 0.11.2 download. The [official setup page](https://codewhale.net/computer-use)
+reports public download availability, and the [release checklist](../../plugins/computer-use/docs/RELEASE_CHECKLIST.md)
+records qualification and remaining installed-Engine, fresh-grant and upgrade
+checks. The existing Engine remains the session and model-loop authority.
+
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
 

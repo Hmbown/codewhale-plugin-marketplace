@@ -1,5 +1,153 @@
 # Release notes
 
+## 0.11.2 — shared-desktop reliability (unreleased candidate)
+
+- App bundles include the Docker build context and lockfile required by
+  `computer spawn` on first use.
+- Typing without a focus lease no longer reads uninitialized accounting
+  data, fixing invalid JSON receipts and the macOS CI failure.
+- A busy desktop now refuses `user_busy` when the quiet-input deadline
+  expires, before taking focus or sending input. Foreground key presses
+  revalidate their app after waiting. Input arriving mid-action remains
+  a documented limitation.
+
+## 0.11.1 — background is the default on every platform
+
+- `activate:true` now requires the separate foreground consent on **every**
+  local platform, not just macOS — the shared-surface escalation always asks.
+- Windows `open_application` honors `activate:false` by launching the app
+  minimized instead of stealing the user's foreground.
+- Linux `open_application` honors `activate:false` by restoring the
+  previously focused window after launch (X11/xdotool, best-effort). Raw
+  input on Windows and Linux remains shared-surface by nature — background
+  there means the launch doesn't steal focus.
+
+## 0.11.0 — consent and turn-taking: working *with* the person on their Mac
+
+The other half of "don't take over my computer": when the model works on the
+user's own machine, the app — not the tool — becomes the unit of trust, and
+shared-surface moments learn to take turns with the person at the keyboard.
+Both products that shipped local computer use this year converged on these
+same primitives; this release lands them.
+
+- **Per-app consent ledger** (`consent {action:"status"|"allow"|"deny"|"revoke"}`).
+  The first call that targets an application on `local` — `open_application`,
+  an `app_ref`, an element or `state_id`, or an action on the bound app —
+  refuses `consent_required` until the user decides. Decisions cover the
+  session; `remember:true` persists them to `consent.json` for the computer.
+  A deny is a wall: identity resolution folds name, bundle id and pid
+  together, so a denied app fails `app_denied` under every spelling and
+  cannot be opened, driven, or killed through this surface.
+- **Foreground consent is a second axis.** `open_application
+  {activate:true}` on macOS — the shared-desktop escalation — additionally
+  requires `consent {action:"allow", scope:"foreground"}`;
+  `foreground_consent_required` / `foreground_denied` are the typed
+  refusals. Background control (`activate:false`) never needs it.
+- **The helper yields to the person.** Before taking a shared surface — a
+  front lease for window-record input, a real-pointer gesture, foreground
+  keys, an activation — it waits for a gap in the user's hardware input
+  (the same HID clock the interference accounting already reads; the agent's
+  own posted events never tick it). Bounded: `CODEWHALE_CU_YIELD_GAP_MS`
+  450 / `CODEWHALE_CU_YIELD_WAIT_MS` 2500 by default, 0 disables. Every
+  receipt that waited reports `yield_ms`; mid-action user input is still
+  reported, not prevented.
+- **Bound-app identity tracking.** `open_application` records the resolved
+  app; implicit actions consent-check against it, and rebinding a different
+  app invalidates stale observations so old element indices can't silently
+  target the previous app. Route teardown drops the computer's session
+  consent with it.
+- **Scope honesty**: spawned computers are exempt (task-owned, nothing of
+  the user's); remote computers are covered by the transport's trust;
+  `app_script` keeps macOS's own Automation consent; the ledger is a
+  model-level gate, not a sandbox — see `docs/LIMITATIONS.md`.
+
+Verification: `npm test` adds `tests/consent.test.mjs` (14 tests: ledger
+units, `consent_required`/`app_denied`/`foreground_*` refusals live over
+stdio, deny-bypass across all spellings including `kill_app`, session vs
+persisted layers, remote/owned exemption) and `tool-merge` coverage for
+the new merged tool. Live-verified: Calculator refused → allowed →
+foreground-consented → activated; consent decisions alias across name,
+bundle id and pid.
+
+## 0.10.0 — spawned computers: the agent gets its own desktop
+
+The missing primitive behind "don't take over my computer": a computer is
+an execution environment, not necessarily the user's desktop. This release
+adds the disposable kind.
+
+- **`computer {action:"spawn", id, transport:"docker"}`** — provisions a
+  task-owned Linux desktop container (the plugin's `docker/Dockerfile`
+  image: Xvfb, openbox, AT-SPI, Chromium, the bundled agent), registers it
+  `owned:true`, and makes it active. Every existing tool works on it
+  unchanged — screenshots, the accessibility tree, `open_application`,
+  clicks, `browser` — through the same allow-listed agent protocol as
+  ssh: the channel is `docker exec` into `agent.mjs`, never a shell.
+- **Transactional lifecycle.** Spawn auto-builds the image on first use,
+  waits for a live window manager before reporting ready, and removes the
+  container on any failure. `computer remove` destroys the container;
+  MCP session end (stdin close, SIGTERM/SIGINT/SIGHUP) reaps every
+  container this session spawned — labelled
+  `codewhale.cu.spawned/session/computer` so teardown is auditable and
+  never touches another session's or user's containers.
+- **`local` becomes the exceptional route** — for tasks that need the
+  user's own session, not the default. The skill now names the two
+  computer kinds (spawned = ours, registered = someone's) and prefers a
+  spawned desktop for general work.
+- **Failures are typed**: `docker_unavailable`, `spawn_image_missing`,
+  `spawn_failed`, `invalid_container`, `cleanup_failed`.
+- **Scope honesty**: spawned desktops are Linux/X11 only. macOS and
+  Windows still have no isolated in-session desktop (one WindowServer /
+  one interactive session per login) — the architecture leaves room for
+  a VM transport next.
+
+Verification: `npm test` (new `tests/spawn.test.mjs` — real-container
+integration gated on a live docker daemon, unit tests otherwise);
+live on docker 28.4 / Colima: spawn in ~1s → `open_application`
+chromium → `list_windows` shows the window, AT-SPI `get_app_state`
+returns real elements, `type` lands, `computer remove` destroys the
+container, server exit reaps session-owned containers.
+
+## 0.9.0 — use the whole computer: `app_script` and interface choice
+
+Clicking was the plugin's only way into an app. This release adds the
+programmatic one and teaches the skill to choose between them — computer
+use means using the whole computer, not only its screen.
+
+- **`app_script` (advertised 37)** — AppleScript or JXA through osascript
+  into apps that ship a scripting dictionary (Finder, Mail, Safari,
+  Calendar, Notes, Reminders, System Events…). Deterministic, returns
+  stdout as `result`, needs no Accessibility grant and never touches the
+  pointer; `language:"javascript"` selects JXA, `timeout` caps at 120s.
+  Refusals are typed: `script_error` (stderr in the message),
+  `script_timeout`, `script_cancelled` (-128), and `automation_denied`
+  (-1743 — the fix is Automation consent in Settings, not a retry).
+  macOS only; other backends fail `unsupported_on_backend`.
+- **Local computer only, by construction.** `app_script` is refused for
+  ssh/hdc computers twice — the server fails `unsupported_on_transport`
+  before dispatch, and the remote handler refuses it for any computerId
+  that is not `local` — so a remote channel stays a computer-use
+  surface and can never be steered into a shell. Routed through the
+  helper when the app owns the session, so the action appears in
+  `list_sessions`, honors Pause/Stop, and Automation consent lands on the
+  bundle the user already manages.
+- **The skill now leads with interface choice.** Per step: the host's own
+  tools → `app_script` → `browser` (CDP) → accessibility actions →
+  pixels. The observe–act–verify loop stays, reframed as the GUI loop —
+  the route for apps with no better interface, not the whole product.
+  A step that can be clicked still costs more than the same step
+  scripted, and `action_sent` proves less than a returned value.
+
+Verification: `npm test` 345 tests — 330 pass / 0 fail / 15
+platform-skipped; `node scripts/check-receipts.mjs docs parity/results`
+clean; `npm run smoke` 23/23 on macOS arm64 (the script's tools/list
+checks were stale since the 0.7.0 merge — fixed to the advertised
+surface in this release).
+Live smoke in direct mode (`CODEWHALE_CU_APP=off`, macOS arm64):
+AppleScript `return "whole computer"` → `result`, JXA
+`"ok".toUpperCase()` → `OK`, syntax error → `script_error` with stderr,
+`tell application "Finder" to count windows` → `0` with no consent
+dialog where Automation was already granted.
+
 ## 0.8.0 — window frames, installed apps, trajectories, capability grants
 
 The last four from the dogfood gap list, in one batch (no per-feature version

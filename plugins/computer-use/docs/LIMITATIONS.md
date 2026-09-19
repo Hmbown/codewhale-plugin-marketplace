@@ -1,5 +1,72 @@
 # Limitations
 
+## Per-app consent and user yield (0.11.0)
+
+The consent ledger makes the app — not the tool — the unit of trust on
+`local`, and the yield machinery makes shared-surface moments wait for a
+gap in the user's hardware input. What neither is:
+
+- **The ledger is a model-level gate, not a sandbox.** It lives in the MCP
+  dispatch path: every first contact refuses `consent_required` until a
+  decision exists, and a deny covers every spelling of the app. A
+  determined agent with another channel (a different MCP server, a shell,
+  `app_script` driving System Events) can still reach the app — the honest
+  claim is no accidental touches and a deny this surface actually enforces.
+- **Consent granularity is the app, not the action.** There is no
+  per-action sensitivity policy yet (send/purchase/delete confirmations) —
+  an allowed app can be driven to its consequential edges. That boundary
+  belongs in host policy; receipts name what happened so the host can gate
+  it.
+- **Yield is turn-taking, not a lock.** The wait for a hardware-input gap
+  is bounded (`CODEWHALE_CU_YIELD_WAIT_MS`, default 2500; the gap is
+  `CODEWHALE_CU_YIELD_GAP_MS`, default 450, and 0 disables). If the person remains active at the deadline, the call refuses
+  `user_busy` before sending input. Foreground key presses recheck the
+  bound app after waiting, so a switch during the wait cannot redirect them.
+  Input arriving mid-action is still reported (`user_input_during_lease`),
+  not prevented.
+- **Foreground consent applies on every local platform** — `activate:true`
+  always asks. But only macOS has a real background/foreground split:
+  `activate:false` on Windows launches minimized and on Linux re-restores
+  focus after launch; raw input on both is still shared-surface by nature,
+  so background there means "don't steal focus on launch", not
+  "background-safe input".
+- **Consent persists per computer id.** `remember:true` writes
+  `consent.json` under the state dir keyed by computer id — a re-registered
+  computer with a new id asks again; a stolen id inherits its ledger.
+- **`app_script` is deliberately outside the ledger** — Automation consent
+  is macOS's own per-app boundary, enforced by the OS on the responsible
+  process.
+
+## Spawned computers (0.10.0)
+
+`computer {action:"spawn", transport:"docker"}` provisions a disposable Linux
+desktop in a container — Xvfb, openbox, AT-SPI, Chromium — and drives it
+through the same allow-listed agent protocol as ssh. It is the isolated
+workspace: nothing the agent does there can move the user's pointer, raise a
+window on their session, or see their apps. What it is not:
+
+- **It is Linux/X11 only.** macOS has one WindowServer session per login and
+  Windows one interactive session — there is still no isolated in-session
+  desktop on either; the polite-sharing machinery (background mode, front
+  leases, preview) remains the macOS story. A macOS VM transport would be
+  another `ssh` computer once booted.
+- **It is a qualification desktop, not a fidelity proof.** The image is the
+  parity environment: it proves the X11 code paths and the spawned-computer
+  lifecycle. It says nothing about Wayland, a real login session's window
+  manager, GPU rendering, or distro app catalogs.
+- **Isolation is the container boundary.** There are no host mounts and no
+  shared display; the agent joins the container's own session bus. But the
+  container shares the host kernel — it is a workspace boundary, not a
+  security sandbox for hostile code.
+- **Abrupt death can leave a container.** `remove` and graceful session end
+  (stdin close, SIGTERM/SIGINT/SIGHUP) reap what this session spawned; a
+  SIGKILL'd host cannot run its teardown. Spawned containers carry
+  `codewhale.cu.spawned/session/computer` labels so a stale one is
+  identifiable (`docker ps --filter label=codewhale.cu.spawned=1`) — a
+  reaper is intentionally not in this slice.
+- **Registry entries can outlive their container.** If a host dies after
+  spawning but before teardown, the entry remains and fails closed on next
+  use (the route check and `docker exec` both fail) — remove it.
 
 ## Version 0.6.0 web-area traversal and targeting
 

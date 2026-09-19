@@ -7,9 +7,11 @@
 
 **By Codewhale · macOS beta (notarized app and source) · Windows and Linux experimental, source only**
 
-Let Codewhale see and operate your apps. Read accessible controls, enter
-text, click, scroll and capture the selected app through the same MCP tools.
-The macOS helper keeps permissions and human controls in one menu-bar app.
+Let Codewhale see and operate your apps — through whichever interface fits
+each step: app scripting (AppleScript/JXA) where apps ship a dictionary,
+accessible controls, text entry, click, scroll and capture through the same
+MCP tools. The macOS helper keeps permissions and human controls in one
+menu-bar app.
 
 - **Set up once.** See Accessibility and Screen Recording status, open the
   right Settings pane, then run a check in a disposable practice window.
@@ -136,7 +138,7 @@ command with this checkout's absolute path. Review the local plugin and choose
 **Trust and install**. Kimi copies it into its managed plugin directory and
 enables its MCP server. Run `/reload` in an existing session, then `/mcp`:
 `plugin-codewhale-computer-use:computer` should show **connected** and the
-tool list (36 advertised in 0.8.0; counts vary by host).
+tool list (37 advertised in 0.9.0; counts vary by host).
 `/plugins info codewhale-computer-use` shows the installed version and status.
 This flow was verified with Kimi Code 0.41.0. See the
 [Kimi plugin documentation](https://moonshotai.github.io/kimi-code/en/customization/plugins.html)
@@ -279,6 +281,12 @@ reports `strategy: "event"`, `pointer_moved` and `foreground_taken`. A point
 covered by another application's window is still refused. Return to
 `activate: false` when the shared-desktop step ends.
 
+`activate: false` is the default on every platform, not just macOS: Windows
+launches the app minimized and Linux hands focus back to the previous window
+after launch. Raw input on Windows and Linux is still shared-surface by
+nature — background there means the launch does not steal focus, not that
+input becomes background-safe.
+
 The binding receipt exposes `input_scope`, `shared_pointer` and
 `isolated_desktop: false`. The preview title distinguishes background app
 control from shared-desktop control. It is a view of the app, not a sandbox.
@@ -290,6 +298,32 @@ default 1000; 0 disables), so it behaves like a live view of the app instead of
 a frozen still; its cursor is separate from the hardware pointer. Close the
 panel or use `enabled: false` to hide it — and the session that showed the
 panel hides it when it closes, so no panel outlives its session.
+
+### Consent and shared-machine manners on the local computer
+
+On `local`, the app — not the tool — is the unit of trust. The first call
+that targets an application (`open_application`, an `app_ref`, an element or
+`state_id`, or an action on the bound app) refuses `consent_required` until
+the user decides; the model asks them and records the answer with
+`consent {action:"allow"|"deny", app:"…"}`. Decisions cover the session by
+default and persist with `remember:true`; `consent {action:"status"}`
+shows the ledger and `revoke` clears it. A denial is a wall: the ledger
+folds name, bundle id and pid together, so a denied app fails `app_denied`
+under every spelling and cannot be opened, driven, or killed through this
+surface. `open_application activate:true` — the shared-desktop escalation —
+separately requires `consent {action:"allow", scope:"foreground"}`. Spawned
+computers are exempt (a task-owned desktop holds nothing of the user's);
+remote computers are covered by their transport's trust; `app_script` keeps
+macOS's own Automation consent.
+
+Whenever a shared surface is taken — a front lease for window-record input,
+a real-pointer gesture, foreground keys, or an activation — the helper waits
+for a gap in the user's hardware input first (bounded, ~450 ms gap within a
+2.5 s window by default; `CODEWHALE_CU_YIELD_GAP_MS` /
+`CODEWHALE_CU_YIELD_WAIT_MS`). If no quiet window arrives, the call refuses
+`user_busy` before sending input. Successful receipts report the wait as
+`yield_ms`. Turn-taking, not a lock: `user_input_during_lease` still reports
+input that arrived mid-action.
 
 ### Browser control (CDP)
 
@@ -372,6 +406,13 @@ receipts keep working; `tools/list` advertises the merged set only.
   `perform_action` (element's own actions: AXPress / UIA Invoke / AT-SPI / uitest),
   `invoke_menu` (menu items by title path; accessibility only — no key events
   or focus lease; window-targeted items may need a key window).
+- **Scripting** — `app_script` (macOS, local computer): AppleScript or JXA
+  through osascript into apps that ship a scripting dictionary — the
+  programmatic interface to prefer over clicking wherever one exists.
+  Returns stdout as `result`; refusals are typed (`script_error`,
+  `script_timeout`, `automation_denied` for a declined/missing Automation
+  consent). Refused on ssh/docker/hdc computers: a remote channel stays
+  computer-use only, never a shell.
 - **Guidance & policy** — the operating skill ships as MCP resources
   (`skills/list`, `skills/get`, `resources/read` of `skill://codewhale-cu/…`,
   sha256 manifest) and as the `skills/computer-use/` pack in this repo; every
@@ -379,7 +420,13 @@ receipts keep working; `tools/list` advertises the merged set only.
   openWorld) for host approval and sandbox policy.
 - **Recording** — `recording` (start/stop/status/list; see below).
 - **Computers** — `computer` (list/switch/register with ssh agent
-  auto-push/remove).
+  auto-push/spawn/remove). `spawn {id, transport:"docker"}` provisions a
+  task-owned disposable Linux desktop container: it is registered
+  `owned:true`, becomes active, takes every tool unchanged through the
+  same agent protocol as ssh, and is destroyed by `remove` or when the
+  MCP session ends. A computer is an execution environment — prefer a
+  spawned desktop for work that does not need the user's own session,
+  and keep `local` for the tasks that do.
 - **Safety** — `stop_computer_control` kill switch; permission probes that
   name the missing grant; receipts on every call naming the computer it
   happened on.
@@ -401,6 +448,11 @@ permission** — it never guesses and never half-acts.
   recorder cleanup.
 - **HarmonyOS** — `hdc` on PATH with the device connected
   (`hdc list targets`); ffmpeg on the host for snapshot-series recordings.
+- **Spawned computers** — a reachable docker daemon (`docker version`).
+  `computer spawn` builds the plugin's Linux desktop image from
+  `docker/Dockerfile` on first use; no sshd, keys or host mounts are
+  involved — the agent rides `docker exec` and the container boundary is
+  the isolation.
 
 ## How the four platforms map
 

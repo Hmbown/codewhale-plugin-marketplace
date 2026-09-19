@@ -378,10 +378,59 @@
    "id": "browser.upload",
    "issue": 2,
    "fixture": "browser",
-   "goal": "Upload through the native file picker: observe Go to Folder, set its focused text field to the file path, accept it with Return, and press Open.",
+   "goal": "Upload through the native file picker entirely in background: window-routed click opens the panel, a key chord addressed to the panel's owning service opens Go to Folder, real key events set the path, and the Open button accepts it. The pointer never moves and the app never takes the foreground.",
    "steps": [
     {
      "call": "screenshot"
+    },
+    {
+     "call": "open_application",
+     "args": {
+      "pid": "${FIXTURE_PID}",
+      "activate": false
+     }
+    },
+    {
+     "until_element": [
+      {
+       "role": "AXButton",
+       "label": "Close"
+      },
+      {
+       "role": "AXButton",
+       "label": "Close find bar"
+      }
+     ],
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 800,
+     "optional": true
+    },
+    {
+     "call": "perform_action",
+     "optional": true,
+     "args": {
+      "target": {
+       "element_match": [
+        {
+         "role": "AXButton",
+         "label": "Close"
+        },
+        {
+         "role": "AXButton",
+         "label": "Close find bar"
+        }
+       ]
+      },
+      "action": "AXPress"
+     }
+    },
+    {
+     "key": "escape"
+    },
+    {
+     "sleep": 300
     },
     {
      "call": "left_click",
@@ -395,77 +444,216 @@
      }
     },
     {
-     "sleep": 1500
+     "until_element": {
+      "role": "AXButton",
+      "label": "Cancel"
+     },
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 4000,
+     "retry": [
+      {
+       "call": "left_click",
+       "args": {
+        "target": {
+         "client": [
+          120,
+          660
+         ]
+        }
+       }
+      }
+     ],
+     "retries": 1
     },
     {
-     "call": "open_application",
+     "call": "key",
      "args": {
-      "pid": "${FIXTURE_PID}",
-      "activate": true
-     }
-    },
-    {
-     "call": "get_app_state",
-     "args": {
-      "app_ref": {
-       "pid": "${FIXTURE_PID}"
-      },
-      "detail": "full"
-     }
-    },
-    {
-     "key": "cmd+shift+g"
-    },
-    {
-     "sleep": 600
-    },
-    {
-     "call": "get_app_state",
-     "args": {
-      "app_ref": {
-       "pid": "${FIXTURE_PID}"
-      },
-      "detail": "full"
-     }
-    },
-    {
-     "call": "set_value",
-     "args": {
+      "text": "cmd+shift+g",
       "target": {
        "element_match": {
         "role": "AXTextField",
-        "focused": true
+        "subrole": "AXSearchField"
        }
-      },
-      "value": "${UPLOAD_FILE}"
+      }
      }
     },
     {
-     "call": "get_app_state",
+     "until_element": [
+      {
+       "role": "AXTextField",
+       "path_prefix": [5, 1]
+      },
+      {
+       "role": "AXComboBox",
+       "path_prefix": [5, 1]
+      }
+     ],
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 8000,
+     "retry_after_ms": 3000,
+     "retry": [
+      {
+       "call": "key",
+       "args": {
+        "text": "cmd+shift+g",
+        "target": {
+         "element_match": {
+          "role": "AXTextField",
+          "subrole": "AXSearchField"
+         }
+        }
+       }
+      }
+     ],
+     "retries": 2
+    },
+    {
+     "call": "key",
      "args": {
-      "app_ref": {
-       "pid": "${FIXTURE_PID}"
-      },
-      "detail": "full"
+      "text": "cmd+a",
+      "target": {
+       "element_match": [
+        {
+         "role": "AXTextField",
+         "path_prefix": [5, 1]
+        },
+        {
+         "role": "AXComboBox",
+         "path_prefix": [5, 1]
+        }
+       ]
+      }
      }
     },
     {
-     "key": "return"
-    },
-    {
-     "sleep": 600
-    },
-    {
-     "call": "get_app_state",
+     "call": "type",
      "args": {
-      "app_ref": {
-       "pid": "${FIXTURE_PID}"
-      },
-      "detail": "full"
+      "text": "${UPLOAD_FILE}",
+      "delivery": "events",
+      "target": {
+       "element_match": [
+        {
+         "role": "AXTextField",
+         "path_prefix": [5, 1]
+        },
+        {
+         "role": "AXComboBox",
+         "path_prefix": [5, 1]
+        }
+       ]
+      }
      }
+    },
+    {
+     "call": "key",
+     "args": {
+      "text": "return",
+      "target": {
+       "element_match": [
+        {
+         "role": "AXTextField",
+         "path_prefix": [5, 1]
+        },
+        {
+         "role": "AXComboBox",
+         "path_prefix": [5, 1]
+        }
+       ]
+      }
+     }
+    },
+    {
+     "sleep": 400
+    },
+    {
+     "diag_shot": "after-return"
+    },
+    {
+     "until_element": {
+      "role": "AXButton",
+      "label": "Open",
+      "enabled": true
+     },
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 6000,
+     "retry_after_ms": 1500,
+     "retry": [
+      {
+       "call": "key",
+       "args": {
+        "text": "return",
+        "target": {
+         "element_match": {
+          "role": "AXButton",
+          "label": "Cancel"
+         }
+        }
+       }
+      }
+     ],
+     "retries": 3,
+     "optional": true
+    },
+    {
+     "until_element": [
+      {
+       "role": "AXTextField",
+       "path_prefix": [5, 1]
+      },
+      {
+       "role": "AXComboBox",
+       "path_prefix": [5, 1]
+      }
+     ],
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 1200,
+     "optional": true
     },
     {
      "call": "perform_action",
+     "optional": true,
+     "args": {
+      "target": {
+       "element_match": [
+        {
+         "role": "AXTextField",
+         "path_prefix": [5, 1]
+        },
+        {
+         "role": "AXComboBox",
+         "path_prefix": [5, 1]
+        }
+       ]
+      },
+      "action": "AXConfirm"
+     }
+    },
+    {
+     "until_element": {
+      "role": "AXButton",
+      "label": "Open",
+      "enabled": true
+     },
+     "app_ref": {
+      "pid": "${FIXTURE_PID}"
+     },
+     "timeout_ms": 4000,
+     "optional": true
+    },
+    {
+     "diag_shot": "post-open-wait"
+    },
+    {
+     "call": "perform_action",
+     "optional": true,
      "args": {
       "target": {
        "element_match": {

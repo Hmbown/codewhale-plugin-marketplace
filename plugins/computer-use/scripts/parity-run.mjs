@@ -222,18 +222,22 @@ async function resolveTarget(spec, task, repCtx, server) { // repCtx carries the
     return { target: { type: "element", state_id: lastAppState.state_id, index: el.index } };
   }
   if (spec.element_match) {
+    // element_match accepts one spec or a list — a list matches an element
+    // satisfying ANY spec (native widgets present under different roles).
+    const matchSpecs = Array.isArray(spec.element_match) ? spec.element_match : [spec.element_match];
+    const matchAll = (els) => els.filter((el) => matchSpecs.some((ms) => matchElement(el, ms)));
     let elements = lastAppState?.elements ?? [];
-    let matches = elements.filter((el) => Object.entries(spec.element_match).every(([key, value]) => el[key] === value));
+    let matches = matchAll(elements);
     if (matches.length !== 1 && lastAppState?.truncated && lastAppState.args) {
       const filter = {};
-      if (spec.element_match.label) filter.query = String(spec.element_match.label);
-      else if (spec.element_match.role) filter.role = String(spec.element_match.role);
+      if (matchSpecs[0].label) filter.query = String(matchSpecs[0].label);
+      else if (matchSpecs[0].role) filter.role = String(matchSpecs[0].role);
       if (Object.keys(filter).length) {
         const res = await server.call("get_app_state", { ...lastAppState.args, ...filter });
         if (res.parsed?.ok) {
           lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [], truncated: res.parsed.truncated, args: lastAppState.args };
           elements = lastAppState.elements;
-          matches = elements.filter((el) => Object.entries(spec.element_match).every(([key, value]) => el[key] === value));
+          matches = matchAll(elements);
         }
       }
     }
@@ -249,6 +253,25 @@ async function resolveTarget(spec, task, repCtx, server) { // repCtx carries the
     return { target: { type: "element", state_id: lastAppState.state_id, index: element.index } };
   }
   return { target: spec };
+}
+
+// Element specs match by strict equality; a key suffixed _contains does a
+// substring test against that attribute — e.g. {label_contains:"CU-FIXTURE"}
+// identifies a window whose title embeds live state that can't be matched
+// exactly.
+function matchElement(el, spec) {
+  return Object.entries(spec).every(([key, value]) => {
+    // path_prefix scopes a match to a subtree — e.g. [5,1] reaches a native
+    // panel's hosted sheet without also matching same-role elements in the
+    // app's own window (a find bar next to a Go to Folder field).
+    if (key === "path_prefix") {
+      return Array.isArray(el.path) && Array.isArray(value)
+        && value.every((part, index) => el.path[index] === part);
+    }
+    return key.endsWith("_contains")
+      ? String(el[key.slice(0, -9)] ?? "").includes(String(value))
+      : el[key] === value;
+  });
 }
 
 function resolveRegion(spec, task, repCtx) {
@@ -321,6 +344,107 @@ async function runStep(step, { task, repCtx, server, ctx, vars, rep, counts }) {
     }
     stepInfo.result = ok ? "file_ok" : "file_missing";
     if (!ok) throw new Error(`expect_file ${step.expect_file.name}: ${content == null ? "never appeared" : "content mismatch"}`);
+  } else if (step.diag_shot) {
+    // Whole-display capture for diagnosing native dialogs — window-scoped
+    // screenshots cannot see out-of-process panels (open/save panels are
+    // hosted by openAndSavePanelService, not the app).
+    const file = path.join(ctx.outDir, `diag-${step.diag_shot}-r${rep.rep ?? 0}.jpg`);
+    await new Promise((resolve) => {
+      const p = spawn("screencapture", ["-x", "-o", "-t", "jpg", file]);
+      p.on("close", resolve);
+      p.on("error", resolve);
+    });
+    stepInfo.result = fs.existsSync(file) ? file : "capture failed";
+  } else if (step.until_element) {
+    // Poll for an element the way a person would watch for it. Native
+    // dialogs (the ONS-hosted open panel and its sheets) appear on their
+    // own schedule, and a chord sent while the panel is still becoming
+    // key is a silent no-op — so a missing element after retry_after_ms
+    // re-sends the optional retry step instead of just waiting longer.
+    const specs = Array.isArray(step.until_element) ? step.until_element : [step.until_element];
+    const app_ref = substitute(step.app_ref ?? {}, vars);
+    // The unfiltered dump truncates native-dialog elements out (the menu
+    // bar eats the cap), so poll once per distinct role — a role-filtered
+    // query returns the full matching set, including unbridged panels.
+    const roles = [...new Set(specs.map((s) => s.role).filter(Boolean))];
+    const queries = roles.length ? roles.map((role) => ({ app_ref, detail: "full", role })) : [{ app_ref, detail: "full" }];
+    const timeout = step.timeout_ms ?? 6000;
+    const deadline = Date.now() + timeout;
+    const retryAfter = step.retry_after_ms ?? 1500;
+    const started = Date.now();
+    let nextRetry = started + retryAfter, retries = 0, found = false, lastError = null, lastSeen = [];
+    const matches = (els) => specs.some((spec) => els.some((el) => matchElement(el, spec)));
+    poll: while (Date.now() < deadline) {
+      lastSeen = [];
+      for (const args of queries) {
+        counts.calls++;
+        const res = await server.call("get_app_state", args);
+        if (res.parsed?.ok) {
+          // Keep the matching query's state — resolveTarget consumes
+          // lastAppState, so it must be the filtered set that actually
+          // contains the element, not the last query's.
+          lastAppState = { state_id: res.parsed.state_id, elements: res.parsed.elements ?? [], truncated: res.parsed.truncated, args };
+          lastSeen = lastSeen.concat(lastAppState.elements);
+          if (matches(lastAppState.elements)) { found = true; break poll; }
+        } else lastError = res.parsed?.error?.message;
+      }
+      if (step.retry && retries < (step.retries ?? 1) && Date.now() >= nextRetry) {
+        retries++;
+        nextRetry = Date.now() + retryAfter;
+        for (const rs of Array.isArray(step.retry) ? step.retry : [step.retry]) {
+          if (rs.sleep != null) await new Promise((r) => setTimeout(r, rs.sleep));
+          else {
+            counts.calls++;
+            let rres;
+            if (rs.key) rres = await server.call("key", { text: rs.key });
+            else {
+              const rargs = substitute(rs.args ?? {}, vars);
+              let unresolved = false;
+              for (const key of ["target", "from_target", "to"]) {
+                if (rargs[key]) {
+                  const rt = await resolveTarget(rargs[key], task, repCtx, server);
+                  if (rt.error || rt.skipReason) { unresolved = true; break; }
+                  rargs[key] = rt.target;
+                }
+              }
+              // A retry step whose target can't resolve (e.g. a dialog
+              // button that's legitimately absent) is skipped — retries
+              // are best-effort nudges, never a failure cause.
+              if (unresolved) continue;
+              rres = await server.call(rs.call, rargs);
+              // A retry observation feeds the next retry step's
+              // element_match — e.g. refresh buttons, press Cancel.
+              if (rs.call === "get_app_state" && rres.parsed?.ok) {
+                lastAppState = { state_id: rres.parsed.state_id, elements: rres.parsed.elements ?? [], truncated: rres.parsed.truncated, args: rargs };
+              }
+            }
+            // A failed nudge (refused click, transient tool error) is
+            // logged and polling continues — retries must never be the
+            // thing that fails a rep.
+            if (rres.isError) stepInfo.retry_errors = (stepInfo.retry_errors ?? []).concat(`${rs.key ?? rs.call}: ${rres.parsed?.error?.code ?? "?"} ${rres.parsed?.error?.message ?? ""}`);
+          }
+        }
+      }
+      await new Promise((r) => setTimeout(r, step.poll_ms ?? 400));
+    }
+    stepInfo.result = found ? "observed" : "timeout";
+    stepInfo.retries = retries;
+    if (!found && !step.optional) {
+      // Diagnostic: an AXButton scan tells the failure whether a native
+      // dialog was up at all (Cancel/Open exist) or the panel never
+      // presented — the difference between a missed chord and a missed
+      // click.
+      let probeNote = "";
+      counts.calls++;
+      const probe = await server.call("get_app_state", { app_ref, detail: "full", role: "AXButton" });
+      if (probe.parsed?.ok) probeNote = `; dialog buttons: ${JSON.stringify((probe.parsed.elements ?? []).map((b) => b.label ?? b.role).slice(0, 10))}`;
+      // Summarize what the role queries actually returned — a present-but-
+      // unfocused field (toggle-eaten chord) looks different from no field.
+      const seen = lastSeen.slice(0, 8).map((el) => ({ role: el.role, label: el.label ?? el.description, focused: el.focused, enabled: el.enabled, value: typeof el.value === "string" ? el.value.slice(0, 40) : undefined }));
+      if (seen.length) probeNote += `; queried: ${JSON.stringify(seen)}`;
+      const retryNote = retries ? `; retries=${retries}${stepInfo.retry_errors?.length ? ` retry_errors=${JSON.stringify(stepInfo.retry_errors)}` : ""}` : "";
+      throw new Error(`until_element ${JSON.stringify(specs)} not observed within ${timeout}ms${retryNote}${probeNote}${lastError ? ` (${lastError})` : ""}`);
+    }
   } else if (step.call) {
     const args = substitute(step.args ?? {}, vars);
     const name = step.call;
@@ -328,7 +452,13 @@ async function runStep(step, { task, repCtx, server, ctx, vars, rep, counts }) {
       if (args[key]) {
         const r = await resolveTarget(args[key], task, repCtx, server);
         if (r.skipReason) { rep.status = "skipped"; rep.reason = r.skipReason; throw new SkipRep(r.skipReason); }
-        if (r.error) throw new Error(r.error);
+        if (r.error) {
+          // optional steps tolerate an absent target — e.g. an "Open"
+          // button that is legitimately gone because Return already
+          // accepted the dialog. The task's expect step decides success.
+          if (step.optional) { stepInfo.result = `skipped: ${r.error}`; stepInfo.ok = true; return stepInfo; }
+          throw new Error(r.error);
+        }
         args[key] = r.target;
       }
     }
@@ -388,6 +518,7 @@ async function runStep(step, { task, repCtx, server, ctx, vars, rep, counts }) {
           throw new Error(`error message lacks "${step.expect_message_contains}": ${res.parsed?.error?.message}`);
         }
       } else if (res.isError) {
+        if (step.optional) { stepInfo.result = `skipped: ${res.parsed?.error?.code ?? "?"} ${res.parsed?.error?.message ?? ""}`; stepInfo.ok = true; return stepInfo; }
         throw new Error(`${name} failed: ${res.parsed?.error?.code ?? "?"} ${res.parsed?.error?.message ?? ""}`);
       }
     }

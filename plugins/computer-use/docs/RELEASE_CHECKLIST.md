@@ -12,6 +12,22 @@ Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
 
+### 0.11.2 — candidate qualification, 2026-09-19
+
+- Local source suite: **358 passed, 0 failed, 15 platform skips**.
+  After switching foreground revalidation to the existing live WindowServer
+  identity check, the focused native/cancellation suite passed **71/71**.
+- Fixes: initialize typing's optional focus lease, refuse `user_busy` when
+  the hardware-input quiet window never arrives, revalidate foreground before
+  key-down, and include the Docker context/lockfile in app bundles.
+- The new busy/idle/cancel checks use the real native wait with a simulated
+  hardware clock. They do not prove coexistence with an actively typing user.
+- Source version and all manifests are 0.11.2. The older local notarized
+  0.11.1 candidate does not contain this source; never publish it as this fix.
+- Publication remains pending exact-source artifact/CI receipts and the
+  applicable human qualification below. The latest published installer at
+  this review is 0.6.0; no complete Codex parity is claimed.
+
 ### 0.6.0 — window-routed background pointer and web-area traversal
 
 - Source suite at commit `e52a124f832f340330fd522cefc52e50363a8a96`:

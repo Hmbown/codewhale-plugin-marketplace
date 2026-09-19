@@ -141,6 +141,11 @@ test("build-app produces every platform layout with a complete runtime copy", as
     assert.ok(fs.existsSync(path.join(built.windows, "icon.ico")));
     for (const root of [path.join(mac, "Resources", "plugin"), path.join(built.linux, "plugin"), path.join(built.windows, "plugin")]) {
       for (const entry of RUNTIME_ENTRIES) assert.ok(fs.existsSync(path.join(root, entry)), `${root} has ${entry}`);
+      // computer.spawn builds from the installed plugin root on first use.
+      // Check its build context independently of the packager's own list.
+      for (const entry of ['docker/Dockerfile', 'docker/entrypoint.sh', 'docker/agent-exec.sh', 'package-lock.json', '.dockerignore']) {
+        assert.deepEqual(fs.readFileSync(path.join(root, entry)), fs.readFileSync(path.join(ROOT, entry)), `spawn runtime asset ${entry}`);
+      }
       assert.ok(!fs.existsSync(path.join(root, "tests")), "no dev files in the runtime copy");
     }
   } finally { fs.rmSync(out, { recursive: true, force: true }); }

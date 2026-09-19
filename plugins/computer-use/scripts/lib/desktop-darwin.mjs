@@ -227,10 +227,18 @@ export function createDesktop({ parityDir, tasksDoc, isolated }) {
    * Every task binds raw input to the fixture's own process first. pid (not
    * bundle id) is the identity that matters: the user may already be running
    * their own Chrome, and binding that one would type into their windows.
+   * The suite is the consenting user: it allows its own fixture pid before
+   * the app gate, exactly like smoke does.
    */
   function prelude(task, repCtx) {
     if (!task.fixture || !repCtx.pid) return [];
-    return [{ call: "open_application", args: { pid: repCtx.pid, activate: false } }];
+    const steps = [
+      { call: "consent_allow", args: { pid: repCtx.pid } },
+      { call: "open_application", args: { pid: repCtx.pid, activate: false } },
+    ];
+    const wantsForeground = (task.steps ?? []).some((s) => s.call === "open_application" && s.args?.activate === true);
+    if (wantsForeground) steps.unshift({ call: "consent_allow", args: { scope: "foreground" } });
+    return steps;
   }
 
   // ---------- geometry ----------

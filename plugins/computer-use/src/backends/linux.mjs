@@ -459,12 +459,30 @@ except Exception as e:
       }
       throw new ExecError("list_windows needs wmctrl (X11), swaymsg (sway) or hyprctl (hyprland)");
     },
-    open_application: async ({ name, bundle_id: bid, url: urlArg } = {}) => {
+    open_application: async ({ name, bundle_id: bid, url: urlArg, activate } = {}) => {
       const target = name ?? bid;
       if (!target || !/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/.test(target)) throw new ExecError("open_application needs a plain executable/desktop name");
+      // activate defaults to background: on X11 a new window grabs focus, so
+      // remember the active window and hand focus back after the launch.
+      let prevWindow = null;
+      if (activate !== true) {
+        try {
+          await probeSession();
+          if (session === "x11" && tools.xdotool) {
+            const active = await run("xdotool", ["getactivewindow"], { timeoutMs: 3_000 });
+            if (active.code === 0 && /^\d+$/.test(active.stdout.trim())) prevWindow = active.stdout.trim();
+          }
+        } catch { /* no session/tools — the launch itself is still fine */ }
+      }
       spawnDetached(target, urlArg ? [urlArg] : [], "", true);
       await new Promise((r) => setTimeout(r, 500));
-      return { launched: true, name: target, url: urlArg ?? null };
+      let focusRestored = false;
+      if (prevWindow) {
+        try {
+          focusRestored = (await run("xdotool", ["windowactivate", prevWindow], { timeoutMs: 3_000 })).code === 0;
+        } catch { /* best-effort */ }
+      }
+      return { launched: true, name: target, url: urlArg ?? null, activate: activate === true, ...(activate === true ? {} : { focus_restored: focusRestored }) };
     },
     get_app_state: async ({ app_ref, window_id } = {}) => {
       const name = appName(app_ref);

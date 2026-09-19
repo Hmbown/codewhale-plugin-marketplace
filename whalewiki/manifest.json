@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "extensions",
-      "page_sha256": "aad4d2f10671e3298f8d60342a596d5c6c902c47011bb7fd1b1d860bb3694c41",
+      "page_sha256": "4489d3490e01f3409751f9ef46525cc599b4c00981cce8cafe581f752f4bdafe",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "e579f6b66e14755c8ac60e6b61836e28876a4d6eba147f33a541ffab071ce902",
-          "bytes": 5380
+          "sha256": "2fe3452b03881dacb362c9c5ba760a38e5464fa97e76eb6f76d3265fdd00ee78",
+          "bytes": 5381
         },
         {
           "path": "CONTRIBUTING.md",
@@ -45,8 +45,8 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "b67cbce68d776c42c1f75f2d2144557b81b45a686490a7daab3ead9dfd529af8",
-          "bytes": 16262
+          "sha256": "d12c10479034f5ba344123ac2084437b98b64c70ebcc78e15a9353ddae93d6e6",
+          "bytes": 17266
         },
         {
           "path": "plugins/computer-use/docs/releases/0.6.0.json",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "7f80a423dea9667290753a0f9967d6ea28040df54d7846261591e8822b5301bb",
-          "bytes": 33693
+          "sha256": "a1d1457d46b02d167adfe9a495fa1fbe1e426875894e08f334f2f8b4d9bf0834",
+          "bytes": 42476
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -67,7 +67,7 @@
           "bytes": 6239
         }
       ],
-      "sealed_at": "2026-09-17T09:29:12.271Z"
+      "sealed_at": "2026-09-19T10:41:47.267Z"
     },
     "pages/wiki-evidence.md": {
       "title": "wiki evidence",
@@ -180,5 +180,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-17T09:29:12.272Z"
+  "updated_at": "2026-09-19T10:41:47.267Z"
 }
