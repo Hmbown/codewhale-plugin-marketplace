@@ -1,5 +1,6 @@
 // Backend tests that can run on any host: harmony logic via a mocked hdc
 // exec, linux fail-closed probing, and module-shape checks for win32.
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -184,7 +185,7 @@ test("remote agent refuses tools outside the allow-list", async () => {
   const { run } = await import("../src/exec.mjs");
   const sentinel = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cu-agent-deny-")), "x");
   const payload = Buffer.from(JSON.stringify({ tool: "write_file", args: { path: sentinel } })).toString("base64");
-  const r = await run("node", [new URL("../agent.mjs", import.meta.url).pathname, payload]);
+  const r = await run("node", [fileURLToPath(new URL("../agent.mjs", import.meta.url)), payload]);
   const reply = JSON.parse(r.stdout.trim());
   assert.equal(reply.ok, false);
   assert.equal(reply.error.code, "tool_not_allowed");
@@ -194,7 +195,7 @@ test("remote agent refuses tools outside the allow-list", async () => {
 test("remote agent answers the platform probe", async () => {
   const { run } = await import("../src/exec.mjs");
   const payload = Buffer.from(JSON.stringify({ tool: "platform" })).toString("base64");
-  const r = await run("node", [new URL("../agent.mjs", import.meta.url).pathname, payload]);
+  const r = await run("node", [fileURLToPath(new URL("../agent.mjs", import.meta.url)), payload]);
   const reply = JSON.parse(r.stdout.trim());
   assert.equal(reply.ok, true);
   assert.equal(reply.platform, process.platform);

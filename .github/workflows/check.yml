@@ -11,6 +11,7 @@ concurrency:
 jobs:
   check:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +31,12 @@ jobs:
         timeout-minutes: 10
         run: docker build -t codewhale-cu-linux -f plugins/computer-use/docker/Dockerfile plugins/computer-use
       - run: npm test
+        timeout-minutes: 8
+      - name: Windows controlled desktop acceptance
+        if: runner.os == 'Windows'
+        env:
+          CU_WINDOWS_DESKTOP_TESTS: '1'
+        run: node --test plugins/computer-use/tests/win32-desktop.test.mjs
       - run: npm run check:web
       - run: npm run package:plugin -- whalewiki
       - run: npm run package:plugin -- computer-use

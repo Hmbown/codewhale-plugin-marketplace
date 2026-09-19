@@ -59,11 +59,15 @@ Never retry a refusal unchanged — re-observe, re-target, or change route.
 | `cancelled` | the host cancelled the request | the input may or may not have landed — observe before retrying |
 | `timeout` | the request exceeded its deadline | observe; only retry after confirming the first attempt did not land |
 
+`background_focus_required` means this path would borrow keyboard focus and
+was refused before delivery. Use accessibility, browser control or a separate
+computer; a typing pause does not authorize foreground control.
+
 ## Reading a receipt
 
 - `action_sent` / `verified` mean dispatch (and, where available, read-back) —
   not task success. Verify the effect with a fresh observation.
 - `front_lease` / `front_restored` describe focus accounting for window-record
-  deliveries. `front_restored:false` is a person-visible event: say it out loud.
+  deliveries in explicitly authorized foreground mode. `front_restored:false` is a person-visible event: say it out loud.
 - `input_may_have_been_sent` on an error means the press left before the
   failure: observe the target before doing anything else.

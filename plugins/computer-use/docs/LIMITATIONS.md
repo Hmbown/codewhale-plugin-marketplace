@@ -99,11 +99,9 @@ Two honesty fixes on the action path:
   is read back so the receipt reports `verified` rather than asserting the
   write. Elements under `AXWebArea` still refuse direct `AXValue` writes —
   Chromium accepts them and then ignores them or coerces the field empty —
-  but the backend now answers with the replacement path instead of an
-  instruction: focus the element, select-all through the window-record
-  channel (menu key equivalents need a key window), type, and read the
-  value back (`strategy:"focus-type-replace"`, `verified` from the control's
-  own value).
+  and background mode refuses the focus/select-all replacement path with
+  `background_focus_required`. Use browser control. Explicit foreground
+  mode can use focus/select-all/type with value readback.
 - **Web-area typing uses real key events.** `type` skips the
   `AXSelectedText` path for elements under `AXWebArea` (Chromium accepts the
   write and drops it) and sends process-bound unicode events after the
@@ -157,7 +155,7 @@ Every row marked **untested** in the matrix's "Platforms" table appears here:
 | macOS Retina | local 0.2.1 development receipts on one arm64 Mac (macOS 26.1): 26-task run 129/130, dynamic-page retry 5/5, upload retry 5/5; all 27 workflows have five-trial passing evidence, with earlier failures retained; final artifact and full Codex parity remain separate |
 | macOS non-Retina | code-complete; every macOS receipt so far is from a 2x display |
 | macOS mixed | code-complete, no receipts (mixed-scale display moves are unprobed live) |
-| Windows | code-complete, no receipts (backend is PowerShell/user32; never executed here). A parity driver now exists (`scripts/lib/desktop-win32.mjs`, `parity/tasks.win32.json`, `parity/win32-probe.ps1`) but needs a real Windows desktop run — Windows cannot be containerized and the shared console session is the only surface |
+| Windows | Qualification in progress. PowerShell/user32 input contracts and controlled WinForms UIA/capture acceptance run in canonical Windows CI. Semantic mutations bind the observed window and leaf runtime IDs and refuse stale paths. Browser discovery uses native vendor installation folders. An interactive parity driver exists (`scripts/lib/desktop-win32.mjs`, `parity/tasks.win32.json`, `parity/win32-probe.ps1`); installed-Engine, mixed-DPI, raw-input interference, signed installer and user onboarding remain unqualified. Windows uses a shared console session. |
 | Wayland | code-complete, no receipts; `scroll` is unsupported on Wayland (`scroll on Wayland is not available in this build`), and ydotool input is never probed (the probe cannot move the pointer) |
 | HarmonyOS (hdc) | code-complete, no receipts (no device) |
 | SSH remote | experimental transport; persistent agent sessions (`agent --serve`) since 0.5.0, with one-shot fallback for older agents; no remote device receipts; see session limitation below |
@@ -228,29 +226,13 @@ way it does. Receipts: `parity/results/darwin-aqua-2026-09-07.json`,
   hit test with the window rather than the control). A hit performs the
   element's supported click, focus or selection action: no pointer motion, no activation. The receipt says
   `strategy: "a11y"`.
-- **Background mouse input now delivers through the window-record route.**
-  Process-directed mouse events (`CGEventPostToPid`) never reach AppKit views
-  and posting to the HID tap moves the real cursor (both measured). The
-  production route addresses each event to the target window id (event fields
-  `0x33`/`0x5b`/`0x5c`) with a window-space location
-  (`CGEventSetWindowLocation`) and posts it as its raw event record through
-  `SLPSPostEventRecordTo`. View-level delivery requires the window to be
-  *key*: the window-focus record posted before each gesture makes it *main*
-  — events then arrive at the process and are swallowed by first-mouse
-  semantics — so the helper also takes a momentary front-process lease with
-  no-windows options and restores it in `@finally`, re-asserting the previous
-  app through the Accessibility grant when the restore lags. Coordinate
-  clicks with no pressable element, `left_click_drag`, raw double/triple/
-  middle click and scrollbar-less `scroll` deliver this way in background
-  mode. Receipts report `strategy:"window-record"`, `pointer_moved:false`
-  and `front_lease:true` — the lease is a momentary front-process swap with
-  no window raise, reported because a keystroke in exactly that window would
-  go to the target app. Delivery is by window id to a window owned by the
-  bound app, so events cannot land on a window covering the target. Wheel
-  events use pixel units because Chromium ignores line-unit scrolls. Menus
-  opened by a click close when the lease ends, so menu-opening clicks hold
-  the lease across calls (15 s watchdog cap, restored at the next raw-input
-  call, never yanked back when the user takes another app first).
+- **Background input never takes a window-record focus lease.** Earlier
+  versions borrowed the front process for raw clicks, drags, scrolling,
+  shortcuts, web value replacement and some Unicode/hosted-panel typing.
+  Even without cursor movement this redirects the user's keyboard. These
+  paths now refuse with `background_focus_required` before a lease or input.
+  Accessibility actions remain available; unsupported controls need browser
+  control or a separate computer. A quiet-input wait is not isolation.
 - **Shared pointer gestures remain explicit.** `strategy:"event"` and the
   held-button tools (`mouse_move`, `left_mouse_down`/`left_mouse_up`) still
   require `activate:true` shared-desktop control. That moves the user's
@@ -293,19 +275,13 @@ sent a press (or a dispatched helper was interrupted before acknowledging it).
 Receipts distinguish `keyboard_delivery: "process"` and
 `"foreground-guarded"`. Selecting `activate:false` resets the latter.
 
-In background mode a `key` call carrying modifier flags (cmd, ctrl, alt,
-shift, fn) is usually aimed at the menu system — `cmd+w`, `cmd+s`,
-`cmd+shift+g` — and menu key equivalents only validate against a *key*
-window, which a process-bound event never has. Version 0.6.0 dispatched
-those chords to the process and the receipt still said `action_sent`; the
-keystroke was discarded. Version 0.6.1 routes flagged chords through the
-window-record channel (`keyboard_delivery:"window-record"`), which supplies
-a momentary no-raise front lease so the target window is key for the
-duration — the user's cursor and foreground are restored. When no focused
-window exists to make key (nothing observed/focused yet), the chord falls
-back to process delivery and the receipt carries a note saying the menu
-system may not have seen it — dispatch is reported honestly, never claimed
-as effect. Unmodified keys keep plain process delivery.
+Background modified or window-targeted keys refuse with
+`background_focus_required`. Use `invoke_menu` or an observed accessibility
+control when available. Plain keys use process delivery without a focus lease.
+Some astral Unicode and service-hosted fields previously needed a focus lease;
+background mode now refuses those paths before input instead of taking focus.
+Background typing requires a helper advertising `background_focus_guard:1`;
+older installed helpers return `app_upgrade_required`.
 
 Neither delivery mode supplies application acknowledgement. Observe the
 result, especially in native file dialogs and applications whose toolkit

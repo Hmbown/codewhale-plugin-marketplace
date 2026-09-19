@@ -229,6 +229,7 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
       return {
         app_ref: state.app_ref, windowIndex: element.windowIndex ?? 0, path: element.path,
         strategy: "a11y", role: element.role, label: element.label, reacquired: false,
+        ...(element.runtime_id ? { runtime_id: element.runtime_id, window_runtime_id: element.window_runtime_id } : {}),
       };
     }
     const moved = !!fresh && (
@@ -1192,6 +1193,7 @@ const SKILL_NAME = "computer-use";
 const SKILL_ROOT_URI = `skill://codewhale-cu/SKILL.md`;
 
 function parseFrontmatter(text) {
+  text = text.replace(/\r\n/g, "\n");
   if (!text.startsWith("---\n")) return null;
   const end = text.indexOf("\n---", 4);
   if (end === -1) return null;

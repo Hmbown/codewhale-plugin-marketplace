@@ -83,7 +83,8 @@ user's. Remote computers are covered by their transport's trust, not this
 ledger. `app_script` keeps its own OS-level consent: Automation prompts
 belong to macOS, not to this ledger.
 
-Where a shared surface is taken at all — a front lease for window-record
+Only in explicitly authorized foreground mode, where a shared surface is taken
+— a front lease for window-record
 input, a real-pointer gesture, foreground keys, an activation — the helper
 first waits for a gap in the person's hardware input rather than cutting
 between their keystrokes. The wait is bounded, never infinite, and every
@@ -227,29 +228,13 @@ Once the GUI is the right interface: observe once, act once, then verify.
     Prefer them. Text entry uses writable accessibility selection when
     available; verify the resulting value. `get_app_state`, `list_windows`
     and `screenshot` default to the selected app.
-  - **Background mode never moves the user's cursor.** A coordinate
-    `click` first tries the bound application's accessibility action,
-    including focusing a field that is not AXPressable. `right_click` uses
-    advertised context-menu actions. `scroll` uses the target's accessibility
-    scrollbar; prefer a scroll-area element and read the receipt's unit and
-    value change. Where accessibility cannot act — a point with no pressable
-    element, drag, raw double/triple/middle click, wheel scrolling without an
-    AX scrollbar — the window-record route delivers genuine mouse/wheel
-    events to the bound app's window: the cursor never moves, and a momentary
-    no-raise front-process lease is taken and restored (every receipt says
-    `strategy:"window-record"`, `pointer_moved:false`). Lease accounting is
-    explicit: `front_lease:true` plus `front_restored` when a lease was taken
-    (a failed restore is stated in the receipt — report it to the user), and
-    `front_lease:false` when the target was already frontmost and no lease was
-    needed. A taken lease also reports its borrow window (`lease_ms`) and the
-    hardware-input clock around it (`idle_before_s`, `idle_after_s`); a
-    `yield_ms` field is how long the action first waited for a gap in the
-    person's hardware input. The
-    verdict `user_input_during_lease:true` means the person's own input
-    arrived mid-lease — treat the outcome as contested, re-observe, and say
-    so. `key` chords that had no window to route through fall back to
-    process delivery and say so instead of pretending.
-    Only hover and held-button tools still need `activate:true`.
+  - **Background mode does not borrow keyboard focus.** Accessibility
+    click, focus, selection and scroll actions remain available. Raw pointer
+    fallbacks, modified/window-targeted keys, web value replacement and typing
+    paths that require a key-window lease refuse `background_focus_required`
+    before delivery. Use an accessibility menu/control, browser control or an
+    authorized separate computer. Do not escalate to foreground or retry the
+    same action merely because the user stopped typing briefly.
   - Shared-desktop gestures and foreground keyboard delivery require explicit
     user authorization for exclusive desktop use, followed by
     `open_application(activate:true)` — which itself needs the foreground
@@ -279,10 +264,10 @@ Once the GUI is the right interface: observe once, act once, then verify.
     Acting on one fails `degenerate_frame` — scroll the real row into view
     and re-observe rather than retrying the same index.
   - `set_value` coerces numbers for `AXIncrementor`/`AXSlider`/`AXStepper`
-    and verifies the readback. Web-area elements take the replacement path
-    automatically (focus, select-all through the record channel, type,
-    read-back verify — receipt `strategy:"focus-type-replace"`) because
-    Chromium silently no-ops or coerces direct `AXValue` writes.
+    and verifies the readback. Web-area direct AXValue writes are unreliable;
+    background mode refuses the focus/select-all replacement. Use browser
+    control. The replacement is available only during explicitly authorized
+    foreground control.
   Use app-scoped screenshots (`app_ref`) to avoid capturing unrelated windows.
   The nonactivating preview panel is on by default while an app is bound —
   it shows the captured app window and a drawn cursor at each action's target

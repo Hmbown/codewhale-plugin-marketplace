@@ -2,6 +2,16 @@
 
 ## 0.11.2 — shared-desktop reliability (unreleased candidate)
 
+- macOS background mode refuses window-record focus leases before input,
+  including pointer fallbacks, modified keys and web value replacement.
+  Native typing cannot silently take focus for Unicode or hosted panels.
+  Older helpers are refused for background typing until updated.
+- Routine consent tests use a recording backend and never launch, activate
+  or quit a user's desktop application.
+- Windows UIA targets bind to observed window/element identities; display and
+  region capture preserve geometry. Bundled-Node installation, native input
+  contracts, control pipes and real controlled-desktop acceptance run in CI.
+
 - App bundles include the Docker build context and lockfile required by
   `computer spawn` on first use.
 - Typing without a focus lease no longer reads uninitialized accounting

@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
@@ -30,8 +30,39 @@ jobs:
         if: runner.os == 'Linux'
         timeout-minutes: 10
         run: docker build -t codewhale-cu-linux -f docker/Dockerfile .
-      - run: npm test
+      - name: Windows control isolation
+        if: runner.os == 'Windows'
+        run: node --test tests/app-controls.test.mjs
+      - name: Windows controlled desktop acceptance
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        env:
+          CU_WINDOWS_DESKTOP_TESTS: '1'
+        run: node --test tests/win32-desktop.test.mjs
+      - if: ${{ !cancelled() }}
+        run: node --test --test-timeout=90000 tests/*.test.mjs
+        timeout-minutes: 8
       - run: node scripts/check-receipts.mjs docs parity/results
+      - name: Build unsigned Windows preview
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          node scripts/build-app.mjs --platform windows --node-runtime (Get-Command node).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $zip = "dist/Codewhale-Computer-Use-$version-windows-x64-preview.zip"
+          Compress-Archive -Path 'dist/windows/Codewhale Computer Use' -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $zip -Leaf)" | Set-Content dist/SHA256SUMS-windows.txt
+          @{ version=$version; source=$env:GITHUB_SHA; platform='windows-x64'; signed=$false; node=(node --version) } | ConvertTo-Json | Set-Content dist/windows-preview.json
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: windows-preview
+          path: |
+            dist/*-windows-x64-preview.zip
+            dist/SHA256SUMS-windows.txt
+            dist/windows-preview.json
+          if-no-files-found: error
 
 # Signed release qualification is a separate macOS operation using an
 # existing notary profile: scripts/package-macos.mjs. This job never publishes.

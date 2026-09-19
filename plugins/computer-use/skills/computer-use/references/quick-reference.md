@@ -83,8 +83,8 @@ Type into the document body:
 
 Close a window without borrowing focus:
 1. Press the window's close-button element (`click` on the window's
-   `AXButton`), or use `key cmd+w` (which borrows focus briefly and says so:
-   `front_lease` / `front_restored`).
+   `AXButton`), or use an available `invoke_menu` close action. Modified keys
+   refuse in background mode because they need keyboard focus.
 
 Fill and submit a web form (CDP, no pixels):
 1. `browser {action:"start", url:"https://…"}`

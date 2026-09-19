@@ -13,7 +13,6 @@ import * as consent from "../src/consent.mjs";
 import { dockerAvailable } from "../src/spawn.mjs";
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
-const DARWIN = { skip: process.platform !== "darwin" };
 const DOCKER = await dockerAvailable();
 const NEED_DOCKER = { skip: !DOCKER && "docker daemon not available" };
 
@@ -137,7 +136,7 @@ async function boot(t, env = {}) {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-consent-srv-"));
   const recDir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-consent-rec-"));
   const child = spawn("node", [path.join(ROOT, "mcp", "server.mjs")], {
-    env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: recDir, CODEWHALE_CU_APP: "off", ...env },
+    env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: recDir, CODEWHALE_CU_APP: "off", CODEWHALE_CU_TEST_BACKEND: path.join(ROOT, "tests", "fixtures", "fake-backend.mjs"), ...env },
     stdio: ["pipe", "pipe", "pipe"],
   });
   t.after(() => { try { child.stdin.end(); } catch {} child.kill("SIGTERM"); fs.rmSync(stateDir, { recursive: true, force: true }); fs.rmSync(recDir, { recursive: true, force: true }); });
@@ -167,9 +166,9 @@ async function boot(t, env = {}) {
   return { rpc, tool, stateDir };
 }
 
-test("first app contact refuses consent_required before any backend work", DARWIN, async (t) => {
+test("first app contact refuses consent_required before any backend work", async (t) => {
   const s = await boot(t);
-  const r = await s.tool("open_application", { name: "Calculator" });
+  const r = await s.tool("open_application", { name: "FakeApp" });
   assert.equal(r.ok, false);
   assert.equal(r.error.code, "consent_required");
   assert.match(r.error.message, /consent \{action:"allow"\|"deny"/);
@@ -178,44 +177,40 @@ test("first app contact refuses consent_required before any backend work", DARWI
   assert.deepEqual(st.apps, {});
 });
 
-test("a deny cannot be sidestepped by re-spelling the same app", DARWIN, async (t) => {
+test("a deny cannot be sidestepped by re-spelling the same app", async (t) => {
   const s = await boot(t);
-  // Calculator must be running for identity resolution to widen the deny.
-  await s.tool("consent", { action: "allow", app: "Calculator" });
-  const opened = await s.tool("open_application", { name: "Calculator" });
+  // The recording backend resolves the alias without opening a real app.
+  await s.tool("consent", { action: "allow", app: "FakeApp" });
+  const opened = await s.tool("open_application", { name: "FakeApp" });
   assert.equal(opened.ok, true);
-  const denied = await s.tool("consent", { action: "deny", app: "Calculator" });
+  const denied = await s.tool("consent", { action: "deny", app: "FakeApp" });
   assert.equal(denied.ok, true);
   assert.equal(denied.decision, "deny");
-  for (const args of [{ name: "Calculator" }, { bundle_id: "com.apple.calculator" }, { name: "Calculator.app" }]) {
+  for (const args of [{ name: "FakeApp" }, { bundle_id: "com.fake.app" }, { name: "FakeApp.app" }]) {
     const r = await s.tool("open_application", args);
     assert.equal(r.error?.code, "app_denied", JSON.stringify(args));
   }
   // A destructive tool honors the same deny — it cannot terminate the app.
-  const kill = await s.tool("kill_app", { name: "Calculator" });
+  const kill = await s.tool("kill_app", { name: "FakeApp" });
   assert.equal(kill.error?.code, "app_denied");
-  // Re-allow so cleanup can quit what the test launched.
-  await s.tool("consent", { action: "allow", app: "Calculator" });
-  await s.tool("kill_app", { name: "Calculator" });
 });
 
-test("allow opens; activate:true is a separate foreground consent", DARWIN, async (t) => {
+test("allow opens; activate:true is a separate foreground consent", async (t) => {
   const s = await boot(t);
-  await s.tool("consent", { action: "allow", app: "Calculator" });
-  const fg = await s.tool("open_application", { name: "Calculator", activate: true });
+  await s.tool("consent", { action: "allow", app: "FakeApp" });
+  const fg = await s.tool("open_application", { name: "FakeApp", activate: true });
   assert.equal(fg.error?.code, "foreground_consent_required");
   const deniedFg = await s.tool("consent", { action: "deny", scope: "foreground" });
   assert.equal(deniedFg.scope, "foreground");
-  const again = await s.tool("open_application", { name: "Calculator", activate: true });
+  const again = await s.tool("open_application", { name: "FakeApp", activate: true });
   assert.equal(again.error?.code, "foreground_denied");
   await s.tool("consent", { action: "allow", scope: "foreground" });
-  const opened = await s.tool("open_application", { name: "Calculator", activate: true });
+  const opened = await s.tool("open_application", { name: "FakeApp", activate: true });
   assert.equal(opened.ok, true);
   assert.equal(opened.shared_pointer, true);
   // Background re-open needs no foreground consent — the bound app carries it.
-  const bg = await s.tool("open_application", { name: "Calculator", activate: false });
+  const bg = await s.tool("open_application", { name: "FakeApp", activate: false });
   assert.equal(bg.ok, true);
-  await s.tool("kill_app", { name: "Calculator" });
 });
 
 test("foreground consent gates activate:true on every local platform, not just macOS", async (t) => {
@@ -229,7 +224,7 @@ test("foreground consent gates activate:true on every local platform, not just m
   assert.equal(opened.shared_pointer, true);
 });
 
-test("remember:true persists; consent status shows the ledger", DARWIN, async (t) => {
+test("remember:true persists; consent status shows the ledger", async (t) => {
   const s = await boot(t);
   const r = await s.tool("consent", { action: "allow", app: "Finder", remember: true });
   assert.equal(r.persisted, true);

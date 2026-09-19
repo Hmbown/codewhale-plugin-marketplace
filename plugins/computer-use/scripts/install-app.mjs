@@ -14,6 +14,7 @@
 // Usage: node scripts/install-app.mjs [--dist <dir>] [--login] [--no-open] [--remove]
 import fs from "node:fs";
 import os from "node:os";
+import crypto from "node:crypto";
 import path from "node:path";
 import url from "node:url";
 import { spawn, spawnSync } from "node:child_process";
@@ -144,11 +145,13 @@ function winPaths() {
   };
 }
 function winShortcut(lnk, dest) {
-  const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut(${JSON.stringify(lnk)})
+  const literal = value => "'" + value.replace(/'/g, "''") + "'";
+  const ps = `$ErrorActionPreference = 'Stop'
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut(${literal(lnk)})
 $s.TargetPath = "powershell.exe"
-$s.Arguments = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${dest.replace(/'/g, "''")}\\launch.ps1"'
-$s.WorkingDirectory = ${JSON.stringify(dest)}
-$s.IconLocation = ${JSON.stringify(path.join(dest, "icon.ico"))}
+$s.Arguments = ${literal('-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + path.join(dest, "launch.ps1") + '"')}
+$s.WorkingDirectory = ${literal(dest)}
+$s.IconLocation = ${literal(path.join(dest, "icon.ico"))}
 $s.Description = "${APP_NAME}"
 $s.Save()`;
   const r = sh("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps]);
@@ -159,14 +162,29 @@ function installWindows({ dist, login }) {
   if (!fs.existsSync(path.join(src, "launch.ps1"))) throw new Error(`no built app at ${src}; run "npm run build:app" first`);
   const p = winPaths();
   assertOurs(p.dest, path.join("plugin", "app", "daemon.mjs"));
-  fs.rmSync(p.dest, { recursive: true, force: true });
-  fs.cpSync(src, p.dest, { recursive: true });
-  pinNode(path.join(p.dest, "node-path"));
+  // Stage all bytes before moving the existing install; a copy/rename failure
+  // leaves the old installation recoverable, including on a locked Windows path.
+  fs.mkdirSync(path.dirname(p.dest), { recursive: true });
+  const staging = fs.mkdtempSync(path.join(path.dirname(p.dest), ".codewhale-cu-stage-"));
+  const staged = path.join(staging, WIN_DIR);
+  let backup = null;
+  try {
+    fs.cpSync(src, staged, { recursive: true });
+    if (!fs.existsSync(path.join(staged, "node.exe"))) pinNode(path.join(staged, "node-path"));
+    if (fs.existsSync(p.dest)) {
+      const backups = path.join(path.dirname(p.dest), ".codewhale-cu-backups");
+      fs.mkdirSync(backups, { recursive: true });
+      backup = path.join(backups, `${Date.now()}-${crypto.randomUUID()}`);
+      fs.renameSync(p.dest, backup);
+    }
+    try { fs.renameSync(staged, p.dest); }
+    catch (error) { if (backup) fs.renameSync(backup, p.dest); throw error; }
+  } finally { fs.rmSync(staging, { recursive: true, force: true }); }
   fs.mkdirSync(path.dirname(p.shortcut), { recursive: true });
   winShortcut(p.shortcut, p.dest);
   const extras = [p.shortcut];
   if (login) { fs.mkdirSync(path.dirname(p.startup), { recursive: true }); winShortcut(p.startup, p.dest); extras.push(p.startup); }
-  return { path: p.dest, launch: defaultLaunch(p.dest, "win32"), extras };
+  return { path: p.dest, launch: defaultLaunch(p.dest, "win32"), backup, extras };
 }
 function removeWindows() {
   const p = winPaths();

@@ -108,20 +108,14 @@ static void cuWaitForLease(void) {
 }
 
 /**
- * Window-routed background pointer.
- *
- * Process-directed mouse events (CGEventPostToPid) never reach AppKit views,
- * and posting to the HID tap moves the user's real cursor. The route that
- * delivers is the WindowServer's event-record channel: a CGEvent carrying the
- * target window's id (fields 0x33/0x5b/0x5c) plus a window-space location is
- * posted as its raw event record via SLPSPostEventRecordTo. AppKit only
- * dispatches mouse events to views whose window holds key status, so a
- * hand-built window-focus record is posted first — the target app never
- * becomes frontmost, the menu bar never flickers, Chromium's accessibility
- * tree is not torn down, and the operator's keystrokes stay theirs. The real
- * cursor never moves, so receipts can say pointer_moved:false,
- * front_lease:false.
+ * Window-routed events require exclusive foreground control. Addressing a
+ * window avoids cursor movement but its key-window lease redirects the
+ * person's keyboard. It must never be used as a background fallback.
  */
+static void cuRequireFocusControl(NSDictionary *args) {
+  if(![args[@"foreground_input"] boolValue])
+    @throw [NSException exceptionWithName:@"background_focus_required" reason:@"background_focus_required: this action requires keyboard focus; no input was sent. Use accessibility, browser control, or a separate computer." userInfo:nil];
+}
 typedef OSStatus (*cuGetFrontFn)(ProcessSerialNumber *);
 typedef OSStatus (*cuGetPSNFn)(pid_t, ProcessSerialNumber *);
 typedef OSStatus (*cuSetFrontFn)(ProcessSerialNumber *, uint32_t, uint32_t);
@@ -253,6 +247,7 @@ static double cuYieldToUser(NSDictionary *args) {
   }
 }
 static BOOL cuBgLeaseBegin(NSRunningApplication *inputApp, uint32_t winNum, BOOL swap, NSDictionary *args, cuBgLease *lease, NSString **why) {
+  cuRequireFocusControl(args);
   lease->targetPid = inputApp.processIdentifier;
   lease->swapped = NO;
   lease->t0 = lease->idleBefore = lease->idleAfter = lease->leaseMs = lease->yieldMs = 0;
@@ -1008,7 +1003,8 @@ static NSDictionary *cuType(NSDictionary *args, NSRunningApplication *inputApp, 
   // grapheme and loses 🐳. The window-record channel delivers the real event
   // instead. The trigger is the text, not an occlusion guess: if the string
   // carries any multi-unit grapheme, the whole stream rides the record
-  // channel under one lease; a refused lease falls back to process posting.
+  // channel under one lease. Background mode refuses that lease before input;
+  // it cannot promise reliable astral text delivery through a focus swap.
   uint32_t typeWin = 0;
   CGRect typeFrame = CGRectZero;
   pid_t typeOwner = 0;
@@ -1099,8 +1095,9 @@ static NSDictionary *windowAtPoint(NSArray *windows, CGPoint p) {
 
 static id execute(NSDictionary *p) {
   NSString *tool=p[@"tool"]; NSDictionary *args=p[@"args"]?:@{};
-  if([tool isEqual:@"pointer_sequence"] && ![args[@"foreground_input"] boolValue] && ![args[@"app_scoped"] boolValue])
-    @throw [NSException exceptionWithName:@"shared_pointer_required" reason:@"shared macOS pointer input is unavailable in background mode; use an accessibility action, strategy 'app' for a click inside the bound window, or a separate computer" userInfo:nil];
+  if([@[@"bg_key",@"bg_pointer"] containsObject:tool] || ([tool isEqual:@"pointer_sequence"] && [args[@"app_scoped"] boolValue])) cuRequireFocusControl(args);
+  if([tool isEqual:@"pointer_sequence"] && ![args[@"foreground_input"] boolValue])
+    @throw [NSException exceptionWithName:@"shared_pointer_required" reason:@"shared macOS pointer input is unavailable in background mode; use an accessibility action or a separate computer" userInfo:nil];
   cuOwnerPipe=[args[@"owner_pipe"] boolValue];
   BOOL mutates=[@[@"type",@"key_event",@"bg_key",@"mouse_event",@"scroll",@"pointer_sequence",@"bg_pointer",@"release_input",@"set_value",@"focus_element",@"select_text",@"perform_action",@"click_element",@"scroll_element"] containsObject:tool]
     || ([tool isEqual:@"hit_test"] && [args[@"perform"] boolValue])
@@ -1123,7 +1120,7 @@ static id execute(NSDictionary *p) {
     return cuPostKey(args,[args[@"input_app_ref"][@"pid"] intValue]);
   }
   cuCheckCancelled();
-  if([tool isEqual:@"input_capabilities"]) return @{@"input_lease":@1,@"owner_pipe":@YES,@"record_owner_pipe":@1,@"window_ocr":@1,@"element_identity":@1,@"background_actions":@1,@"window_record":@(cuResolveBgPointer()?1:0)};
+  if([tool isEqual:@"input_capabilities"]) return @{@"input_lease":@1,@"owner_pipe":@YES,@"record_owner_pipe":@1,@"window_ocr":@1,@"element_identity":@1,@"background_actions":@1,@"background_focus_guard":@1,@"window_record":@(cuResolveBgPointer()?1:0)};
   if([tool isEqual:@"front_lease_watchdog"]) {
     long long remaining = [args[@"deadline"] longLongValue] - (long long)([NSDate new].timeIntervalSince1970 * 1000);
     if(remaining > 0 && remaining < 30000) usleep((useconds_t)remaining * 1000);
@@ -1135,6 +1132,7 @@ static id execute(NSDictionary *p) {
   if([tool isEqual:@"record"]) return cuRecord(args);
   if([tool isEqual:@"recognize_text"]) return cuRecognizeText(args[@"file"]);
 #ifdef CU_TEST
+  if([tool isEqual:@"inspect_focus_control"]) { cuRequireFocusControl(args); return @{@"allowed":@YES}; }
   if([tool isEqual:@"inspect_user_yield"]) {
     cuTestIdleSeconds=args[@"idle_seconds"];
     if([args[@"cancelled"] boolValue]) cuCancelled=1;

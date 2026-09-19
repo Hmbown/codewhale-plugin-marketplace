@@ -123,6 +123,7 @@ const MOUSE_MOVED = 5;
  */
 export function nativeErrorCode(message) {
   const m = String(message ?? "");
+  if (/^background_focus_required:/.test(m)) return "background_focus_required";
   if (/^user_busy:/.test(m)) return "user_busy";
   if (/ambiguous/i.test(m)) return "window_ambiguous";
   if (/not capturable/i.test(m)) return "window_not_capturable";
@@ -256,10 +257,20 @@ export function create({ exec }) {
     return helper;
   }
 
+  function requireFocusControl() {
+    if (!state.foregroundInput) throw Object.assign(new ExecError("This action would take keyboard focus and was not sent in background mode. Use an accessibility action, browser control, or a separate computer."), { code: "background_focus_required" });
+  }
+
   async function native(tool, args = {}) {
+    // Window-addressed events still borrow keyboard focus. Block before even
+    // starting an older installed helper, including the app-scoped fallback.
+    if (["bg_pointer", "bg_key"].includes(tool) || (tool === "pointer_sequence" && args.app_scoped)) requireFocusControl();
     // Every resolved target (element center or screen point) is where the
     // action lands; tracking it here means the preview cursor follows element
     // actions, not just raw pointer events.
+    if (tool === "type" && !state.foregroundInput && (await native("input_capabilities"))?.background_focus_guard !== 1) {
+      throw Object.assign(new ExecError("Update the Computer Use helper before background typing; this helper may borrow keyboard focus."), { code: "app_upgrade_required" });
+    }
     const t = args?.target;
     if (t && Number.isFinite(t.x) && Number.isFinite(t.y)) state.pointer = { x: t.x, y: t.y };
     if (tool === "bg_pointer") {
@@ -1117,35 +1128,9 @@ export function create({ exec }) {
     key: async ({ text, repeat = 1, target } = {}) => {
       const { flags, code, key } = parseChord(text);
       const n = Math.max(1, Math.min(100, repeat));
-      // A chorded press is usually aimed at the menu system (cmd+w,
-      // cmd+shift+g, …), and key equivalents only validate against a key
-      // window. A process-bound event without one is discarded silently —
-      // the receipt would still say action_sent. In background mode the
-      // window-record route supplies a momentary key window, so flagged
-      // chords go through it when the helper supports it. An element target
-      // names the window to post into — hosted panels (native file pickers)
-      // consume their equivalents in the service that owns the window, never
-      // in the bound app.
-      if ((flags !== 0 || target != null) && !state.foregroundInput && (await native("input_capabilities"))?.window_record === 1) {
-        try {
-          let last;
-          for (let i = 0; i < n; i++) {
-            last = await native("bg_key", { code, flags, ...(target ? { target } : {}) });
-            if (i < n - 1) await wait(30);
-          }
-          return { action_sent: true, key, code, keyboard_delivery: "window-record", input_scope: "application-window",
-                   front_lease: last?.front_lease === true, repeat: n, ...leaseAccounting(last),
-                   ...(last?.window_owner_pid != null ? { window_owner_pid: last.window_owner_pid } : {}),
-                   ...(last?.window_role ? { window_role: last.window_role } : {}),
-                   ...(typeof last?.front_restored === "boolean" ? { front_restored: last.front_restored } : {}),
-                   ...(last?.front_restored === false ? { note: "the momentary window-record lease did not hand the user's foreground back; their next keystrokes may land in this app. Tell the user." } : {}) };
-        } catch (error) {
-          // No focused window or a refused lease: the key cannot reach the
-          // menu system this way either. Fall through to process delivery
-          // and say plainly in the receipt what was actually sent.
-          if (!/no focused window|window-routed background keys|bg_dispatch|no longer available/.test(error.message)) throw error;
-        }
-      }
+      // Modified and window-targeted keys need a key window. Background
+      // mode must never make one by borrowing the user's keyboard focus.
+      if (flags !== 0 || target != null) requireFocusControl();
       let yieldMs = 0;
       for (let i = 0; i < n; i++) {
         const press = await withPressedKey(code, flags, () => {});
@@ -1158,6 +1143,7 @@ export function create({ exec }) {
     },
     hold_key: async ({ text, duration } = {}) => {
       const { flags, code, key } = parseChord(text);
+      if (flags !== 0) requireFocusControl();
       const d = Math.max(0.05, Math.min(30, Number(duration) || 1));
       const press = await withPressedKey(code, flags, () => wait(d * 1000));
       return { action_sent: true, key, keyboard_delivery: state.foregroundInput ? "foreground-guarded" : "process", heldSec: d,
@@ -1174,6 +1160,7 @@ export function create({ exec }) {
         // value proven rather than asserted.
         if (!/web area/i.test(error.message)) throw error;
         if (args.target?.type !== "element") throw error;
+        requireFocusControl();
         const value = String(args.value ?? "");
         await native("focus_element", { target: args.target });
         // cmd+a through the record channel: menu key equivalents only

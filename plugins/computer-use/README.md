@@ -15,12 +15,11 @@ menu-bar app.
 
 - **Set up once.** See Accessibility and Screen Recording status, open the
   right Settings pane, then run a check in a disposable practice window.
-- **Keep working.** macOS selects apps in background mode by default. Clicks,
-  drags and scrolls reach the selected app's windows without moving the
-  user's cursor (a momentary no-raise front lease is reported in every
-  receipt); only hover and held-button gestures still need foreground
-  control, chosen with the user's authorization. Background support varies
-  by application.
+- **Keep working.** macOS selects apps in background mode by default.
+  Accessibility actions and process-directed typing remain available. Actions
+  that need a keyboard-focus lease refuse before delivery; use browser
+  control or a separate computer for those tasks. Shared-desktop control
+  requires the user's explicit authorization and interrupts concurrent use.
 - **Stay in control.** See selected apps and their input modes. Pause cancels
   queued work and releases held input; Stop ends existing sessions. Only the
   person using the menu-bar controls can allow input again.
@@ -316,7 +315,8 @@ computers are exempt (a task-owned desktop holds nothing of the user's);
 remote computers are covered by their transport's trust; `app_script` keeps
 macOS's own Automation consent.
 
-Whenever a shared surface is taken — a front lease for window-record input,
+In explicitly authorized foreground mode, whenever a shared surface is taken —
+a front lease for window-record input,
 a real-pointer gesture, foreground keys, or an activation — the helper waits
 for a gap in the user's hardware input first (bounded, ~450 ms gap within a
 2.5 s window by default; `CODEWHALE_CU_YIELD_GAP_MS` /
@@ -491,10 +491,10 @@ recorder.
 
 ## Verification status
 
-**Source (this snapshot).** `npm test` is green on macOS: 334 tests, 319
-passed, 0 failed, 15 platform skips (per-release counts ride with the
+**Source (this snapshot).** `npm test` is green on macOS: 381 tests, 364
+passed, 0 failed, 17 platform skips (per-release counts ride with the
 [release notes](CHANGELOG.md)). The GitHub Actions workflow runs the same
-suite plus the receipt hygiene check on macOS and Ubuntu runners. Source
+suite plus the receipt hygiene check on macOS, Ubuntu and Windows runners. Source
 tests exercise the protocol, routing, session and injected-runner paths;
 they perform no native input and do not qualify a distributed app.
 

@@ -131,9 +131,9 @@ test("build-app produces every platform layout with a complete runtime copy", as
       checkSignatures();
     }
     assert.match(fs.readFileSync(path.join(mac, "Info.plist"), "utf8"), /<string>net\.codewhale\.computer-use<\/string>/);
-    assert.ok(fs.statSync(path.join(mac, "MacOS", "codewhale-cu")).mode & 0o111, "mac launcher is executable");
+    if (process.platform !== "win32") assert.ok(fs.statSync(path.join(mac, "MacOS", "codewhale-cu")).mode & 0o111, "mac launcher is executable");
     assert.ok(fs.existsSync(path.join(mac, "Resources", "AppIcon.icns")));
-    assert.ok(fs.statSync(path.join(built.linux, "bin", "codewhale-computer-use")).mode & 0o111, "linux launcher is executable");
+    if (process.platform !== "win32") assert.ok(fs.statSync(path.join(built.linux, "bin", "codewhale-computer-use")).mode & 0o111, "linux launcher is executable");
     const desktop = fs.readFileSync(path.join(built.linux, "share", "applications", "net.codewhale.computer-use.desktop"), "utf8");
     assert.match(desktop, /^Icon=net\.codewhale\.computer-use$/m);
     assert.ok(fs.existsSync(path.join(built.linux, "share", "icons", "hicolor", "256x256", "apps", "net.codewhale.computer-use.png")));

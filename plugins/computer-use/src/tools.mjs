@@ -363,7 +363,7 @@ export const TOOLS = [
     inputSchema: { type: "object", required: ["action"], properties: { action: { enum: ["move", "down", "up"] }, target: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "left_click", description: "Left-click a coordinate (pixels in the latest raster) or perform the element's press action. macOS background mode presses via accessibility first; a point with no pressable element is delivered through the window-record route (genuine mouse events, cursor untouched, momentary no-raise front lease reported as front_lease).",
+    name: "left_click", description: "Left-click a coordinate (pixels in the latest raster) or perform an element's press action. macOS background mode uses accessibility and refuses fallbacks that require keyboard focus.",
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, strategy: strategyParam, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -387,7 +387,7 @@ export const TOOLS = [
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "left_click_drag", description: "Press at from_target, move in steps, release at `to`. macOS background mode delivers the gesture through the window-record route (strategy \"window-record\"): AppKit receives genuine mouse events, the real cursor never moves, and a momentary no-raise front lease is taken and restored (reported as front_lease).",
+    name: "left_click_drag", description: "Press at from_target, move in steps, release at to. macOS requires explicit foreground control; background mode refuses because window-routed events still take keyboard focus.",
     inputSchema: { type: "object", required: ["from_target", "to"], properties: { from_target: targetSchema, to: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -399,7 +399,7 @@ export const TOOLS = [
     inputSchema: { type: "object", properties: { target: targetSchema, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "scroll", description: "Scroll up/down/left/right at a target. macOS background mode uses the target's accessibility scrollbar without moving the cursor; amount counts native increments or 5% normalized steps, named in the receipt. Where no AX scrollbar exists (overlay scrollers, web pages) wheel events are delivered through the window-record route (strategy \"window-record\", a momentary no-raise front lease, cursor untouched). Other raw routes use lines/notches. Prefer an observed scroll-area element.",
+    name: "scroll", description: "Scroll up/down/left/right at a target. macOS background mode uses accessibility scrollbars; amount counts native increments or 5% normalized steps, named in the receipt. It refuses wheel-event fallbacks that take focus. Other raw routes use lines/notches. Prefer an observed scroll-area element.",
     inputSchema: { type: "object", required: ["target"], properties: { target: targetSchema, direction: { enum: ["up", "down", "left", "right"] }, amount: { type: "integer", minimum: 1, maximum: 100 }, computer: computerParam }, additionalProperties: false },
   },
   // ---- text & keyboard ----
@@ -408,7 +408,7 @@ export const TOOLS = [
     inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, press_enter: { type: "boolean", description: "After typing, press Return/Enter once. Prefer this to putting a newline in `text` when you want to send." }, target: { ...elementTargetSchema, description: "Element target from get_app_state; it is accessibility-focused first, then the text is typed. Element targets only." }, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "key", description: "Press a named key or chord. Examples: return, enter, backspace, tab, escape, cmd+c (macOS), ctrl+c (Linux/Windows). This is the key-press tool; type() cannot send modifiers or Return by itself except via newlines/press_enter. Repeat with `repeat`. Pass an element `target` to accessibility-focus it first. `duration` holds the key instead of tapping (hold_key semantics) and cannot be combined with repeat or target.",
+    name: "key", description: "Press a named key or chord. Examples: return, enter, backspace, tab, escape, cmd+c (macOS), ctrl+c (Linux/Windows). This is the key-press tool; type() cannot send modifiers or Return by itself except via newlines/press_enter. macOS background mode refuses modified or window-targeted keys that need keyboard focus; prefer invoke_menu. Repeat with `repeat`. Pass an element `target` to accessibility-focus it first. `duration` holds the key instead of tapping (hold_key semantics) and cannot be combined with repeat or target.",
     inputSchema: { type: "object", required: ["text"], properties: { text: { type: "string" }, repeat: { type: "integer", minimum: 1, maximum: 100 }, duration: { type: "number", minimum: 0.05, maximum: 30, description: "Hold the key for this many seconds instead of tapping." }, target: { ...elementTargetSchema, description: "Element target from get_app_state; it is accessibility-focused first, then the key is sent. Element targets only." }, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -416,7 +416,7 @@ export const TOOLS = [
     inputSchema: { type: "object", required: ["text", "duration"], properties: { text: { type: "string" }, duration: { type: "number", minimum: 0.05, maximum: 30 }, computer: computerParam }, additionalProperties: false },
   },
   {
-    name: "set_value", description: "Set an editable element's value. Native controls take a background-safe AXValue write with read-back verify; web-area elements take the replacement path (focus, select-all through the window-record channel, type, read-back verify) because Chromium silently no-ops direct AXValue writes. Element targets only.",
+    name: "set_value", description: "Set an editable element's value with readback verification. On macOS native controls use AXValue; web-area replacement requires foreground control and refuses in background mode. Prefer browser control for web fields. Element targets only.",
     inputSchema: { type: "object", required: ["target", "value"], properties: { target: elementTargetSchema, value: { type: "string" }, computer: computerParam }, additionalProperties: false },
   },
   {

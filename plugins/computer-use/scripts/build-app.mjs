@@ -244,9 +244,10 @@ $ErrorActionPreference = "Stop"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LogDir = Join-Path $env:LOCALAPPDATA "${APP_NAME}"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-$Node = $null
+$Node = Join-Path $Here "node.exe"
+if (-not (Test-Path $Node)) { $Node = $null }
 $Pinned = Join-Path $Here "node-path"
-if (Test-Path $Pinned) { $Node = (Get-Content $Pinned -Raw).Trim() }
+if (-not $Node -and (Test-Path $Pinned)) { $Node = (Get-Content $Pinned -Raw).Trim() }
 if (-not $Node -or -not (Test-Path $Node)) {
   $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
   if ($cmd) { $Node = $cmd.Source }
@@ -273,7 +274,7 @@ rem ${APP_NAME} — double-click to start the app (hidden).
 powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0launch.ps1"
 `;
 
-export function buildWindows(out) {
+export function buildWindows(out, { nodeRuntime } = {}) {
   const dir = path.join(out, "windows", WIN_DIR);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
@@ -281,6 +282,18 @@ export function buildWindows(out) {
   fs.writeFileSync(path.join(dir, `${APP_NAME}.cmd`), WIN_CMD);
   fs.copyFileSync(path.join(ROOT, "assets", "icon.ico"), path.join(dir, "icon.ico"));
   copyRuntime(path.join(dir, "plugin"));
+  if (nodeRuntime) {
+    const runtime = path.resolve(nodeRuntime);
+    const header = fs.openSync(runtime, "r");
+    const magic = Buffer.alloc(2);
+    try { fs.readSync(header, magic, 0, 2, 0); } finally { fs.closeSync(header); }
+    if (magic.toString() !== "MZ") throw new Error("Windows bundle needs a Windows node.exe runtime");
+    if (process.platform === "win32") {
+      const version = spawnSync(runtime, ["-p", "process.versions.node"], { encoding: "utf8" });
+      if (version.status !== 0 || Number.parseInt(version.stdout, 10) < 22) throw new Error("Windows bundled Node must be 22 or newer for browser control");
+    }
+    fs.copyFileSync(runtime, path.join(dir, "node.exe"));
+  }
   return dir;
 }
 
@@ -298,7 +311,7 @@ export function buildApp({ out = path.join(ROOT, "dist"), platform = "all", rebu
   const built = {};
   if (platform === "all" || platform === "macos") built.macos = buildMac(out, { rebuildLauncher, nodeRuntime });
   if (platform === "all" || platform === "linux") built.linux = buildLinux(out);
-  if (platform === "all" || platform === "windows") built.windows = buildWindows(out);
+  if (platform === "all" || platform === "windows") built.windows = buildWindows(out, { nodeRuntime });
   return built;
 }
 

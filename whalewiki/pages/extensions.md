@@ -14,7 +14,12 @@ for a quiet hardware-input window and refuses `user_busy` if the person
 remains active. Input arriving mid-action is still a documented limitation.
 
 The 0.11.2 patch fixes uninitialized typing receipts and includes the Docker
-build context in installed app bundles. Source tests and simulated clocks do
+build context in installed app bundles. The Windows hardening follow-up binds
+UIA actions to observed window/element identities, preserves screenshot origins
+and regions, repairs browser discovery, and supports a bundled Node runtime
+with staged, backup-preserving installs. Canonical Windows CI now runs both
+native input contracts and a controlled desktop acceptance check. Source tests
+and simulated clocks do
 not establish complete Codex parity, clean-machine acceptance, or production
 Linux/Windows readiness. The marketplace remains enabled on macOS only.
 
@@ -76,3 +81,5 @@ handoff and inspect the current validation receipt before publication.
 - `plugins/computer-use/docs/releases/0.6.0.json`: packaging and notarization receipt for the signed 0.6.0 macOS build.
 - `plugins/computer-use/CHANGELOG.md`: release record and open qualification gates.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
+
+The current macOS candidate refuses background actions that borrow keyboard focus, including raw pointer fallbacks and modified keys. Accessibility and browser control remain the preferred routes for concurrent use. Native sharing-picker integration and continuous keyboard coexistence qualification remain open.

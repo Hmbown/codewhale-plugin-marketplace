@@ -45,9 +45,9 @@ async function dockerOk(args, opts = {}) {
   return r;
 }
 
-export async function dockerAvailable() {
-  const r = await docker(["version", "--format", "{{.Server.Version}}"], { timeoutMs: 10_000 });
-  return r.code === 0;
+export async function dockerAvailable(command = docker) {
+  const r = await command(["info", "--format", "{{.OSType}}"], { timeoutMs: 10_000 });
+  return r.code === 0 && !r.timedOut && !r.aborted && r.stdout.trim() === "linux";
 }
 
 /**
@@ -74,7 +74,7 @@ async function ensureImage(image) {
  */
 export async function spawnDockerComputer({ id, image = DEFAULT_IMAGE } = {}) {
   if (!await dockerAvailable()) {
-    throw new SpawnError("docker_unavailable", "docker is not available — start Docker (or Colima) and spawn again");
+    throw new SpawnError("docker_unavailable", "A Linux Docker engine is required — start Docker Desktop in Linux-container mode (or Colima) and spawn again");
   }
   const { built } = await ensureImage(image);
   const container = `cu-spawn-${id}-${crypto.randomBytes(3).toString("hex")}`;

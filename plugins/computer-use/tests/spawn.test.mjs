@@ -193,3 +193,9 @@ test("server shutdown destroys session-owned spawned computers", NEED_DOCKER, as
   assert.notEqual(gone.code, 0, "session end reaps its spawned containers");
   containers.delete(s2.spawned.container);
 });
+
+test('disposable desktops require a live Linux Docker engine, including on Windows hosts', async () => {
+  for (const [response, expected] of [[{code:0,stdout:'linux\n'},true],[{code:0,stdout:'windows\n'},false],[{code:1,stdout:'linux'},false],[{code:0,stdout:'linux',timedOut:true},false],[{code:0,stdout:'linux',aborted:true},false]]) {
+    assert.equal(await spawnMod.dockerAvailable(async args => { assert.deepEqual(args,['info','--format','{{.OSType}}']); return response; }),expected);
+  }
+});

@@ -257,3 +257,50 @@ receipts belong in a public issue.
 | `npm run build:app` + `verify-bundle` | unavailable (codesign requires macOS) |
 | macOS permission flows | unavailable (no macOS host) |
 | Repository visibility / publish | not performed — human-only |
+
+## Windows qualification follow-up (0.11.2 source candidate)
+
+- Canonical CI includes Windows, including managed native input contracts and an
+  opt-in real WinForms observe/value/invoke/capture test on the disposable runner.
+- Semantic actions carry window and element runtime identities from observation;
+  first-child paths are traversed rather than skipped. Changed identities refuse
+  input. UIA ValuePattern reads are masked for password fields.
+- Capture preserves virtual-screen origins, honors display/region selection,
+  and rejects process failure or cancellation even if an old output file exists.
+- Browser discovery covers Chrome, Edge, Chromium and Brave vendor folders.
+- This is source qualification work. Earlier notarized macOS artifacts still
+  represent their recorded source revision; rebuild before publishing revised
+  source. No Windows signing, installed Engine, mixed-DPI, raw-input coexistence
+  or fresh-machine acceptance is implied by CI.
+
+## Native sharing-session UX requirement
+
+The macOS purple window-sharing pill is system UI. ScreenCaptureKit streams and
+SCContentSharingPicker provide native selection and sharing status; this is not
+proof of any particular OpenAI implementation. Codewhale currently uses
+ScreenCaptureKit for recording and separate still screenshots for ordinary
+observation; it does not yet use the native sharing picker for a control session.
+
+Acceptance for adopting that interaction: the user selects the app/window, the
+session visibly names that target, and Stop Sharing/window closure/revocation
+invalidates its capture handle and aborts queued and held input. Sharing grants
+observation scope; it does not replace separate input consent. A cosmetic status
+icon or an unrelated recording stream does not meet this requirement. Keep this
+inside the existing helper/session ownership path. Native-picker integration
+remains open and is not part of the Windows CI qualification claim.
+
+Reference: [Apple ScreenCaptureKit overview](https://developer.apple.com/videos/play/wwdc2023/10136/).
+
+## Keyboard coexistence release blocker (2026-09-19)
+
+The user reported keyboard takeover during concurrent use. Background
+window-record routes borrowed the front process, including Unicode typing and
+web replacement. Source now refuses these paths before focus/input; the native
+lease boundary independently enforces foreground authorization. Background
+text requires the new native guard capability, so older helpers fail closed.
+Routine consent tests use recording fixtures, never the user's Calculator.
+
+This source change does not update an already installed app. Rebuild and qualify
+the exact helper, synchronize the Engine embed, and verify continuous human
+keyboard ownership in an authorized isolated trial before claiming coexistence.
+The native sharing picker alone cannot supply input isolation.

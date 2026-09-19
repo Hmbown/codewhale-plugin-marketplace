@@ -1,0 +1,33 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { buildApp } from '../scripts/build-app.mjs';
+
+test('Windows package carries its own Node, installs with literal paths and retains the previous install', { skip: process.platform !== 'win32', timeout: 60_000 }, async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-package-O'Brien-$literal-"));
+  const previous = { LOCALAPPDATA: process.env.LOCALAPPDATA, APPDATA: process.env.APPDATA, CODEWHALE_CU_STATE_DIR: process.env.CODEWHALE_CU_STATE_DIR };
+  Object.assign(process.env, { LOCALAPPDATA: path.join(dir, 'Local'), APPDATA: path.join(dir, 'Roaming'), CODEWHALE_CU_STATE_DIR: path.join(dir, 'state') });
+  t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } fs.rmSync(dir, { recursive: true, force: true }); });
+  const built = buildApp({ platform: 'windows', out: dir, nodeRuntime: process.execPath });
+  assert.equal(fs.statSync(path.join(built.windows, 'node.exe')).size, fs.statSync(process.execPath).size);
+  const { installApp, removeApp } = await import('../scripts/install-app.mjs');
+  const first = await installApp({ dist: dir, open: false });
+  const marker = path.join(first.path, 'previous-build-marker'); fs.writeFileSync(marker, 'old build');
+  const second = await installApp({ dist: dir, open: false });
+  assert.equal(fs.readFileSync(path.join(second.backup, 'previous-build-marker'), 'utf8'), 'old build');
+  assert.equal(fs.existsSync(path.join(second.path, 'previous-build-marker')), false);
+  assert.equal(fs.existsSync(path.join(second.path, 'node-path')), false, 'bundled runtime wins over build-machine paths');
+  const encoded = Buffer.from(`$s=(New-Object -ComObject WScript.Shell).CreateShortcut('${second.extras[0].replace(/'/g,"''")}'); @{ dir=$s.WorkingDirectory; args=$s.Arguments } | ConvertTo-Json -Compress`, 'utf16le').toString('base64');
+  const shortcut = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {encoding:'utf8'});
+  assert.equal(shortcut.status, 0, shortcut.stderr);
+  const data = JSON.parse(shortcut.stdout); assert.equal(data.dir, second.path); assert.ok(data.args.includes(path.join(second.path, 'launch.ps1')));
+  const agent = spawnSync(path.join(second.path,'node.exe'), [path.join(second.pluginRoot,'agent.mjs'), Buffer.from(JSON.stringify({tool:'platform'})).toString('base64')], {encoding:'utf8'});
+  assert.equal(agent.status,0,agent.stderr); assert.equal(JSON.parse(agent.stdout).platform,'win32');
+  removeApp();
+  assert.equal(fs.existsSync(second.path),false);
+  assert.ok(fs.existsSync(second.backup),'removing current app must preserve rollback backup');
+});
