@@ -473,8 +473,8 @@
       "text": "cmd+shift+g",
       "target": {
        "element_match": {
-        "role": "AXTextField",
-        "subrole": "AXSearchField"
+        "role": "AXButton",
+        "label": "Cancel"
        }
       }
      }
@@ -502,8 +502,8 @@
         "text": "cmd+shift+g",
         "target": {
          "element_match": {
-          "role": "AXTextField",
-          "subrole": "AXSearchField"
+          "role": "AXButton",
+          "label": "Cancel"
          }
         }
        }

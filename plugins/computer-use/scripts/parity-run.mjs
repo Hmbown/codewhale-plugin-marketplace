@@ -625,7 +625,7 @@ async function main() {
   await desktop.start();
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const outDir = opt("--out") ?? path.join(ROOT, "receipts", "parity", `${process.platform}-${desktop.sessionType()}-${stamp}`);
+  const outDir = path.resolve(opt("--out") ?? path.join(ROOT, "receipts", "parity", `${process.platform}-${desktop.sessionType()}-${stamp}`));
   fs.mkdirSync(outDir, { recursive: true });
   const downloadDir = path.join(outDir, "downloads");
   fs.mkdirSync(downloadDir, { recursive: true });
