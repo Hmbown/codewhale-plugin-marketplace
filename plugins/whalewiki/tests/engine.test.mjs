@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -168,7 +168,7 @@ test("search ranks distinct coverage first and reports evidence and live drift",
   seal(repo);
   fs.writeFileSync(path.join(repo, 'whalewiki/pages/noise.md'), '# Noise\n' + 'engine\n'.repeat(100));
   const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e',
-    `import {searchWiki} from ${JSON.stringify(ENGINE)}; console.log(JSON.stringify(searchWiki('engine turns engine', ${JSON.stringify(path.join(repo,'whalewiki'))})));`], {encoding:'utf8'}));
+    `import {searchWiki} from ${JSON.stringify(pathToFileURL(ENGINE).href)}; console.log(JSON.stringify(searchWiki('engine turns engine', ${JSON.stringify(path.join(repo,'whalewiki'))})));`], {encoding:'utf8'}));
   assert.equal(result[0].page, 'pages/architecture.md');
   assert.equal(result[0].query_terms, 2);
   assert.equal(result[0].verdict, 'fresh');

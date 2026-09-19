@@ -121,3 +121,17 @@ packages or its own bundle checks.
 - An offline reader was exported and the desktop/mobile browser screenshots
   inspected. This is local source qualification; hosted CI and installed
   native-client acceptance remain separate evidence.
+
+### Hosted follow-up
+
+The first pushed revision `bda1cac` passed the full Linux and macOS jobs in
+[run 35442130719](https://github.com/Hmbown/codewhale-plugin-marketplace/actions/runs/35442130719).
+Windows caught an ESM import portability error in the new search regression
+(32 passed, one failed, six skipped in the WhaleWiki sub-suite). The test now
+uses a file URL; the local WhaleWiki recheck passed all 39 tests. This correction
+changes no packaged production bytes. Fresh hosted qualification follows the
+test-fix commit; the original Windows failure is retained as evidence.
+
+The public immutable archive at `bda1cac` was downloaded successfully and all
+five plugin identities and 47 skill-resource hashes verified. The source pin's
+Core commit publication is coordinated with the shared build owner.
