@@ -24,6 +24,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # Consent and lifecycle tests share this image. Keep cold construction
+      # outside their RPC deadlines and avoid concurrent first-use builds.
+      - name: Build Linux desktop test image
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: docker build -t codewhale-cu-linux -f docker/Dockerfile .
       - run: npm test
       - run: node scripts/check-receipts.mjs docs parity/results
 

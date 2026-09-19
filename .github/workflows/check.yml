@@ -25,6 +25,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm run check:wiki
+      - name: Build Linux desktop test image
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: docker build -t codewhale-cu-linux -f plugins/computer-use/docker/Dockerfile plugins/computer-use
       - run: npm test
       - run: npm run check:web
       - run: npm run package:plugin -- whalewiki
