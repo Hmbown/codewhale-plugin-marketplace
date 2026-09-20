@@ -689,24 +689,37 @@ print(json.dumps({"found": True, "reason": None, "element": {
       return { action_sent: true, key: k, heldSec: d };
     },
     set_value: async ({ target, value }) => {
-      const out = await atspiResolve(
-        target,
-        `    v = found.queryValue()
-    v.currentValue = float(extra)`,
-        value,
-      ).catch(async (e) => {
-        // Fall back to the Text interface for text-bearing widgets.
-        const out2 = await atspiResolve(
-          target,
-          `    t = found.queryText()
-    t.setTextContents(extra)`,
-          String(value),
-        );
-        if (!out2.ok) throw e;
-        return out2;
-      });
+      // Select a supported interface before sending input. A refused write or
+      // failed readback must never trigger a second, ambiguously applied edit.
+      const out = await atspiResolve(target, `    state = found.getState()
+    if not state.contains(pyatspi.STATE_ENABLED):
+        raise RuntimeError("element_disabled")
+    try:
+        editor = found.queryEditableText()
+    except NotImplementedError:
+        editor = None
+    if editor is not None:
+        if not state.contains(pyatspi.STATE_EDITABLE):
+            raise RuntimeError("element_read_only")
+        if not editor.setTextContents(extra):
+            raise RuntimeError("value_rejected")
+        text = found.queryText()
+        after = text.getText(0, text.characterCount)
+        if after != extra:
+            raise RuntimeError("value_verification_failed")
+    else:
+        import math
+        desired = float(extra)
+        if not math.isfinite(desired):
+            raise RuntimeError("invalid_value")
+        numeric = found.queryValue()
+        numeric.currentValue = desired
+        after = numeric.currentValue
+        if after != desired:
+            raise RuntimeError("value_verification_failed")
+    print(json.dumps({"ok": True, "after": after}))`, String(value));
       if (!out.ok) throw new ExecError(`set_value failed: ${out.code}`);
-      return { action_sent: true, strategy: "a11y" };
+      return { action_sent: true, strategy: "a11y", verified: true, after: out.after };
     },
     select_text: async () => { throw new ExecError("select_text is not implemented on the linux backend — fail-closed"); },
     perform_action: async ({ target, action }) => {
