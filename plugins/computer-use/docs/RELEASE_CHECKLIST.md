@@ -12,7 +12,23 @@ Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
 
-### 0.11.2 — candidate qualification, 2026-09-19
+### 0.11.2 — release qualification, 2026-09-19
+
+The publication pass includes macOS background-focus refusal, verified Linux
+semantic edits, orderly Docker restart, and Windows identity/input/packaging
+hardening. Exact source, hosted CI and signed asset hashes are recorded in the
+release assets. Windows is an unsigned experimental preview; no Windows
+production-readiness or full Codex parity claim is made.
+
+A real DeepSeek Engine trial observed, edited Unicode text, applied once and
+verified the isolated GTK result. Core checkpoint14c64b5bdc additionally stopped
+a pending write in0.373seconds, rejected a late approval, and reconnected after
+Runtime restart without replay. These are isolated Linux/checkpoint receipts,
+not physical Mac coexistence or final installed Core evidence. The final Core
+installation is a separately coordinated check.
+
+The older candidate qualification below is retained as historical evidence.
+
 
 - Local source suite: **358 passed, 0 failed, 15 platform skips**.
   After switching foreground revalidation to the existing live WindowServer
@@ -25,8 +41,8 @@ publication verdict.
 - Source version and all manifests are 0.11.2. The older local notarized
   0.11.1 candidate does not contain this source; never publish it as this fix.
 - Publication remains pending exact-source artifact/CI receipts and the
-  applicable human qualification below. The latest published installer at
-  this review is 0.6.0; no complete Codex parity is claimed.
+  applicable human qualification below. The latest published installer before this publication pass was 0.6.0;
+  no complete Codex parity is claimed.
 
 ### 0.6.0 — window-routed background pointer and web-area traversal
 

@@ -5,7 +5,13 @@
 
 # Computer Use
 
-**By Codewhale · macOS beta (notarized app and source) · Windows and Linux experimental, source only**
+**By Codewhale · macOS beta (notarized app and source) · Windows experimental unsigned preview · Linux experimental source/Docker**
+
+The [0.11.2 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.11.2)
+provides the notarized universal Mac app and an **unsigned Windows x64 preview**.
+The Windows ZIP bundles Node and includes setup instructions; it is intended
+for testing, with physical-device, mixed-DPI and signing acceptance still open.
+
 
 Let Codewhale see and operate your apps — through whichever interface fits
 each step: app scripting (AppleScript/JXA) where apps ship a dictionary,

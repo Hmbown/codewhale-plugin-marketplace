@@ -26,11 +26,13 @@ and simulated clocks do
 not establish complete Codex parity, clean-machine acceptance, or production
 Linux/Windows readiness. The marketplace remains enabled on macOS only.
 
-The published installer is still the notarized 0.6.0 build; 0.11.2 source is
-not a claim of a published 0.11.2 download. The [official setup page](https://codewhale.net/computer-use)
+The 0.11.2 release packages the notarized universal Mac app and an explicitly
+unsigned Windows x64 preview. Linux remains source/Docker-based. A source
+version alone does not establish download availability. The [official setup page](https://codewhale.net/computer-use)
 reports public download availability, and the [release checklist](../../plugins/computer-use/docs/RELEASE_CHECKLIST.md)
-records qualification and remaining installed-Engine, fresh-grant and upgrade
-checks. The existing Engine remains the session and model-loop authority.
+records qualification and remaining final-installed, fresh-grant and upgrade
+checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
+checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
 
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.

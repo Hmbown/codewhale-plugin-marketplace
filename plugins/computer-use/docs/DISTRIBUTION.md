@@ -73,8 +73,10 @@ that no code consumes. Keep the release draft until all four assets have
 uploaded. The website refreshes
 availability within five minutes of publication; no hard-coded website version
 needs to change. Packaging does not tag, publish, or change
-the separate Codewhale Engine release. Windows/Linux distribution remains
-source-based until those installers have their own device/signing receipts.
+the separate Codewhale Engine release. The same release may carry an explicitly named unsigned Windows x64 preview
+ZIP and its source/hash receipt. It is experimental, not a signed production
+installer. Linux remains source/Docker-based; physical-device and signing
+qualification are separate from source and CI checks.
 
 ## Installation and updates
 
