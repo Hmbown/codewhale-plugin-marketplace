@@ -14,7 +14,10 @@ for a quiet hardware-input window and refuses `user_busy` if the person
 remains active. Input arriving mid-action is still a documented limitation.
 
 The 0.11.2 patch fixes uninitialized typing receipts and includes the Docker
-build context in installed app bundles. The Windows hardening follow-up binds
+build context in installed app bundles. macOS background actions that require
+a focus lease now refuse before input instead of silently borrowing the user's
+keyboard focus. Linux semantic value edits choose the supported accessibility
+interface, verify readback, and do not retry a refused or uncertain write. The Windows hardening follow-up binds
 UIA actions to observed window/element identities, preserves screenshot origins
 and regions, repairs browser discovery, and supports a bundled Node runtime
 with staged, backup-preserving installs. Canonical Windows CI now runs both

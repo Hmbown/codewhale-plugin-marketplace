@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "4904bd725e9526325da204b2e123d0a6eded4573afefd449dca436ee9ba0b2ad",
+      "page_sha256": "5507fc2983db394632d3a90c9220ee28c6f424e2de762623a7a8c48fda9d89cf",
       "sources": [
         {
           "path": "marketplace.json",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "387a790c5141f2548aed74216998367db82f63e23f888093deb120cdc36ea604",
-          "bytes": 43106
+          "sha256": "aa0277d7ef44a25c4f6895475f67d784cd8cbbd8357a83276fa1e85647dcfd82",
+          "bytes": 43262
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -85,7 +85,7 @@
           "bytes": 10919
         }
       ],
-      "sealed_at": "2026-09-19T12:05:37.569Z"
+      "sealed_at": "2026-09-20T00:37:51.944Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -198,5 +198,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-19T12:05:37.569Z"
+  "updated_at": "2026-09-20T00:37:51.950Z"
 }
