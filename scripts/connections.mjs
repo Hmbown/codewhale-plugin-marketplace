@@ -15,10 +15,10 @@ if(command==='list') {
     if(c.status==='client-qualification-needed') {
       console.log('Setup is not qualified for Codewhale. No install command is offered.');
     } else if(c.auth==='oauth') {
-      console.log(`codewhale mcp add http ${c.id} ${c.url}\ncodewhale mcp login ${c.id}\ncodewhale mcp doctor\n\nRun these in your terminal. Verify a real read-only tool before calling the connection ready.`);
+      console.log(`codewhale mcp add ${c.id} --url ${c.url}\ncodewhale mcp login ${c.id}\ncodewhale doctor\n\nRun these in your terminal. Verify a real read-only tool before calling the connection ready.`);
     } else {
-      const config={mcpServers:{[c.id]:{type:'streamable-http',url:c.url,extensions:{'net.codewhale':{bearer_token_env_var:c.env}}}}};
-      console.log(`Set ${c.env} in the host environment, then merge this server entry into your existing MCP config (do not replace other entries):\n${JSON.stringify(config,null,2)}\ncodewhale mcp doctor`);
+      const config={servers:{[c.id]:{url:c.url,bearer_token_env_var:c.env}}};
+      console.log(`Set ${c.env} in the host environment, then merge this server entry into your existing MCP config (do not replace other entries):\n${JSON.stringify(config,null,2)}\ncodewhale doctor`);
     }
   }
 }
