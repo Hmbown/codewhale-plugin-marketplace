@@ -60,8 +60,10 @@ untrusted-content envelope whose markers carry a per-block random nonce. A
 per-origin decision in the side panel (defaulting to this browser session),
 Chrome's own optional host permission, a confirming click before any form
 submit, and a refusal to type into password, one-time-code or payment-card
-fields sit under that. Source tests cover the server, bridge and gates; no run
-against a live Chrome profile is recorded, so the extension half is
+fields sit under that. Source tests cover the server, bridge and gates, and a
+live test drives the unpacked extension in headless Chrome for Testing with a
+throwaway profile (the panel document opened as a tab). No run in a person's
+own Chrome profile or real side panel is recorded, so that half is still
 unqualified.
 
 Catalog artwork is inline PNG, bounded to

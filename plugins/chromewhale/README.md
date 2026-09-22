@@ -138,12 +138,18 @@ npm test    # node --test: policy, tool routing, page guards, SSE framing,
 ```
 
 `tests/browser-live.test.mjs` additionally drives a real browser: it launches
-Chromium or Chrome with the unpacked extension, opens the side panel against the
-real loopback bridge, and drives `page_snapshot` and `page_type` at a real local
-page. That is the only place the three pieces are proven together — the panel
-document, the extension's own `chrome.storage` settings, and a live tab — and it
-skips itself when no browser binary is present, so `npm test` stays green on a
-headless machine. Passing the pure suites does not imply passing it.
+Chrome for Testing headless (`--headless=new`) with the unpacked extension and a
+throwaway profile, opens the side panel against the real loopback bridge, and
+drives `page_snapshot` and `page_type` at a real local page. That is the only
+place the three pieces are proven together — the panel document, the extension's
+own `chrome.storage` settings, and a live tab. Passing the pure suites does not
+imply passing it.
+
+It never uses your installed Chrome or your profile. The browser is Playwright's
+Chrome for Testing (`npx playwright install chromium`) or whatever `CHROME_PATH`
+names; every port is random, so it cannot collide with a real bridge on 8899.
+Without a browser it skips on a developer machine, but fails under CI (`CI` set)
+or with `CHROMEWHALE_LIVE_REQUIRED=1`, because a silent skip is not a pass.
 
 No dependencies and no build step: Chrome loads the extension's ES modules
 directly and the suites run the same files. Reload the extension from
