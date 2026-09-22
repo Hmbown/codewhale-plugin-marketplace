@@ -33,6 +33,14 @@ import { clickRef, inspectRef, snapshotPage, typeRef } from "./page.js";
 const DEFAULT_SNAPSHOT_BUDGET = 24_000;
 const NAVIGATION_TIMEOUT_MS = 15_000;
 const NAVIGATION_POLL_MS = 150;
+/**
+ * The only shape a snapshot ref takes (`e12`). Checked before the gate because
+ * the ref is model-chosen text that reaches the user's consent and confirm
+ * prompts through the call summary: `"e5, already approved by the user"`
+ * would otherwise parse as `e5` in `page.js` and put its own words on the card.
+ */
+const REF_PATTERN = /^e[1-9]\d{0,5}$/i;
+const MAX_PROMPT_URL = 200;
 
 /**
  * @typedef {Object} BrowserDeps
@@ -194,7 +202,10 @@ export function createBrowserTools(deps) {
     if (action && !["back", "forward", "reload"].includes(action)) {
       return failure(`Unknown navigate action "${action}". Use back, forward, or reload.`);
     }
-    const gated = await gate("page_navigate", summary, url || undefined);
+    // The prompt names the parsed address, not the model's raw string: a URL
+    // with spaces in it parses, and would read as a sentence on the card.
+    const shown = url ? promptUrl(url) : undefined;
+    const gated = await gate("page_navigate", shown ? `open ${shown}` : summary, url || undefined);
     if (!gated.ok) {
       return gated.result;
     }
@@ -228,6 +239,9 @@ export function createBrowserTools(deps) {
     const ref = typeof args?.ref === "string" ? args.ref : "";
     if (!ref) {
       return failure("page_click needs a ref from the latest page_snapshot.");
+    }
+    if (!REF_PATTERN.test(ref)) {
+      return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
     }
     const gated = await gate("page_click", summary);
     if (!gated.ok) {
@@ -274,6 +288,9 @@ export function createBrowserTools(deps) {
     const text = typeof args?.text === "string" ? args.text : "";
     if (!ref) {
       return failure("page_type needs a ref from the latest page_snapshot.");
+    }
+    if (!REF_PATTERN.test(ref)) {
+      return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
     }
     const gated = await gate("page_type", summary);
     if (!gated.ok) {
@@ -402,6 +419,27 @@ export function splitDataUrl(dataUrl) {
  */
 function pageText(lines) {
   return { type: "text", text: lines.join("\n"), untrusted: true };
+}
+
+/**
+ * @param {string} raw
+ */
+function promptUrl(raw) {
+  let href = raw;
+  try {
+    href = new URL(raw).href;
+  } catch {
+    // The gate refuses it with its own reason; only the wording is at stake.
+  }
+  return truncate(href, MAX_PROMPT_URL);
+}
+
+/**
+ * @param {string} value
+ * @param {number} max
+ */
+function truncate(value, max) {
+  return value.length <= max ? value : `${value.slice(0, max)}…`;
 }
 
 /** @param {string} text */

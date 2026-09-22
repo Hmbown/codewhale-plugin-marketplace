@@ -373,7 +373,7 @@ function requestDecision(request) {
     detail.textContent =
       request.reason === "permission"
         ? `${request.origin} is allowed, but Chrome no longer holds access to it. Grant it again to continue.`
-        : `Codewhale wants to use ${request.tool} on ${request.origin}. Allowing lets it read and act on every page of that site while this panel is open. Submitting a form still asks each time.`;
+        : `Codewhale wants to use ${request.tool} on ${request.origin}. Allowing lets it read and act on every page of that site whenever this panel is open, until Chrome quits; "Always allow" keeps that after a restart. Submitting a form still asks each time.`;
     card.append(detail);
 
     const row = document.createElement("div");
