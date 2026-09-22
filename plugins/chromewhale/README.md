@@ -114,6 +114,14 @@ npm test    # node --test: policy, tool routing, page guards, SSE framing,
             # the bridge over real loopback HTTP, and the MCP server end to end
 ```
 
+`tests/browser-live.test.mjs` additionally drives a real browser: it launches
+Chromium or Chrome with the unpacked extension, opens the side panel against the
+real loopback bridge, and drives `page_snapshot` and `page_type` at a real local
+page. That is the only place the three pieces are proven together — the panel
+document, the extension's own `chrome.storage` settings, and a live tab — and it
+skips itself when no browser binary is present, so `npm test` stays green on a
+headless machine. Passing the pure suites does not imply passing it.
+
 No dependencies and no build step: Chrome loads the extension's ES modules
 directly and the suites run the same files. Reload the extension from
 `chrome://extensions` after editing it; restart Codewhale after editing the
