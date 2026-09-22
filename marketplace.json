@@ -6,7 +6,7 @@
     {
       "name": "computer-use",
       "source": "path:plugins/computer-use",
-      "version": "0.11.2",
+      "version": "0.11.3",
       "description": "Control apps with Codewhale. macOS beta; unsigned Windows preview and experimental Linux/Docker support.",
       "homepage": "https://codewhale.net/computer-use",
       "display_name": "Computer Use",

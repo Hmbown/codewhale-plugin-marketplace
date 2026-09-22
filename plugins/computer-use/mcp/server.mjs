@@ -1273,6 +1273,13 @@ const HANDLERS = {
     if (!file) throw paramError(`resource "${params?.uri ?? ""}" is not part of the bundled skill pack — resources/list names the readable URIs`);
     return { contents: [{ uri: file.uri, mimeType: file.mime, text: file.text }] };
   },
+  "resources/templates/list"() {
+    // This server exposes a fixed skill pack, never a parameterized URI space,
+    // so the template list is deliberately empty. A client that probes a method
+    // implied by the advertised `resources` capability gets a well-formed answer
+    // rather than a method-not-found error.
+    return { resourceTemplates: [] };
+  },
   "skills/list"() {
     return {
       skills: [{

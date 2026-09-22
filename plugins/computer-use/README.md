@@ -7,7 +7,7 @@
 
 **By Codewhale · macOS beta (notarized app and source) · Windows experimental unsigned preview · Linux experimental source/Docker**
 
-The [0.11.2 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.11.2)
+The [0.11.3 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.11.3)
 provides the notarized universal Mac app and an **unsigned Windows x64 preview**.
 The Windows ZIP bundles Node and includes setup instructions; it is intended
 for testing, with physical-device, mixed-DPI and signing acceptance still open.
@@ -74,21 +74,20 @@ in that order. If it names a permission, the fix is in
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
 notarized Mac app is published on this repository's
 [GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)
-(latest stable: v0.6.0; source here is 0.8.0 plus fixes — the next stable
-cuts after its qualification gates pass); remaining gates are tracked in
-[the release checklist](docs/RELEASE_CHECKLIST.md). The
-[setup page](https://codewhale.net/computer-use) will offer the disk image
-directly once its download section ships — until then, download from the
-releases page.
+(latest stable: v0.11.3, matching the source in this checkout); remaining
+gates are tracked in [the release checklist](docs/RELEASE_CHECKLIST.md). The
+[setup page](https://codewhale.net/computer-use) offers the notarized disk
+image directly.
 
 The native setup panel, background check and updater require **macOS 13.5+**
 for the self-contained bundle. The source MCP server includes experimental
-Windows and Linux backends, with HarmonyOS devices over hdc. Windows and
-Linux are source-only: they do not yet have the native human controls,
-exact-window targeting or qualified installers, and they are excluded from the
-plugin's public host eligibility until those gates pass. Their raw input uses
-the shared desktop and must not be treated as background control. Windows
-semantic mutations currently refuse scoped element targets. See the
+Windows and Linux backends, with HarmonyOS devices over hdc. Windows ships
+only as an unsigned x64 preview ZIP and Linux remains source and Docker:
+neither has the native human controls, exact-window targeting or a qualified
+signed installer, and both are excluded from the plugin's public host
+eligibility until those gates pass. Their raw input uses the shared desktop
+and must not be treated as background control. Windows semantic mutations
+currently refuse scoped element targets. See the
 [publication review](docs/PUBLICATION_REVIEW.md) and
 [porting plan](docs/PORTING.md).
 The SSH route remains experimental. See the platform-specific
@@ -107,10 +106,9 @@ this repository's
 [GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases),
 only from a published stable release whose `release.json` receipt qualifies;
 the ZIP archive on the same release is what the in-app updater installs.
-The plugin marketplace links there; the
-[setup page](https://codewhale.net/computer-use) will offer the image
-directly once its download section ships. Release
-status is recorded in [CHANGELOG.md](CHANGELOG.md). To build and install
+The plugin marketplace links there, and the
+[setup page](https://codewhale.net/computer-use) offers the image directly.
+Release status is recorded in [CHANGELOG.md](CHANGELOG.md). To build and install
 from source instead, use door 3 in [Install](#install). See
 [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for the packaging,
 notarization and release procedure.

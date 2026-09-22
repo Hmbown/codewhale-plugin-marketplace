@@ -6,14 +6,20 @@ declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.11.2 is a macOS beta candidate. It combines app
+Computer Use source 0.11.3 is a macOS beta candidate. It combines app
 scripting, accessibility and window-routed input, CDP browser control, and
 session-owned Linux desktops through Docker. Local apps require per-app
 consent; foreground activation needs a separate decision. Shared input waits
 for a quiet hardware-input window and refuses `user_busy` if the person
 remains active. Input arriving mid-action is still a documented limitation.
 
-The 0.11.2 patch fixes uninitialized typing receipts and includes the Docker
+The 0.11.3 patch answers `resources/templates/list` with an empty template
+list instead of `-32601`. The server publishes a fixed skill pack and never a
+parameterized URI space, so an empty list is the correct answer and a host that
+probes the method because `resources` is advertised no longer records a
+discovery warning at the start of every session; advertised capabilities are
+unchanged and genuinely unknown methods are still refused. Earlier 0.11.2 work
+fixes uninitialized typing receipts and includes the Docker
 build context in installed app bundles. macOS background actions that require
 a focus lease now refuse before input instead of silently borrowing the user's
 keyboard focus. Linux semantic value edits choose the supported accessibility
@@ -26,7 +32,7 @@ and simulated clocks do
 not establish complete Codex parity, clean-machine acceptance, or production
 Linux/Windows readiness. The marketplace remains enabled on macOS only.
 
-The 0.11.2 release packages the notarized universal Mac app and an explicitly
+The 0.11.3 release packages the notarized universal Mac app and an explicitly
 unsigned Windows x64 preview. Linux remains source/Docker-based. A source
 version alone does not establish download availability. The [official setup page](https://codewhale.net/computer-use)
 reports public download availability, and the [release checklist](../../plugins/computer-use/docs/RELEASE_CHECKLIST.md)
