@@ -245,11 +245,11 @@ export function inspectRef(ref) {
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
-    return { ok: false, stale: true, error: "No snapshot for this page. Call browser_snapshot first." };
+    return { ok: false, stale: true, error: "No snapshot for this page. Call page_snapshot first." };
   }
   const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
   if (!element) {
-    return { ok: false, error: `Unknown element ref "${ref}". Call browser_snapshot again.` };
+    return { ok: false, error: `Unknown element ref "${ref}". Call page_snapshot again.` };
   }
   if (!element.isConnected) {
     return { ok: false, stale: true, error: `Element ${ref} is no longer on the page. Snapshot again.` };
@@ -267,6 +267,14 @@ export function inspectRef(ref) {
       element.tagName === "INPUT" ||
       element.tagName === "TEXTAREA",
     disabled: element.disabled === true,
+    // A click on this element submits a form. Only the markup-declared cases:
+    // a script-driven "submit" on a div cannot be told apart from any click.
+    submits:
+      (element.tagName === "BUTTON" &&
+        ["", "submit"].includes((element.getAttribute("type") || "").toLowerCase()) &&
+        Boolean(element.form)) ||
+      (element.tagName === "INPUT" &&
+        ["submit", "image"].includes((element.getAttribute("type") || "").toLowerCase())),
     label: (element.getAttribute("aria-label") || element.textContent || "")
       .replace(/\s+/g, " ")
       .trim()
@@ -283,11 +291,11 @@ export function clickRef(ref) {
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
-    return { ok: false, error: "No snapshot for this page. Call browser_snapshot first." };
+    return { ok: false, error: "No snapshot for this page. Call page_snapshot first." };
   }
   const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
   if (!element) {
-    return { ok: false, error: `Unknown element ref "${ref}". Call browser_snapshot again.` };
+    return { ok: false, error: `Unknown element ref "${ref}". Call page_snapshot again.` };
   }
   if (!element.isConnected) {
     return { ok: false, error: `Element ${ref} is no longer on the page. Snapshot again.` };
@@ -321,11 +329,11 @@ export function typeRef(ref, text, clear, submit) {
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
-    return { ok: false, error: "No snapshot for this page. Call browser_snapshot first." };
+    return { ok: false, error: "No snapshot for this page. Call page_snapshot first." };
   }
   const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
   if (!element || !element.isConnected) {
-    return { ok: false, error: `Element ${ref} is not on the page. Call browser_snapshot again.` };
+    return { ok: false, error: `Element ${ref} is not on the page. Call page_snapshot again.` };
   }
   if ((element.getAttribute("type") || "").toLowerCase() === "password") {
     return { ok: false, error: "Chromewhale never types into a password field." };

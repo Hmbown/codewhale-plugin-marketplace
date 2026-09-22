@@ -13,10 +13,17 @@
  * this gate is the only one that knows which page is in front of the user, so
  * it is not redundant with them.
  *
- * Results are MCP content blocks. A text block carrying page-derived text is
- * marked `untrusted: true`; the server, not this file, wraps those in the
- * untrusted-content envelope, so the guarantee holds on the side the model
- * reads from.
+ * Results are MCP content blocks. **Every** string that came off the page —
+ * outline, title, URL, element labels — travels in a block marked
+ * `untrusted: true`, never spliced into our own sentences; the server, not
+ * this file, wraps those in the untrusted-content envelope, so the guarantee
+ * holds on the side the model reads from. A page title is as attacker-chosen
+ * as its body text.
+ *
+ * Submitting a form is confirmed per action, even on an allowed origin: a
+ * grant lets Codewhale read and fill a site, and a submit is the step that
+ * sends what was filled somewhere. `page_type` with `submit`, and a
+ * `page_click` on a markup-declared submit control, wait for the user's click.
  */
 
 import { classifyTarget, decisionFor, sensitiveField } from "./policy.js";
@@ -37,6 +44,8 @@ const NAVIGATION_POLL_MS = 150;
  * @property {(windowId: number) => Promise<string>} captureTab
  * @property {(pattern: string) => Promise<boolean>} hasPermission
  * @property {() => Promise<Record<string, unknown>>} readDecisions
+ * @property {() => Promise<Record<string, unknown>>} [readSessionDecisions]
+ * @property {(request: {origin: string, tool: string, summary: string, detail: string}) => Promise<boolean>} confirmAction
  * @property {(request: {origin: string, tool: string, summary: string, reason: "ask" | "permission"}) => Promise<"allow" | "block" | "denied">} requestDecision
  * @property {() => Promise<boolean>} isPaused
  * @property {(entry: {tool: string, summary: string, origin?: string, outcome: string}) => void} log
@@ -104,7 +113,8 @@ export function createBrowserTools(deps) {
     }
     const { origin, pattern } = classified;
 
-    let decision = decisionFor(await deps.readDecisions(), origin);
+    const session = deps.readSessionDecisions ? await deps.readSessionDecisions() : {};
+    let decision = decisionFor(await deps.readDecisions(), origin, session);
     if (decision === "block") {
       return refuse(tool, summary, origin, `The user has blocked Chromewhale on ${origin}.`);
     }
@@ -157,9 +167,7 @@ export function createBrowserTools(deps) {
     }
     deps.log({ tool: "page_snapshot", summary, origin: gated.origin, outcome: "ran" });
     const header = [
-      `url: ${page.url}`,
-      `title: ${page.title}`,
-      `interactive elements: ${page.refCount}`,
+      `interactive elements: ${Number(page.refCount) || 0}`,
       page.truncated ? "note: the outline was cut at Chromewhale's size budget." : undefined,
     ]
       .filter(Boolean)
@@ -168,7 +176,7 @@ export function createBrowserTools(deps) {
       success: true,
       content: [
         { type: "text", text: header },
-        { type: "text", text: page.outline, untrusted: true },
+        pageText([`url: ${page.url}`, `title: ${page.title}`, "", String(page.outline ?? "")]),
       ],
     };
   }
@@ -197,15 +205,19 @@ export function createBrowserTools(deps) {
     }
     const settled = await waitForLoad(gated.tab.id);
     deps.log({ tool: "page_navigate", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      [
-        `url: ${settled?.url ?? "unknown"}`,
-        `title: ${settled?.title ?? ""}`,
-        settled?.status === "complete"
-          ? "The page finished loading. Call page_snapshot to read it."
-          : "The page was still loading when Chromewhale stopped waiting. Snapshot to see its current state.",
-      ].join("\n"),
-    );
+    return {
+      success: true,
+      content: [
+        {
+          type: "text",
+          text:
+            settled?.status === "complete"
+              ? "The page finished loading. Call page_snapshot to read it."
+              : "The page was still loading when Chromewhale stopped waiting. Snapshot to see its current state.",
+        },
+        pageText([`url: ${settled?.url ?? "unknown"}`, `title: ${settled?.title ?? ""}`]),
+      ],
+    };
   }
 
   /**
@@ -221,6 +233,22 @@ export function createBrowserTools(deps) {
     if (!gated.ok) {
       return gated.result;
     }
+    // A failed inspection is not fatal here: `clickRef` reports staleness and
+    // unknown refs in its own words. Only a control that declares it submits
+    // a form needs the extra confirmation.
+    const target = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref] });
+    if (target?.ok && target.submits === true) {
+      const confirmed = await deps.confirmAction({
+        origin: gated.origin,
+        tool: "page_click",
+        summary,
+        detail: `Clicking ${ref} submits a form on ${gated.origin}.`,
+      });
+      if (!confirmed) {
+        deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
+        return failure(`The user did not confirm submitting the form on ${gated.origin}. Nothing was clicked.`);
+      }
+    }
     const outcome = await deps.executeScript({ tabId: gated.tab.id, func: clickRef, args: [ref] });
     if (!outcome?.ok) {
       deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
@@ -228,10 +256,13 @@ export function createBrowserTools(deps) {
     }
     const settled = await waitForLoad(gated.tab.id, 2_000);
     deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      `clicked: ${outcome.label || ref}\nurl: ${settled?.url ?? outcome.url}\n` +
-        "Call page_snapshot to see what changed.",
-    );
+    return {
+      success: true,
+      content: [
+        { type: "text", text: `Clicked ${ref}. Call page_snapshot to see what changed.` },
+        pageText([`clicked: ${outcome.label || ref}`, `url: ${settled?.url ?? outcome.url}`]),
+      ],
+    };
   }
 
   /**
@@ -260,7 +291,23 @@ export function createBrowserTools(deps) {
       );
     }
     if (!field.editable) {
-      return failure(`Element ${ref} is a ${field.tag}, which does not accept typed text.`);
+      // No tag name here: custom-element names are page-chosen text too.
+      return failure(`Element ${ref} does not accept typed text.`);
+    }
+    if (args?.submit === true) {
+      const confirmed = await deps.confirmAction({
+        origin: gated.origin,
+        tool: "page_type",
+        summary,
+        detail: `Typing into ${ref} and pressing Enter submits it on ${gated.origin}.`,
+      });
+      if (!confirmed) {
+        deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "refused" });
+        return failure(
+          `The user did not confirm submitting on ${gated.origin}. Nothing was typed; ` +
+            "call page_type without submit to fill the field only.",
+        );
+      }
     }
     const outcome = await deps.executeScript({
       tabId: gated.tab.id,
@@ -272,10 +319,13 @@ export function createBrowserTools(deps) {
     }
     const settled = args?.submit === true ? await waitForLoad(gated.tab.id, 5_000) : undefined;
     deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      `typed into: ${field.label || ref}\nurl: ${settled?.url ?? outcome.url}\n` +
-        "Call page_snapshot to see the result.",
-    );
+    return {
+      success: true,
+      content: [
+        { type: "text", text: `Typed into ${ref}. Call page_snapshot to see the result.` },
+        pageText([`typed into: ${field.label || ref}`, `url: ${settled?.url ?? outcome.url}`]),
+      ],
+    };
   }
 
   /** @param {string} summary */
@@ -293,7 +343,8 @@ export function createBrowserTools(deps) {
     return {
       success: true,
       content: [
-        { type: "text", text: `Visible area of ${gated.tab.url ?? gated.origin}.` },
+        { type: "text", text: "Visible area of the active tab." },
+        pageText([`url: ${gated.tab.url ?? gated.origin}`]),
         { type: "image", data: image.data, mimeType: image.mimeType },
       ],
     };
@@ -344,9 +395,13 @@ export function splitDataUrl(dataUrl) {
   return match ? { mimeType: match[1].toLowerCase(), data: match[2] } : undefined;
 }
 
-/** @param {string} text */
-function success(text) {
-  return { success: true, content: [{ type: "text", text }] };
+/**
+ * A text block of page-derived strings, marked for the server's envelope.
+ *
+ * @param {string[]} lines
+ */
+function pageText(lines) {
+  return { type: "text", text: lines.join("\n"), untrusted: true };
 }
 
 /** @param {string} text */

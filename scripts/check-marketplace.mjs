@@ -16,6 +16,11 @@
 //     everything on disk except .git).
 //   * every SKILL.md under a bundle's skills roots has parseable frontmatter
 //     with a name and a non-empty description.
+//   * no manifest keyword is a generic word from STOPLIST below
+//     (accessibility, browser, web, wiki, …). Keywords feed Codewhale's plugin
+//     offers, and a generic one turns ordinary requests into nudges. Core's
+//     matcher carries the same list. A vendored mirror (a bundle with
+//     .upstream-sha) is reported as a note, because the fix belongs upstream.
 //
 // Optional --core checks the active Core catalog and all skill resources;
 // the default check validates the local inventory against its pinned hashes.
@@ -29,6 +34,26 @@ import { execFileSync } from "node:child_process";
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 const CAP = 5 * 1024 * 1024; // host plugin-install cap, uncompressed bytes
 const MANIFESTS = ["plugin.json", "kimi.plugin.json", "plugin.toml"];
+// Generic words that must never trigger a plugin offer. Codewhale's plugin
+// matcher (crates/tui/src/plugins/matcher.rs, `is_matchable_term`) carries the
+// same list; change both together. Kept sorted so the two diff cleanly.
+const STOPLIST = new Set([
+  "accessibility",
+  "automation",
+  "browser",
+  "browsers",
+  "chrome",
+  "codebase",
+  "docs",
+  "documentation",
+  "extension",
+  "extensions",
+  "screenshot",
+  "screenshots",
+  "web",
+  "website",
+  "wiki",
+]);
 const ENTRY_FIELDS = new Set(["name", "source", "description", "version", "homepage", "display_name", "author", "icon", "platforms"]);
 
 const args = process.argv.slice(2);
@@ -96,6 +121,7 @@ function manifestOf(dir) {
       version: doc.version,
       skillsRoots: roots.length ? roots : (fs.existsSync(path.join(dir, "skills")) ? ["skills"] : []),
       networkHosts: cw.capabilities?.network_hosts ?? [],
+      keywords: doc.keywords,
     };
   }
   return null;
@@ -156,6 +182,16 @@ function checkMcpContract(dir, manifest, label) {
   for (const host of declared) {
     if (!remoteHosts.has(host)) fail(`${label}: network_hosts declares ${host} but no remote endpoint uses it`);
   }
+}
+
+function checkKeywords(dir, manifest, label) {
+  if (manifest.keywords === undefined) return;
+  if (!Array.isArray(manifest.keywords) || manifest.keywords.some((k) => typeof k !== "string")) { fail(`${label}: keywords must be an array of strings`); return; }
+  const generic = manifest.keywords.filter((k) => STOPLIST.has(k.trim().toLowerCase()));
+  if (!generic.length) return;
+  const message = `${label}: generic keyword(s) ${generic.map((k) => `'${k}'`).join(", ")} would trigger plugin offers on ordinary requests (STOPLIST in scripts/check-marketplace.mjs) — use specific terms`;
+  if (fs.existsSync(path.join(dir, ".upstream-sha"))) note(`${message}; this bundle is a vendored mirror, so fix it upstream`);
+  else fail(message);
 }
 
 function checkSkillRoots(bundleDir, manifest) {
@@ -229,6 +265,7 @@ if (catalog) {
         if (!fs.existsSync(file)) fail(`${name}: missing ${required}`);
       }
       checkMcpContract(dir, manifest, name);
+      checkKeywords(dir, manifest, name);
       // The host installer copies the working tree, so disk size decides a
       // `path:` install; tracked size decides what a clone/tarball ships. A
       // tracked tree over cap fails; a dirty dev tree over cap only warns —
