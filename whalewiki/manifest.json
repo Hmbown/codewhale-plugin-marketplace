@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "0d5ef1685b99f1626964fdf1891f26332b5f4fc63e817752ffca74b50682a32a",
+      "page_sha256": "4c575707f32634c445889f53e3881d7e2775e7518b24a4d0807d57cf924fed4c",
       "sources": [
         {
           "path": "marketplace.json",
@@ -27,8 +27,8 @@
         {
           "path": "scripts/check-marketplace.mjs",
           "root": "repo",
-          "sha256": "b816cf52fe9e239772da13e9fdabcc19422aaec21858b31b7fcd41ebd0388439",
-          "bytes": 15204
+          "sha256": "a902319052a00a41e1e613f6a1bb1a1f1e690aa063d798e3cac94ae04d4c031e",
+          "bytes": 16864
         },
         {
           "path": "package.json",
@@ -87,8 +87,8 @@
         {
           "path": "plugins/chromewhale/README.md",
           "root": "repo",
-          "sha256": "92ece013b510e861757aef34b19ab65442b93684fd0be2fc0913736abc792804",
-          "bytes": 5217
+          "sha256": "a9aac9fabe12b5f19cac135f1025ddfc975bdc3e865fc49e2b38baae8ba87f7e",
+          "bytes": 6765
         },
         {
           "path": "plugins/chromewhale/src/tools.mjs",
@@ -97,7 +97,7 @@
           "bytes": 5462
         }
       ],
-      "sealed_at": "2026-09-22T08:41:05.938Z"
+      "sealed_at": "2026-09-22T19:56:05.065Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -118,8 +118,8 @@
         {
           "path": "plugins/whalewiki/plugin.json",
           "root": "repo",
-          "sha256": "ef3fde70664d0f20b5b5c7074ac35fcf330adfbcada20d2cd180d022a84a5a81",
-          "bytes": 886
+          "sha256": "a4523e2b6913dca582b9273193b721c4764a0cd0aa07bff793210853f5b4e489",
+          "bytes": 837
         },
         {
           "path": "plugins/whalewiki/README.md",
@@ -128,7 +128,7 @@
           "bytes": 6748
         }
       ],
-      "sealed_at": "2026-09-19T12:01:23.767Z"
+      "sealed_at": "2026-09-22T19:55:16.816Z"
     },
     "pages/integrations.md": {
       "title": "integrations",
@@ -210,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-22T08:41:05.938Z"
+  "updated_at": "2026-09-22T19:56:05.066Z"
 }

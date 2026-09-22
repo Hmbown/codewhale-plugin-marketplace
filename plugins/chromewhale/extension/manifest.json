@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Chromewhale",
-  "version": "0.10.0",
+  "version": "0.1.0",
   "description": "Codewhale in Chrome. Chat with your local Codewhale runtime in a side panel and let it read and act on the tab you are looking at, one granted site at a time.",
   "minimum_chrome_version": "116",
   "icons": {
