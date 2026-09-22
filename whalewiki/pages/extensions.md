@@ -1,8 +1,8 @@
 # Choose and ship an extension
 
-This repository has five installable bundles: Computer Use, WhaleSong,
-WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The catalog
-declares
+This repository has six installable bundles: Computer Use, Chromewhale,
+WhaleSong, WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The
+catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
@@ -39,6 +39,23 @@ reports public download availability, and the [release checklist](../../plugins/
 records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
+
+Chromewhale source 0.1.0 also drives a browser, and the two do not overlap.
+Computer Use owns a Chromium instance it launches under its own
+`--user-data-dir` and states that the person's own profile is never attached
+to, typed into or closed; Chromewhale acts on the tab the person is already
+looking at, in their own profile and their own sessions. The vocabularies are
+kept apart for that reason: `browser_*` for the self-owned instance, `page_*`
+for the person's. Chromewhale's tools live in its MCP server rather than in the
+Chrome extension it ships, so they reach the model through the ordinary tool
+path and the bundle's trust review; a client that registered them with the
+Runtime directly would carry `ApprovalRequirement::Auto` and reach no approval
+gate. The extension is loaded unpacked and dials out to a token-gated loopback
+bridge — a Chrome extension cannot listen on a socket. A per-origin decision in
+the side panel, Chrome's own optional host permission, and a refusal to type
+into password, one-time-code or payment-card fields sit under that. Source
+tests cover the server, bridge and gates; no run against a live Chrome profile
+is recorded, so the extension half is unqualified.
 
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
@@ -114,5 +131,9 @@ handoff and inspect the current validation receipt before publication.
 - `plugins/computer-use/docs/releases/0.6.0.json`: packaging and notarization receipt for the signed 0.6.0 macOS build.
 - `plugins/computer-use/CHANGELOG.md`: release record and open qualification gates.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
+- `plugins/chromewhale/README.md`: the `page_*` surface, the bridge, and the
+  stated split from Computer Use's `browser_*` tools.
+- `plugins/chromewhale/src/tools.mjs`: the advertised tool set and why it does
+  not reuse the `browser_*` names.
 
 The current macOS candidate refuses background actions that borrow keyboard focus, including raw pointer fallbacks and modified keys. Accessibility and browser control remain the preferred routes for concurrent use. Native sharing-picker integration and continuous keyboard coexistence qualification remain open.
