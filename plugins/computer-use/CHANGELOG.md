@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.11.3 — MCP protocol conformance
+
+- The MCP server answers `resources/templates/list` with an empty template
+  list instead of `-32601 method not found`. It publishes a fixed skill pack
+  and never a parameterized URI space, so an empty list is the correct answer;
+  a host that probes the method because the server advertises `resources` no
+  longer records a discovery warning at the start of every session. The
+  advertised capabilities are unchanged, and genuinely unknown methods are
+  still refused.
+
 ## 0.11.2 — shared-desktop reliability
 
 - macOS background mode refuses window-record focus leases before input,

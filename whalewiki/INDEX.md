@@ -6,9 +6,9 @@ its source. Start with the task you have in mind.
 | Your task | Start here |
 | --- | --- |
 | Find a plugin or an everyday skill | [Choose and ship an extension](pages/extensions.md#find-a-skill-by-the-job-you-need-done) |
-| Understand this repo or plan a documentation update | [How WhaleWiki works](pages/wiki-evidence.md) |
+| Understand this repo or plan a documentation update | [How WhaleWiki works](pages/wiki-evidence.md) | <!-- ww:fresh -->
 | Find which docs depend on a file | [Documentation impact](pages/wiki-evidence.md#what-documentation-depends-on-this-file) |
-| Connect a service or receive a chat request | [Connections and inbound requests](pages/integrations.md) |
+| Connect a service or receive a chat request | [Connections and inbound requests](pages/integrations.md) | <!-- ww:fresh -->
 
 ## Try it in Codewhale
 
