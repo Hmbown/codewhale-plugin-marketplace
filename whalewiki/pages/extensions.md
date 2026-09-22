@@ -48,7 +48,7 @@ records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
 
-Chromewhale source 0.1.0 also drives a browser, and the two do not overlap.
+Chromewhale source 0.1.0 is a developer preview that also drives a browser, and the two do not overlap.
 Computer Use owns a Chromium instance it launches under its own
 `--user-data-dir` and states that the person's own profile is never attached
 to, typed into or closed; Chromewhale acts on the tab the person is already
@@ -58,12 +58,19 @@ for the person's. Chromewhale's tools live in its MCP server rather than in the
 Chrome extension it ships, so they reach the model through the ordinary tool
 path and the bundle's trust review; a client that registered them with the
 Runtime directly would carry `ApprovalRequirement::Auto` and reach no approval
-gate. The extension is loaded unpacked and dials out to a token-gated loopback
-bridge — a Chrome extension cannot listen on a socket. A per-origin decision in
-the side panel, Chrome's own optional host permission, and a refusal to type
-into password, one-time-code or payment-card fields sit under that. Source
-tests cover the server, bridge and gates; no run against a live Chrome profile
-is recorded, so the extension half is unqualified.
+gate. `/chromewhale setup` copies the extension to a stable path outside the
+content-hashed staged root, where it is loaded unpacked; it dials out to a
+token-gated loopback bridge — a Chrome extension cannot listen on a socket —
+that refuses web origins and foreign `Host` headers. Several Codewhale sessions
+share one bridge port: the first server owns it and later ones forward to it,
+taking over when the owner exits. Everything read off a page travels in an
+untrusted-content envelope whose markers carry a per-block random nonce. A
+per-origin decision in the side panel (defaulting to this browser session),
+Chrome's own optional host permission, a confirming click before any form
+submit, and a refusal to type into password, one-time-code or payment-card
+fields sit under that. Source tests cover the server, bridge and gates; no run
+against a live Chrome profile is recorded, so the extension half is
+unqualified.
 
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
@@ -119,6 +126,9 @@ also catches upstream changes to membership, wording or resources.
 Run `npm run check` and `npm test && npm run check:web`. The catalog check covers
 manifest identity, declared remote hosts and skill metadata. Unit and protocol
 tests cover implementation behavior; browser tests exercise the wiki reader.
+The catalog check also rejects generic manifest keywords (browser, web, wiki
+and the like, listed in the check itself), because keywords feed Codewhale's
+plugin offers.
 The repository wiki has its own `npm run check:wiki` source-drift gate.
 
 Passing local checks is not hosted CI, a real service login, native platform
@@ -130,7 +140,7 @@ handoff and inspect the current validation receipt before publication.
 - `marketplace.json`: installable names, versions and source directories.
 - `CONTRIBUTING.md`: admission and ownership rules.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
-- `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
+- `scripts/check-marketplace.mjs`: catalog, manifest, keyword and MCP contract checks.
 - `package.json`: executable repository gates.
 - `scripts/skills.mjs`, `skills/upstream.json`, `skills/README.md`: active catalog,
   provenance, resource checks and user-facing workflow directory.

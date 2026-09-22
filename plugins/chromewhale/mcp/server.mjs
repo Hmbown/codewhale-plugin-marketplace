@@ -22,7 +22,7 @@ import url from "node:url";
 
 import { createBridge } from "../src/bridge.mjs";
 import { normalizeContent } from "../src/content.mjs";
-import { resolveEndpoint } from "../src/pairing.mjs";
+import { recordEndpoint, resolveEndpoint } from "../src/pairing.mjs";
 import { SERVER_NAME, TOOLS, annotationsFor, isTool } from "../src/tools.mjs";
 
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
@@ -45,11 +45,16 @@ const bridge = createBridge({
   token: endpoint.token,
   host: endpoint.host,
   port: endpoint.port,
+  version: VERSION,
   onLog: log,
+  // Whichever server owns the port records where, so `/chromewhale status`
+  // reads the real endpoint instead of assuming the default.
+  onOwner: (live) => recordEndpoint({ ...live, token: endpoint.token, version: VERSION }),
 });
+// A second Codewhale session does not fail here: it forwards to the owner.
 await bridge.listen();
 if (endpoint.source === "created") {
-  log("a new pairing token was generated; run /chromewhale to print it for the side panel");
+  log("a new pairing token was generated; run /chromewhale token to print it for the side panel");
 }
 
 // ---------- JSON-RPC ----------

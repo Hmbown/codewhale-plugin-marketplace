@@ -8,11 +8,8 @@
   },
   "license": "MIT",
   "keywords": [
-    "chrome",
-    "browser",
-    "extension",
     "side-panel",
-    "web"
+    "chrome-side-panel"
   ],
   "extensions": {
     "net.codewhale": {
