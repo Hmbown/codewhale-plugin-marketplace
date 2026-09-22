@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "chromewhale": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "mcp/server.mjs"
+      ],
+      "extensions": {
+        "net.codewhale": {
+          "execute_timeout": 120
+        }
+      },
+      "cwd": "."
+    }
+  }
+}
