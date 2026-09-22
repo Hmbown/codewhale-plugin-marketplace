@@ -54,9 +54,10 @@ it, because the installed bundle predates this fix.
   Gatekeeper now assesses the app and the disk image as
   `source=Notarized Developer ID`. The 46 packaged runtime files are
   byte-identical to canonical source.
-- **Publication: pending at this commit.** This is the release commit; the
-  `v0.11.3` tag, GitHub release and marketplace mirror sync are recorded in
-  §5 once they exist.
+- **Publication: performed.** `v0.11.3` is tagged on
+  `b06279b67abb856fcfab289d06120910fe7e85ff` and published as the latest
+  release with 11 assets; the marketplace mirror is
+  `1ad65160c63f92042243c522fea4a47cff717481`. Details in §5.
 
 Windows and Linux are untouched by this patch and carry their 0.11.2
 qualification; every open gate recorded there stays open.
@@ -307,6 +308,7 @@ receipts belong in a public issue.
 - [x] **Publish release** — v0.4.0 published 2026-09-13 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Fable 5.1 from the human's authenticated `gh` session); tag on `e03e206b50ca5e52e72042e126d7afd08e85d49e`; GitHub's asset digests match the receipt (zip 753565134e9f…, dmg 3ee12be851a9…); anonymous download of `release.json` verified.
 - [x] **Publish release** — v0.5.0 published 2026-09-15 (PDT) at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `8a7b7dd`; GitHub's asset digests match the receipt (zip b5688ccbe117…, dmg 56aa7097e5ad…).
 - [x] **Publish release** — v0.6.0 published 2026-09-15 at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `c9d36d9`; GitHub's asset digests match the receipt (zip c8f25537a162…, dmg 20d63bf43e40…); anonymous `release.json` download verified.
+- [x] **Publish release** — v0.11.3 published 2026-09-21 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Opus 5 from the human's authenticated `gh` session); tag on `b06279b67abb856fcfab289d06120910fe7e85ff`; exact-head three-platform CI run 35678169352 success (ubuntu, macos, windows); Apple accepted app `eeed7947-6ffd-4ae5-aa7e-d76e39029a5f` and disk image `ed5e88e0-88df-4e52-be9a-3bccb51f596f`, both stapled and Gatekeeper `Notarized Developer ID`; all 11 GitHub asset digests match the local receipt (zip 409ed976f58e…, dmg ddbbd037763b…); marketplace mirror `1ad65160c63f92042243c522fea4a47cff717481`.
 
 ---
 

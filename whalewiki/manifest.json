@@ -45,8 +45,8 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "1fc67579ac9200a1df52db4aaa258ea113e0c2719889696a39f4555dfd23601d",
-          "bytes": 23944
+          "sha256": "922e59d347cc6ec105067729e36757c8929e49ad590c485048ba6421f9c85cbd",
+          "bytes": 24659
         },
         {
           "path": "plugins/computer-use/docs/releases/0.6.0.json",
@@ -85,7 +85,7 @@
           "bytes": 10919
         }
       ],
-      "sealed_at": "2026-09-22T02:05:27.862Z"
+      "sealed_at": "2026-09-22T02:13:44.806Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -198,5 +198,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-22T02:05:27.863Z"
+  "updated_at": "2026-09-22T02:13:44.806Z"
 }
