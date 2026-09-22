@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "36c0c1eb2bf86b2fa4a8fe48cc8e746f47cb6691d46bfd102209261567a53de2",
+      "page_sha256": "0d5ef1685b99f1626964fdf1891f26332b5f4fc63e817752ffca74b50682a32a",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "5338670dd9f2f67d9c1e08db9fe5fcfa8a39e008dbb2487f45ab342c9e49b825",
-          "bytes": 5311
+          "sha256": "33c16c034225c7c3fc2f8e92a208c5eb0d4d70b88a99a75fe0733f1357eaca37",
+          "bytes": 5754
         },
         {
           "path": "CONTRIBUTING.md",
@@ -33,8 +33,8 @@
         {
           "path": "package.json",
           "root": "repo",
-          "sha256": "bfeff421124c384a184d379a7e94d07e65355c376d7aff2f91a2b433a4b6a3d3",
-          "bytes": 1138
+          "sha256": "6270ac30bdfa5d28bcbafbb494cd3f67f2202a4704a4ce3d323a0e04bd5dda17",
+          "bytes": 1231
         },
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
@@ -83,9 +83,21 @@
           "root": "repo",
           "sha256": "0c26378f21f8da6916291f56b6938a3925777429f688dae9c1498e9141466b50",
           "bytes": 10919
+        },
+        {
+          "path": "plugins/chromewhale/README.md",
+          "root": "repo",
+          "sha256": "92ece013b510e861757aef34b19ab65442b93684fd0be2fc0913736abc792804",
+          "bytes": 5217
+        },
+        {
+          "path": "plugins/chromewhale/src/tools.mjs",
+          "root": "repo",
+          "sha256": "8af4d1ef1a2305ba48ab96a2be1ded35a8e31edad2230a23f80f83e36976f310",
+          "bytes": 5462
         }
       ],
-      "sealed_at": "2026-09-22T02:13:44.806Z"
+      "sealed_at": "2026-09-22T08:41:05.938Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -198,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-22T02:13:44.806Z"
+  "updated_at": "2026-09-22T08:41:05.938Z"
 }

@@ -1,0 +1,24 @@
+{
+  "name": "chromewhale",
+  "version": "0.1.0",
+  "description": "Let Codewhale read and act on the Chrome tab you are looking at.",
+  "license": "MIT",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "interface": {
+    "displayName": "Chromewhale",
+    "shortDescription": "Codewhale in your own Chrome",
+    "developerName": "Codewhale"
+  },
+  "mcpServers": {
+    "chromewhale": {
+      "command": "node",
+      "args": [
+        "mcp/server.mjs"
+      ],
+      "cwd": "./",
+      "startupTimeoutMs": 15000,
+      "toolTimeoutMs": 120000
+    }
+  }
+}

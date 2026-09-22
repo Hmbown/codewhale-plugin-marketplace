@@ -1,0 +1,40 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "chromewhale",
+  "version": "0.1.0",
+  "description": "Let Codewhale read and act on the Chrome tab you are looking at, one granted site at a time. Needs the bundled Chrome extension loaded.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "chrome",
+    "browser",
+    "extension",
+    "side-panel",
+    "web"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Chromewhale",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  },
+  "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace/tree/main/plugins/chromewhale",
+  "repository": "https://github.com/Hmbown/codewhale-plugin-marketplace"
+}
