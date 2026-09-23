@@ -12,6 +12,43 @@ Release status is recorded in [CHANGELOG.md](../CHANGELOG.md). Records below
 come from one maintainer Mac (arm64, Retina) and are evidence, not a
 publication verdict.
 
+### 0.12.0 — release qualification, 2026-09-22
+
+The agent gets its own pointer on macOS: every click, hover, drag and scroll
+is a window-routed event record addressed to the bound app's window, in both
+background and `activate:true` modes, and the helper refuses any request to
+drive the person's cursor (`real_pointer_refused`). Also ships the S3
+shared-computer attach mode and the safety floor recorded in the CHANGELOG.
+
+- Local source suite at the release commit `8435692`: **405 tests, 388
+  passed, 0 failed, 17 platform skips**; receipt hygiene
+  (`node scripts/check-receipts.mjs docs parity/results`) clean.
+- Hosted CI on the release commit: three-platform run 35806096151 success
+  (ubuntu, macos, windows). The Windows preview asset is that run's artifact.
+- Live pointer check against an installed build of this source on the
+  maintainer Mac, `activate:true`, the bundled practice window: a raw click
+  (accessibility skipped) delivered Apply; hover, drag, scroll and the click
+  reported `strategy:"window-record"`, `pointer_moved:false`; 133 samples of
+  the real cursor during the run stayed within a 10 px box at the person's
+  resting hand and never came within 421 px of any agent target. The practice
+  window's own pointer counter was inconclusive because it counts any
+  sub-pixel movement of a hand on the mouse.
+- **Signed build:** universal (arm64 + x86_64) launcher and bundled Node
+  24.21.0, `Developer ID Application: Hunter Bown (5RDNSHA5TY)` under the
+  hardened runtime; all 50 packaged runtime files are byte-identical to the
+  release commit; bundled plugin reports 0.12.0.
+- **Notarization: complete.** Apple accepted app
+  `57e98ea7-750d-4260-a9f1-dd2aa3ab29a6` and disk image
+  `589fd26e-e2e1-4ee6-9080-c0aa5ea7d5a6`; both stapled; Gatekeeper assesses
+  both as `source=Notarized Developer ID`.
+- **Publication: performed.** `v0.12.0` is tagged on
+  `843569235f15` and published as the latest release with 11 assets; the
+  marketplace mirror is `c1aa7a9221455145758872e9b3d0458ec5cd02da`. Details
+  in §5.
+
+Windows and Linux raw pointer input is unchanged and still shares the
+desktop; every open gate recorded for 0.11.2 stays open.
+
 ### 0.11.3 — release qualification, 2026-09-21
 
 Protocol-conformance patch over
@@ -309,6 +346,7 @@ receipts belong in a public issue.
 - [x] **Publish release** — v0.5.0 published 2026-09-15 (PDT) at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `8a7b7dd`; GitHub's asset digests match the receipt (zip b5688ccbe117…, dmg 56aa7097e5ad…).
 - [x] **Publish release** — v0.6.0 published 2026-09-15 at Hunter Bown's direction (GitHub release created and published by Devin from the human's authenticated `gh` session); tag on `c9d36d9`; GitHub's asset digests match the receipt (zip c8f25537a162…, dmg 20d63bf43e40…); anonymous `release.json` download verified.
 - [x] **Publish release** — v0.11.3 published 2026-09-21 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Opus 5 from the human's authenticated `gh` session); tag on `b06279b67abb856fcfab289d06120910fe7e85ff`; exact-head three-platform CI run 35678169352 success (ubuntu, macos, windows); Apple accepted app `eeed7947-6ffd-4ae5-aa7e-d76e39029a5f` and disk image `ed5e88e0-88df-4e52-be9a-3bccb51f596f`, both stapled and Gatekeeper `Notarized Developer ID`; all 11 GitHub asset digests match the local receipt (zip 409ed976f58e…, dmg ddbbd037763b…); marketplace mirror `1ad65160c63f92042243c522fea4a47cff717481`.
+- [x] **Publish release** — v0.12.0 published 2026-09-22 (PDT) at Hunter Bown's direction (GitHub release created and published by Claude Opus 5.5 from the human's authenticated `gh` session); tag on `843569235f15`; exact-head three-platform CI run 35806096151 success (ubuntu, macos, windows); Apple accepted app `57e98ea7-750d-4260-a9f1-dd2aa3ab29a6` and disk image `589fd26e-e2e1-4ee6-9080-c0aa5ea7d5a6`, both stapled and Gatekeeper `Notarized Developer ID`; all 11 GitHub asset digests match the local receipt (zip b3a8afe60604…, dmg 65957a23b541…); anonymous latest `release.json` download verified; marketplace mirror `c1aa7a9221455145758872e9b3d0458ec5cd02da`.
 
 ---
 
