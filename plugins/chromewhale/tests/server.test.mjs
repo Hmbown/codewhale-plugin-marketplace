@@ -126,7 +126,7 @@ test("a tool call with no panel attached returns an error result, not a protocol
     const called = await server.request("tools/call", { name: "page_snapshot", arguments: {} });
     assert.equal(called.error, undefined, "a refusal is a result the model reads, not a JSON-RPC failure");
     assert.equal(called.result.isError, true);
-    assert.match(called.result.content[0].text, /No Chromewhale panel is attached/);
+    assert.match(called.result.content[0].text, /No Codewhale for Chrome panel is attached/);
   } finally {
     await server.stop();
   }
@@ -207,7 +207,7 @@ test("a second concurrent server serves page_snapshot through the owner's panel,
     await owner.request("initialize", {});
     second = startServer(env);
     await second.request("initialize", {});
-    assert.match(second.stderr(), /owned by the Chromewhale bridge in pid \d+; forwarding/);
+    assert.match(second.stderr(), /owned by the Codewhale for Chrome bridge in pid \d+; forwarding/);
 
     const token = JSON.parse(fs.readFileSync(path.join(stateDir, "bridge.json"), "utf8")).token;
     const recorded = JSON.parse(fs.readFileSync(path.join(stateDir, "bridge.json"), "utf8"));

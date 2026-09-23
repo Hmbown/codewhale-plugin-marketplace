@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Chromewhale</title>
+    <title>Codewhale for Chrome</title>
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
     <header class="bar">
-      <span class="brand">Chromewhale</span>
+      <span class="brand">Codewhale for Chrome</span>
       <span id="status" class="status" data-kind="offline">Connecting…</span>
       <button id="pause" class="ghost" type="button" aria-pressed="false" title="Stop all browser tools">
         Pause
@@ -30,13 +30,13 @@
         talks to.
       </p>
 
-      <h2>Chromewhale bridge (tools)</h2>
+      <h2>Codewhale for Chrome bridge (tools)</h2>
       <label for="bridge-port">Port</label>
       <input id="bridge-port" type="number" min="1" max="65535" />
       <label for="bridge-token">Pairing token</label>
       <input id="bridge-token" type="password" autocomplete="off" placeholder="from /chromewhale" />
       <p class="hint">
-        Install and enable the Chromewhale plugin in Codewhale, then run
+        Install and enable the Codewhale for Chrome plugin in Codewhale, then run
         <code>/chromewhale</code> to print this token. It is what lets Codewhale's
         <code>page_*</code> tools reach this tab. Both tokens stay in this profile's extension
         storage and are sent only to the loopback addresses above.
@@ -48,7 +48,7 @@
 
       <h2>Sites</h2>
       <p class="hint">
-        Chromewhale can read and act only on sites listed here as allowed, and only while this panel
+        Codewhale for Chrome can read and act only on sites listed here as allowed, and only while this panel
         is open. Revoking here also drops Chrome's host permission for that site.
       </p>
       <ul id="sites" class="sites"></ul>

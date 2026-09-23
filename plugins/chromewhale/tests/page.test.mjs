@@ -28,7 +28,7 @@ test("a ref without a snapshot tells the model to snapshot first", () => {
   ]) {
     assert.equal(outcome.ok, false, name);
     assert.match(outcome.error, /page_snapshot/);
-    assert.doesNotMatch(outcome.error, /browser_/, "Chromewhale has no browser_* tools");
+    assert.doesNotMatch(outcome.error, /browser_/, "Codewhale for Chrome has no browser_* tools");
   }
 });
 
@@ -69,10 +69,18 @@ test("refs are one-based, matching the [eN] markers a snapshot prints", () => {
  * `isConnected` flag, and a tag name. Nothing here needs a DOM.
  */
 function fakeElement({ attributes = {}, isConnected = true, tagName = "INPUT", form = null } = {}) {
+  // The `type` property as the DOM resolves it: a missing or invalid attribute
+  // falls back to "submit" on a button and "text" on an input.
+  const declared = String(attributes.type ?? "").toLowerCase();
+  const type =
+    tagName === "BUTTON"
+      ? ["submit", "reset", "button"].includes(declared) ? declared : "submit"
+      : declared || "text";
   return {
     tagName,
     isConnected,
     form,
+    type,
     id: attributes.id ?? "",
     textContent: attributes.textContent ?? "",
     getAttribute: (name) => attributes[name] ?? null,
@@ -86,17 +94,22 @@ test("inspectRef says which controls submit a form", () => {
       fakeElement({ tagName: "BUTTON", form }),
       fakeElement({ tagName: "BUTTON", form, attributes: { type: "button" } }),
       fakeElement({ tagName: "BUTTON" }),
+      fakeElement({ tagName: "INPUT", form, attributes: { type: "submit" } }),
+      fakeElement({ tagName: "INPUT", form, attributes: { type: "text" } }),
+      // Invalid type attributes still submit: the property, not the attribute, decides.
+      fakeElement({ tagName: "BUTTON", form, attributes: { type: "submit " } }),
+      fakeElement({ tagName: "BUTTON", form, attributes: { type: "x" } }),
+      // A submit input outside any form submits nothing.
       fakeElement({ tagName: "INPUT", attributes: { type: "submit" } }),
-      fakeElement({ tagName: "INPUT", attributes: { type: "text" } }),
     ],
   };
   assert.deepEqual(
-    ["e1", "e2", "e3", "e4", "e5"].map((ref) => inspectRef(ref).submits),
-    [true, false, false, true, false],
+    ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"].map((ref) => inspectRef(ref).submits),
+    [true, false, false, true, false, true, true, false],
   );
 });
 
-test("no source string names a browser_* tool, which Chromewhale does not have", async () => {
+test("no source string names a browser_* tool, which Codewhale for Chrome does not have", async () => {
   // `browser_*` belongs to computer-use. Error text pointing the model at it
   // sends it to the wrong plugin. Comments may name it to explain the split;
   // strings the model can read may not.

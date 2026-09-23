@@ -1,5 +1,5 @@
 /**
- * Chromewhale's trust boundary: which page a browser tool may touch, and which
+ * Codewhale for Chrome's trust boundary: which page a browser tool may touch, and which
  * field it may never type into.
  *
  * Deliberately pure — no `chrome.*`, no DOM — so `node --test` exercises the
@@ -59,7 +59,7 @@ const BLOCKED_HOSTS = new Set([
  * one-time code, or a card number, and a user who wants that typed can type it.
  */
 const SENSITIVE_INPUT_TYPES = new Set(["password"]);
-const SENSITIVE_AUTOCOMPLETE = [
+export const SENSITIVE_AUTOCOMPLETE = [
   "current-password",
   "new-password",
   "one-time-code",
@@ -70,6 +70,33 @@ const SENSITIVE_AUTOCOMPLETE = [
   "cc-exp-year",
   "cc-name",
 ];
+
+/**
+ * Field names, ids, labels and placeholders that name a secret. Matched against
+ * text normalized by `fieldText` (camelCase split, lowercased). Long terms are
+ * unanchored — real markup says `user_password`, `login[passwd]`,
+ * `card-number` — and short ones need a non-letter on each side, where `_` and
+ * digits count, so `otp_code`, `cvv2` and `card_cvv` match while `spinner`
+ * and `helpotpimal` do not. Erring toward refusal is the safe direction: the
+ * user can always type the field themselves.
+ *
+ * Shared with the snapshot as a *string*, because injected page functions must
+ * be self-contained and cannot import it.
+ */
+export const SENSITIVE_NAME_SOURCE =
+  "pass(word|wd|code|phrase)|secret|card.?(number|num|no\\b)|cc.?(number|num)|ccnum|credit.?card|" +
+  "security.?code|verification.?code|auth(entication)?.?code|authenticator|two.?factor|one.?time|social.?security|" +
+  "(^|[^a-z])(otp|totp|mfa|2fa|cvv\\d?|cvc\\d?|csc|pin|ssn)($|[^a-z])";
+const SENSITIVE_NAME = new RegExp(SENSITIVE_NAME_SOURCE);
+
+/**
+ * Normalize one naming attribute for `SENSITIVE_NAME`.
+ *
+ * @param {unknown} value
+ */
+export function fieldText(value) {
+  return typeof value === "string" ? value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim().toLowerCase() : "";
+}
 
 /**
  * Classify a tab URL (or a navigation target) for tool use.
@@ -91,19 +118,19 @@ export function classifyTarget(rawUrl) {
   if (BLOCKED_SCHEMES.has(url.protocol)) {
     return {
       ok: false,
-      reason: `Chromewhale never acts on ${url.protocol} pages. Open an http(s) page first.`,
+      reason: `Codewhale for Chrome never acts on ${url.protocol} pages. Open an http(s) page first.`,
     };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return {
       ok: false,
-      reason: `Chromewhale only acts on http and https pages, not ${url.protocol}.`,
+      reason: `Codewhale for Chrome only acts on http and https pages, not ${url.protocol}.`,
     };
   }
   if (BLOCKED_HOSTS.has(url.hostname)) {
     return {
       ok: false,
-      reason: `Chrome blocks extensions on ${url.hostname}, so Chromewhale cannot act there.`,
+      reason: `Chrome blocks extensions on ${url.hostname}, so Codewhale for Chrome cannot act there.`,
     };
   }
   return {
@@ -163,10 +190,10 @@ export function withDecision(store, origin, decision) {
 }
 
 /**
- * Is this form field one Chromewhale must refuse to type into?
+ * Is this form field one Codewhale for Chrome must refuse to type into?
  *
  * @param {{tag?: unknown, type?: unknown, autocomplete?: unknown, name?: unknown,
- *          id?: unknown, ariaLabel?: unknown}} field
+ *          id?: unknown, ariaLabel?: unknown, fieldLabel?: unknown, placeholder?: unknown}} field
  * @returns {{sensitive: true, reason: string} | {sensitive: false}}
  */
 export function sensitiveField(field) {
@@ -175,7 +202,7 @@ export function sensitiveField(field) {
   if (SENSITIVE_INPUT_TYPES.has(type)) {
     return {
       sensitive: true,
-      reason: "this is a password field; Chromewhale never types into one",
+      reason: "this is a password field; Codewhale for Chrome never types into one",
     };
   }
   const autocomplete = lower(descriptor.autocomplete);
@@ -183,16 +210,14 @@ export function sensitiveField(field) {
     if (SENSITIVE_AUTOCOMPLETE.includes(token)) {
       return {
         sensitive: true,
-        reason: `the field is marked autocomplete="${token}"; Chromewhale never types credentials or card details`,
+        reason: `the field is marked autocomplete="${token}"; Codewhale for Chrome never types credentials or card details`,
       };
     }
   }
-  // Not anchored on word boundaries: real markup names these fields
-  // `user_password`, `login[passwd]`, `card-number`. Erring toward refusal on a
-  // field merely *named* like a secret is the safe direction — the user can
-  // always type it themselves.
-  const named = `${lower(descriptor.name)} ${lower(descriptor.id)} ${lower(descriptor.ariaLabel)}`;
-  if (/password|passwd|passcode|\botp\b|\bcvv\b|\bcvc\b|card[-_ ]?number/.test(named)) {
+  const named = [descriptor.name, descriptor.id, descriptor.ariaLabel, descriptor.fieldLabel, descriptor.placeholder]
+    .map(fieldText)
+    .join(" | ");
+  if (SENSITIVE_NAME.test(named)) {
     return {
       sensitive: true,
       reason: "the field names itself a password, one-time code, or card number",

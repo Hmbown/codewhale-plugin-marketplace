@@ -1,5 +1,5 @@
 ---
-description: Chromewhale (developer preview) — bridge status, the pairing token, or first-time Chrome extension setup
+description: Codewhale for Chrome (developer preview) — bridge status, the pairing token, or first-time Chrome extension setup
 usage: /chromewhale [status|token|setup]
 ---
 
@@ -35,7 +35,7 @@ same pairing record the plugin's server writes, so they honour
   conversation.
 
 - **`setup`**: first-time setup. Say up front, in these words or close to
-  them: Chromewhale is a **developer preview** — it is **loaded unpacked**, not
+  them: Codewhale for Chrome is a **developer preview** — it is **loaded unpacked**, not
   from the Chrome Web Store, and it **uses your own Chrome profile**, with your
   logged-in sessions. Then run:
 
@@ -48,15 +48,15 @@ same pairing record the plugin's server writes, so they honour
   that path with numbered steps. Give the user the path and the steps exactly
   as printed; never point them at the plugin's staged root, which moves on
   every plugin update. After a plugin update, run `setup` again and have them
-  click **Reload** on the Chromewhale card in `chrome://extensions`.
+  click **Reload** on the Codewhale for Chrome card in `chrome://extensions`.
 
-  The steps end with the panel's Settings: the **Chromewhale bridge** fields
+  The steps end with the panel's Settings: the **Codewhale for Chrome bridge** fields
   take the port setup printed and the token from `token` above — that is what
   carries `page_*` tool calls. The **Codewhale runtime** fields are only for
   the panel's own chat (`codewhale app-server --http`, default
   `127.0.0.1:7878`) and are optional for tool use. Confirm with `status`.
 
-Explain the permission model once, plainly, when setting up: Chromewhale can
+Explain the permission model once, plainly, when setting up: Codewhale for Chrome can
 touch only sites the user allows in the panel; the default answer is **Allow
 for this session**, which Chrome forgets when it exits, and **Always allow** is
 a separate click. Allowing a site grants Chrome's own host permission for that

@@ -1,6 +1,6 @@
 # Choose and ship an extension
 
-This repository has six installable bundles: Computer Use, Chromewhale,
+This repository has six installable bundles: Computer Use, Codewhale for Chrome,
 WhaleSong, WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The
 catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
@@ -48,22 +48,27 @@ records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
 
-Chromewhale source 0.1.0 is a developer preview that also drives a browser, and the two do not overlap.
+Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.2.0 is a developer preview that also drives a browser, and the two do not overlap.
 Computer Use owns a Chromium instance it launches under its own
 `--user-data-dir` and states that the person's own profile is never attached
-to, typed into or closed; Chromewhale acts on the tab the person is already
+to, typed into or closed; Codewhale for Chrome acts on the tab the person is already
 looking at, in their own profile and their own sessions. The vocabularies are
 kept apart for that reason: `browser_*` for the self-owned instance, `page_*`
-for the person's. Chromewhale's tools live in its MCP server rather than in the
+for the person's. Codewhale for Chrome's tools live in its MCP server rather than in the
 Chrome extension it ships, so they reach the model through the ordinary tool
 path and the bundle's trust review; a client that registered them with the
 Runtime directly would carry `ApprovalRequirement::Auto` and reach no approval
 gate. `/chromewhale setup` copies the extension to a stable path outside the
 content-hashed staged root, where it is loaded unpacked; it dials out to a
-token-gated loopback bridge — a Chrome extension cannot listen on a socket —
-that refuses web origins and foreign `Host` headers. Several Codewhale sessions
-share one bridge port: the first server owns it and later ones forward to it,
-taking over when the owner exits. Everything read off a page travels in an
+loopback bridge — a Chrome extension cannot listen on a socket — that refuses
+web origins and foreign `Host` headers. Pairing is challenge-response: both
+ends prove they hold the token with HMACs over single-use nonces and neither
+ever sends it, so a program squatting on the port can neither learn it nor
+drive the panel. Several Codewhale sessions share one bridge port: the first
+server owns it and later ones forward to it, taking over when the owner exits
+without re-running a call the old owner may have started. Calls carry
+deadlines and host cancellations reach the panel, so a late click never acts
+on a call the model was told had failed. Everything read off a page travels in an
 untrusted-content envelope whose markers carry a per-block random nonce. A
 per-origin decision in the side panel (defaulting to this browser session),
 Chrome's own optional host permission, a confirming click before any form

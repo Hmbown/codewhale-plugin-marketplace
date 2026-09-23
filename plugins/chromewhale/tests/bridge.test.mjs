@@ -3,6 +3,7 @@ import http from "node:http";
 import test from "node:test";
 
 import { createBridge } from "../src/bridge.mjs";
+import { bridgeMessage, mac, newNonce, signedAuthorization } from "../src/pairing.mjs";
 
 const TOKEN = "a".repeat(64);
 
@@ -56,7 +57,7 @@ test("a call with no panel attached fails immediately and names the fix", async 
     const started = Date.now();
     const result = await bridge.call("page_snapshot", {});
     assert.equal(result.success, false);
-    assert.match(result.content[0].text, /No Chromewhale panel is attached/);
+    assert.match(result.content[0].text, /No Codewhale for Chrome panel is attached/);
     assert.ok(Date.now() - started < 1_000, "it must not wait out the call timeout");
   } finally {
     await bridge.close();
@@ -254,7 +255,7 @@ test("when the owner exits, the next forwarded call takes the port over and wait
   }
 });
 
-test("a port held by a Chromewhale bridge with another token is refused, naming its pid", async () => {
+test("a port held by a Codewhale for Chrome bridge with another token is refused, naming its pid", async () => {
   const port = await freePort();
   const owner = createBridge({ token: TOKEN, host: "127.0.0.1", port });
   await owner.listen();
@@ -263,7 +264,7 @@ test("a port held by a Chromewhale bridge with another token is refused, naming 
     assert.equal(await stranger.listen(), false);
     const result = await stranger.call("page_snapshot", {});
     assert.equal(result.success, false);
-    assert.match(result.content[0].text, new RegExp(`another Chromewhale bridge \\(pid ${process.pid}\\)`));
+    assert.match(result.content[0].text, new RegExp(`another Codewhale for Chrome bridge \\(pid ${process.pid}\\)`));
     assert.match(result.content[0].text, /different pairing token/);
   } finally {
     await stranger.close();
@@ -271,7 +272,7 @@ test("a port held by a Chromewhale bridge with another token is refused, naming 
   }
 });
 
-test("a port held by some other program is refused as not a Chromewhale bridge", async () => {
+test("a port held by some other program is refused as not a Codewhale for Chrome bridge", async () => {
   const port = await freePort();
   const squatter = http.createServer((req, res) => res.end("hello"));
   await new Promise((resolve) => squatter.listen(port, "127.0.0.1", resolve));
@@ -281,7 +282,7 @@ test("a port held by some other program is refused as not a Chromewhale bridge",
     assert.equal(bridge.status().mode, "down");
     const result = await bridge.call("page_snapshot", {});
     assert.equal(result.success, false);
-    assert.match(result.content[0].text, /not a Chromewhale bridge/);
+    assert.match(result.content[0].text, /not a Codewhale for Chrome bridge/);
     assert.match(result.content[0].text, /CHROMEWHALE_BRIDGE_PORT/);
   } finally {
     await bridge.close();
@@ -364,6 +365,143 @@ test("the ready frame and health carry the plugin version", async () => {
 });
 
 /** A port that was free a moment ago. */
+test("a signed request gets a proven reply, and its nonce cannot be used twice", async () => {
+  const bridge = await start();
+  const base = baseUrlOf(bridge);
+  try {
+    const { nonce } = await (await fetch(`${base}/challenge`)).json();
+    const cnonce = newNonce();
+    const authorization = signedAuthorization(TOKEN, "GET", "/health", nonce, cnonce);
+    const first = await fetch(`${base}/health`, { headers: { Authorization: authorization } });
+    assert.equal(first.status, 200);
+    const { proof, ...body } = await first.json();
+    assert.equal(proof, mac(TOKEN, bridgeMessage(nonce, cnonce, JSON.stringify(body))), "the reply proves the token");
+    const replayed = await fetch(`${base}/health`, { headers: { Authorization: authorization } });
+    assert.equal(replayed.status, 401, "a nonce is single-use");
+    const { nonce: other } = await (await fetch(`${base}/challenge`)).json();
+    const forged = signedAuthorization("f".repeat(64), "GET", "/health", other, newNonce());
+    assert.equal((await fetch(`${base}/health`, { headers: { Authorization: forged } })).status, 401);
+  } finally {
+    await bridge.close();
+  }
+});
+
+test("every call carries a deadline, and a timeout tells the panel to drop it", async () => {
+  // Longer than the 3 s margin the panel keeps before the bridge gives up.
+  const bridge = await start({ timeoutMs: 3_500 });
+  const panel = await attach(baseUrlOf(bridge));
+  try {
+    const started = Date.now();
+    const pending = bridge.call("page_snapshot", {});
+    const frame = await panel.next("call");
+    assert.ok(frame.deadline > started && frame.deadline < started + 3_500, "the panel must stop before the bridge gives up");
+    const cancel = await panel.next("cancel");
+    assert.equal(cancel.id, frame.id);
+    assert.match((await pending).content[0].text, /told not to act on it/);
+  } finally {
+    panel.close();
+    await bridge.close();
+  }
+});
+
+test("a host cancellation reaches the panel at once", async () => {
+  const bridge = await start();
+  const panel = await attach(baseUrlOf(bridge));
+  try {
+    const abort = new AbortController();
+    const pending = bridge.call("page_click", { ref: "e1" }, { signal: abort.signal });
+    const frame = await panel.next("call");
+    abort.abort();
+    assert.equal((await panel.next("cancel")).id, frame.id);
+    const result = await pending;
+    assert.equal(result.success, false);
+    assert.match(result.content[0].text, /host cancelled/);
+    assert.equal(bridge.status().pending, 0);
+  } finally {
+    panel.close();
+    await bridge.close();
+  }
+});
+
+test("a call sent to a panel that is then superseded fails at once", async () => {
+  const bridge = await start();
+  const base = baseUrlOf(bridge);
+  const first = await attach(base);
+  try {
+    const started = Date.now();
+    const pending = bridge.call("page_snapshot", {});
+    await first.next("call");
+    const second = await attach(base);
+    const result = await pending;
+    assert.match(result.content[0].text, /took over before page_snapshot finished/);
+    assert.ok(Date.now() - started < 2_000, "not at the call timeout");
+    second.close();
+  } finally {
+    first.close();
+    await bridge.close();
+  }
+});
+
+test("a port holder that claims to be a bridge but cannot prove the token gets no calls", async () => {
+  const port = await freePort();
+  let invoked = false;
+  const impostor = http.createServer((req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    if (req.url === "/challenge") {
+      return res.end(JSON.stringify({ service: "chromewhale", nonce: newNonce() }));
+    }
+    if (req.url === "/invoke") {
+      invoked = true;
+    }
+    res.end(JSON.stringify({ ok: true, service: "chromewhale", pid: 1, result: { success: true, content: [{ type: "text", text: "trust me" }] } }));
+  });
+  await new Promise((resolve) => impostor.listen(port, "127.0.0.1", resolve));
+  const bridge = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  try {
+    assert.equal(await bridge.listen(), false);
+    const result = await bridge.call("page_snapshot", {});
+    assert.equal(result.success, false);
+    assert.match(result.content[0].text, /could not prove/);
+    assert.equal(invoked, false, "the call itself never went to the impostor");
+  } finally {
+    await bridge.close();
+    await new Promise((resolve) => impostor.close(resolve));
+  }
+});
+
+test("a forwarded call the owner received before vanishing is not run a second time", async () => {
+  const port = await freePort();
+  // A genuine owner (it holds the token and proves it) that dies mid-call.
+  const owner = http.createServer((req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    if (req.url === "/challenge") {
+      return res.end(JSON.stringify({ service: "chromewhale", nonce: newNonce() }));
+    }
+    const header = /nonce=([0-9a-f]+),cnonce=([0-9a-f]+)/.exec(req.headers.authorization ?? "");
+    if (req.url === "/health" && header) {
+      const body = { ok: true, service: "chromewhale", version: "0", pid: 4242, paired: true, pending: 0 };
+      return res.end(JSON.stringify({ ...body, proof: mac(TOKEN, bridgeMessage(header[1], header[2], JSON.stringify(body))) }));
+    }
+    if (req.url === "/invoke") {
+      // Received the call, then the whole process went away.
+      req.socket.destroy();
+      owner.close();
+      owner.closeAllConnections();
+    }
+  });
+  await new Promise((resolve) => owner.listen(port, "127.0.0.1", resolve));
+  const sibling = createBridge({ token: TOKEN, host: "127.0.0.1", port, takeoverGraceMs: 50 });
+  try {
+    assert.equal(await sibling.listen(), true, "the sibling adopts the proven owner");
+    const result = await sibling.call("page_click", { ref: "e1" });
+    assert.equal(result.success, false);
+    assert.match(result.content[0].text, /Whether it acted is unknown/);
+    assert.doesNotMatch(result.content[0].text, /No Codewhale for Chrome panel is attached/, "it was not re-run locally");
+  } finally {
+    await sibling.close();
+  }
+});
+
 async function freePort() {
   const probe = http.createServer();
   await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));

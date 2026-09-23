@@ -110,7 +110,7 @@ test("setup refuses to replace a directory that is not its own copy", async () =
   fs.writeFileSync(path.join(dest, "keep.txt"), "user data");
   const result = await run(["setup"], env);
   assert.equal(result.code, 1);
-  assert.match(result.err, /not a Chromewhale extension copy/);
+  assert.match(result.err, /not a Codewhale for Chrome extension copy/);
   assert.equal(fs.readFileSync(path.join(dest, "keep.txt"), "utf8"), "user data");
 });
 

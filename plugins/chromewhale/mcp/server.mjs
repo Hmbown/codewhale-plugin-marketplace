@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // chromewhale MCP server — zero-dependency JSON-RPC 2.0 over stdio.
 //
-// It owns no browser of its own. Every tool call is handed to the Chromewhale
+// It owns no browser of its own. Every tool call is handed to the Codewhale for Chrome
 // side panel over the loopback bridge (`src/bridge.mjs`), and the panel decides
 // whether it may touch the page at all: pause, active tab, scheme, the user's
 // per-origin decision, and Chrome's own host permission. This process is the
@@ -80,14 +80,17 @@ const HANDLERS = {
     };
   },
 
-  /** @param {{name?: string, arguments?: Record<string, unknown>}} [params] */
-  async "tools/call"(params) {
+  /**
+   * @param {{name?: string, arguments?: Record<string, unknown>}} [params]
+   * @param {AbortSignal} [signal] aborted by `notifications/cancelled`
+   */
+  async "tools/call"(params, signal) {
     const name = params?.name;
     if (!isTool(name)) {
       return errorResult(`chromewhale has no tool named "${String(name ?? "")}".`);
     }
     const args = params?.arguments && typeof params.arguments === "object" ? params.arguments : {};
-    const answer = await bridge.call(name, args);
+    const answer = await bridge.call(name, args, { signal });
     const content = normalizeContent(answer?.content);
     return {
       content: content.length ? content : [{ type: "text", text: answer?.success ? "(no output)" : "The panel returned no detail." }],
@@ -102,7 +105,21 @@ const HANDLERS = {
   "notifications/initialized"() {
     return {};
   },
+
+  /**
+   * The host gave up on a request. For a tool call that means the panel must
+   * not act on it any more, even if the user is about to click Allow.
+   *
+   * @param {{requestId?: string | number}} [params]
+   */
+  "notifications/cancelled"(params) {
+    inflight.get(params?.requestId)?.abort();
+    return {};
+  },
 };
+
+/** Tool calls in progress, by JSON-RPC id, so a cancellation can reach them. */
+const inflight = new Map();
 HANDLERS.initialized = HANDLERS["notifications/initialized"];
 
 /** @param {string} text */
@@ -127,7 +144,8 @@ async function handleLine(line) {
     return respondError(null, -32700, "parse error");
   }
   const { id, method, params } = message ?? {};
-  const handler = HANDLERS[method];
+  // Own properties only: a method named "toString" must not reach the prototype.
+  const handler = typeof method === "string" && Object.hasOwn(HANDLERS, method) ? HANDLERS[method] : undefined;
   if (!handler) {
     // A notification (no id) that we do not implement is simply ignored;
     // answering one would itself be a protocol error.
@@ -136,8 +154,12 @@ async function handleLine(line) {
     }
     return respondError(id, -32601, `method "${method}" is not implemented`);
   }
+  const controller = id != null ? new AbortController() : undefined;
+  if (controller) {
+    inflight.set(id, controller);
+  }
   try {
-    const result = await handler(params);
+    const result = await handler(params, controller?.signal);
     if (id != null) {
       respond(id, result);
     }
@@ -147,6 +169,10 @@ async function handleLine(line) {
       respondError(id, -32603, detail);
     } else {
       log(`notification ${method} failed: ${detail}`);
+    }
+  } finally {
+    if (id != null) {
+      inflight.delete(id);
     }
   }
   return undefined;

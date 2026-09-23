@@ -1,6 +1,6 @@
 /**
  * `text/event-stream` framing, shared by the two streams this panel holds: the
- * Codewhale runtime's `/v1/threads/{id}/events` (chat) and the Chromewhale
+ * Codewhale runtime's `/v1/threads/{id}/events` (chat) and the Codewhale for Chrome
  * bridge's `/calls` (tool calls).
  *
  * Split in two deliberately. `SseParser` knows only about frames and yields the

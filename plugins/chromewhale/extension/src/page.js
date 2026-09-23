@@ -1,5 +1,5 @@
 /**
- * The four functions Chromewhale injects into a granted page.
+ * The four functions Codewhale for Chrome injects into a granted page.
  *
  * `chrome.scripting.executeScript({ func })` serializes the function source and
  * re-evaluates it in the target frame, so **each function here must be
@@ -13,6 +13,15 @@
  * page load the refs are gone, and a click against them reports staleness
  * instead of hitting whatever element now sits at that index.
  *
+ * Ref numbers are never reused within a document: each snapshot continues the
+ * count, so a ref from an older snapshot is reported as stale rather than
+ * quietly naming a different element. A single-page app that changes its URL
+ * without a load also invalidates the refs.
+ *
+ * Every function takes the origin the call was checked for and refuses to
+ * touch a document from any other origin — the tab can move between the check
+ * in the panel and the moment the script lands.
+ *
  * Known limitations:
  * - Only the top frame is walked. Text and controls inside cross-origin iframes
  *   are invisible to a snapshot, and a ref can never point into one.
@@ -25,15 +34,27 @@
  * Walk the visible top frame, numbering interactive elements.
  *
  * @param {number} budget maximum characters of outline to return
+ * @param {{origin?: string, names?: string, autocomplete?: string[]}} [rules]
+ *   the origin the call was checked for, and `policy.js`'s sensitive-field
+ *   rules (passed as data: this function cannot import them)
  * @returns {{url: string, title: string, outline: string, refCount: number,
- *            truncated: boolean}}
+ *            truncated: boolean, first: number} | {wrongOrigin: true, url: string}}
  */
-export function snapshotPage(budget) {
+export function snapshotPage(budget, rules = {}) {
+  if (rules.origin && location.origin !== rules.origin) {
+    return { wrongOrigin: true, url: location.href };
+  }
+  const SECRET_NAME = rules.names ? new RegExp(rules.names) : /pass(word|wd|code)|(^|[^a-z])(otp|cvv|cvc)($|[^a-z])/;
+  const SECRET_AUTOCOMPLETE = new Set(
+    rules.autocomplete ?? ["current-password", "new-password", "one-time-code", "cc-number", "cc-csc", "cc-exp"],
+  );
   const INTERACTIVE =
     'a[href],button,input,select,textarea,summary,[role="button"],[role="link"],' +
     '[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[role="menuitem"],' +
     '[role="option"],[role="searchbox"],[role="textbox"],[contenteditable=""],' +
     '[contenteditable="true"]';
+  // Compared against upper-cased tag names: SVG elements keep their
+  // lowercase `tagName` even in HTML documents.
   const SKIP = new Set([
     "SCRIPT",
     "STYLE",
@@ -56,7 +77,8 @@ export function snapshotPage(budget) {
   let truncated = false;
   let seen = 0;
 
-  const store = (globalThis.__chromewhale = globalThis.__chromewhale || { refs: [] });
+  const store = (globalThis.__chromewhale = globalThis.__chromewhale || { refs: [], first: 1, next: 1 });
+  const first = store.next || 1;
 
   function collapse(value) {
     return String(value == null ? "" : value)
@@ -115,13 +137,32 @@ export function snapshotPage(budget) {
     return clip(element.textContent, 120);
   }
 
+  function fieldText(value) {
+    return typeof value === "string" ? value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim().toLowerCase() : "";
+  }
+
+  // The same rules `policy.js` applies before typing, so a field Codewhale
+  // refuses to fill is also one whose value it never reads back.
   function sensitive(element) {
     const type = (element.getAttribute("type") || "").toLowerCase();
     if (type === "password") {
       return true;
     }
-    const autocomplete = (element.getAttribute("autocomplete") || "").toLowerCase();
-    return /password|one-time-code|cc-number|cc-csc|cc-exp/.test(autocomplete);
+    const autocomplete = (element.getAttribute("autocomplete") || "").toLowerCase().split(/\s+/);
+    if (autocomplete.some((token) => SECRET_AUTOCOMPLETE.has(token))) {
+      return true;
+    }
+    const labels = element.labels ? Array.from(element.labels).map((label) => label.textContent).join(" ") : "";
+    const named = [
+      element.getAttribute("name"),
+      element.id,
+      element.getAttribute("aria-label"),
+      labels,
+      element.getAttribute("placeholder"),
+    ]
+      .map(fieldText)
+      .join(" | ");
+    return SECRET_NAME.test(named);
   }
 
   function describe(element) {
@@ -182,11 +223,15 @@ export function snapshotPage(budget) {
   }
 
   function walk(element) {
-    if (truncated || seen >= MAX_ELEMENTS) {
+    if (truncated) {
+      return;
+    }
+    if (seen >= MAX_ELEMENTS) {
+      truncated = true;
       return;
     }
     seen += 1;
-    if (SKIP.has(element.tagName) || element.getAttribute("aria-hidden") === "true") {
+    if (SKIP.has(element.tagName.toUpperCase()) || element.getAttribute("aria-hidden") === "true") {
       return;
     }
     if (!visible(element)) {
@@ -194,7 +239,7 @@ export function snapshotPage(budget) {
     }
     if (element.matches(INTERACTIVE)) {
       refs.push(element);
-      push(`[e${refs.length}] ${describe(element)}`);
+      push(`[e${first + refs.length - 1}] ${describe(element)}`);
       return;
     }
     if (/^H[1-6]$/.test(element.tagName)) {
@@ -222,6 +267,9 @@ export function snapshotPage(budget) {
     walk(document.body);
   }
   store.refs = refs;
+  store.first = first;
+  store.next = first + refs.length;
+  store.url = location.href.split("#")[0];
 
   return {
     url: location.href,
@@ -229,6 +277,7 @@ export function snapshotPage(budget) {
     outline: lines.join("\n"),
     refCount: refs.length,
     truncated,
+    first,
   };
 }
 
@@ -240,14 +289,25 @@ export function snapshotPage(budget) {
  * through a browser.
  *
  * @param {string} ref
+ * @param {string} [origin] the origin the call was checked for
  */
-export function inspectRef(ref) {
+export function inspectRef(ref, origin) {
+  if (origin && location.origin !== origin) {
+    return { ok: false, stale: true, error: "The tab is on a different site than the one this call was checked for. Nothing was done; snapshot again." };
+  }
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
     return { ok: false, stale: true, error: "No snapshot for this page. Call page_snapshot first." };
   }
-  const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
+  if (store.url && location.href.split("#")[0] !== store.url) {
+    return { ok: false, stale: true, error: `The page changed its address since the last snapshot, so ${ref} may point elsewhere. Snapshot again.` };
+  }
+  const first = store.first || 1;
+  if (Number.isFinite(index) && index < first) {
+    return { ok: false, stale: true, error: `${ref} is from an older snapshot. Use the refs from the latest page_snapshot.` };
+  }
+  const element = Number.isFinite(index) ? store.refs[index - first] : undefined;
   if (!element) {
     return { ok: false, error: `Unknown element ref "${ref}". Call page_snapshot again.` };
   }
@@ -262,19 +322,28 @@ export function inspectRef(ref) {
     name: element.getAttribute("name") || "",
     id: element.id || "",
     ariaLabel: element.getAttribute("aria-label") || "",
+    fieldLabel: element.labels
+      ? Array.from(element.labels)
+          .map((label) => label.textContent)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 200)
+      : "",
+    placeholder: element.getAttribute("placeholder") || "",
     editable:
       element.isContentEditable === true ||
-      element.tagName === "INPUT" ||
-      element.tagName === "TEXTAREA",
+      element.tagName === "TEXTAREA" ||
+      (element.tagName === "INPUT" &&
+        ["text", "search", "email", "url", "tel", "number", ""].includes(element.type || "")),
     disabled: element.disabled === true,
     // A click on this element submits a form. Only the markup-declared cases:
     // a script-driven "submit" on a div cannot be told apart from any click.
+    // The `type` *property*, not the attribute: a button whose attribute is
+    // missing or invalid (`type="submit "`, `type="x"`) still submits.
     submits:
-      (element.tagName === "BUTTON" &&
-        ["", "submit"].includes((element.getAttribute("type") || "").toLowerCase()) &&
-        Boolean(element.form)) ||
-      (element.tagName === "INPUT" &&
-        ["submit", "image"].includes((element.getAttribute("type") || "").toLowerCase())),
+      (element.tagName === "BUTTON" && element.type === "submit" && Boolean(element.form)) ||
+      (element.tagName === "INPUT" && ["submit", "image"].includes(element.type) && Boolean(element.form)),
     label: (element.getAttribute("aria-label") || element.textContent || "")
       .replace(/\s+/g, " ")
       .trim()
@@ -286,14 +355,25 @@ export function inspectRef(ref) {
  * Click the element a ref points at.
  *
  * @param {string} ref
+ * @param {string} [origin] the origin the call was checked for
  */
-export function clickRef(ref) {
+export function clickRef(ref, origin) {
+  if (origin && location.origin !== origin) {
+    return { ok: false, error: "The tab is on a different site than the one this call was checked for. Nothing was clicked; snapshot again." };
+  }
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
     return { ok: false, error: "No snapshot for this page. Call page_snapshot first." };
   }
-  const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
+  if (store.url && location.href.split("#")[0] !== store.url) {
+    return { ok: false, error: `The page changed its address since the last snapshot, so ${ref} may point elsewhere. Snapshot again.` };
+  }
+  const first = store.first || 1;
+  if (Number.isFinite(index) && index < first) {
+    return { ok: false, error: `${ref} is from an older snapshot. Use the refs from the latest page_snapshot.` };
+  }
+  const element = Number.isFinite(index) ? store.refs[index - first] : undefined;
   if (!element) {
     return { ok: false, error: `Unknown element ref "${ref}". Call page_snapshot again.` };
   }
@@ -324,19 +404,30 @@ export function clickRef(ref) {
  * @param {string} text
  * @param {boolean} clear
  * @param {boolean} submit
+ * @param {string} [origin] the origin the call was checked for
  */
-export function typeRef(ref, text, clear, submit) {
+export function typeRef(ref, text, clear, submit, origin) {
+  if (origin && location.origin !== origin) {
+    return { ok: false, error: "The tab is on a different site than the one this call was checked for. Nothing was typed; snapshot again." };
+  }
   const store = globalThis.__chromewhale;
   const index = Number.parseInt(String(ref).replace(/^e/i, ""), 10);
   if (!store || !Array.isArray(store.refs) || store.refs.length === 0) {
     return { ok: false, error: "No snapshot for this page. Call page_snapshot first." };
   }
-  const element = Number.isFinite(index) ? store.refs[index - 1] : undefined;
+  if (store.url && location.href.split("#")[0] !== store.url) {
+    return { ok: false, error: `The page changed its address since the last snapshot, so ${ref} may point elsewhere. Snapshot again.` };
+  }
+  const first = store.first || 1;
+  if (Number.isFinite(index) && index < first) {
+    return { ok: false, error: `${ref} is from an older snapshot. Use the refs from the latest page_snapshot.` };
+  }
+  const element = Number.isFinite(index) ? store.refs[index - first] : undefined;
   if (!element || !element.isConnected) {
     return { ok: false, error: `Element ${ref} is not on the page. Call page_snapshot again.` };
   }
   if ((element.getAttribute("type") || "").toLowerCase() === "password") {
-    return { ok: false, error: "Chromewhale never types into a password field." };
+    return { ok: false, error: "Codewhale for Chrome never types into a password field." };
   }
   if (element.disabled === true || element.readOnly === true) {
     return { ok: false, error: `Element ${ref} does not accept input.` };
@@ -344,26 +435,49 @@ export function typeRef(ref, text, clear, submit) {
   element.scrollIntoView({ block: "center", inline: "center" });
   element.focus();
   if (element.isContentEditable) {
-    if (clear) {
-      element.textContent = "";
+    // Through the editing pipeline, not `textContent`: that would replace every
+    // child node (links, mentions, formatting) and rich editors revert it.
+    const selection = window.getSelection();
+    if (selection) {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      if (!clear) {
+        range.collapse(false);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
-    element.textContent += text;
+    const inserted = typeof document.execCommand === "function" && document.execCommand("insertText", false, text);
+    if (!inserted) {
+      if (clear) {
+        element.textContent = "";
+      }
+      element.append(document.createTextNode(text));
+      element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    }
   } else {
-    if (clear) {
-      element.value = "";
+    // The prototype's setter, not `element.value =`: frameworks such as React
+    // shadow the instance property to track changes, and an assignment that
+    // skips their tracker is silently reverted on the next render.
+    const next = clear ? text : `${element.value}${text}`;
+    const proto = element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    if (setter) {
+      setter.call(element, next);
+    } else {
+      element.value = next;
     }
-    element.value += text;
+    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  element.dispatchEvent(new Event("change", { bubbles: true }));
   if (submit) {
-    for (const type of ["keydown", "keypress", "keyup"]) {
-      element.dispatchEvent(
-        new KeyboardEvent(type, { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }),
-      );
-    }
+    // A page that handles Enter itself (and says so with preventDefault) has
+    // submitted already; submitting the form as well would send it twice.
+    const down = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true });
+    const handled = !element.dispatchEvent(down);
+    element.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));
     const form = element.form;
-    if (form && typeof form.requestSubmit === "function") {
+    if (!handled && form && typeof form.requestSubmit === "function") {
       form.requestSubmit();
     }
   }

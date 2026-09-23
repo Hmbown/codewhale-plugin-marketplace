@@ -18,7 +18,7 @@ import path from "node:path";
 import { isLoopbackHost, readPairing, resolveEndpoint, stateDir } from "./pairing.mjs";
 
 const PREVIEW =
-  "Chromewhale is a developer preview: you load it unpacked, and it works inside your own Chrome profile " +
+  "Codewhale for Chrome is a developer preview: you load it unpacked, and it works inside your own Chrome profile " +
   "(your logged-in sessions), one allowed site at a time.";
 
 /**
@@ -82,7 +82,7 @@ async function status(env, out, json) {
       {
         up: false,
         lines: [
-          `No pairing token at ${pairing.file} yet: the Chromewhale server has never run here.`,
+          `No pairing token at ${pairing.file} yet: the Codewhale for Chrome server has never run here.`,
           "Enable the plugin in Codewhale (/plugin show chromewhale), then run /chromewhale setup.",
         ],
       },
@@ -99,10 +99,10 @@ async function status(env, out, json) {
         pid: body.pid,
         version: body.version,
         lines: [
-          `Chromewhale bridge: up on ${where} (pid ${body.pid ?? "?"}, plugin ${body.version ?? "?"}).`,
+          `Codewhale for Chrome bridge: up on ${where} (pid ${body.pid ?? "?"}, plugin ${body.version ?? "?"}).`,
           body.paired === true
             ? "Side panel: attached. The page_* tools will reach the active tab."
-            : "Side panel: not attached. Open the Chromewhale side panel in Chrome; the page_* tools refuse until it is.",
+            : "Side panel: not attached. Open the Codewhale for Chrome side panel in Chrome; the page_* tools refuse until it is.",
         ],
       },
       0,
@@ -114,7 +114,7 @@ async function status(env, out, json) {
         up: true,
         paired: false,
         lines: [
-          `A Chromewhale bridge is listening on ${where}${health.body?.pid ? ` (pid ${health.body.pid})` : ""}, but it rejects the token in ${pairing.file}.`,
+          `A Codewhale for Chrome bridge is listening on ${where}${health.body?.pid ? ` (pid ${health.body.pid})` : ""}, but it rejects the token in ${pairing.file}.`,
           "Another session is probably running with CHROMEWHALE_BRIDGE_TOKEN set. Unset it there, or use a different CHROMEWHALE_BRIDGE_PORT.",
         ],
       },
@@ -126,14 +126,14 @@ async function status(env, out, json) {
       {
         up: false,
         lines: [
-          `Nothing is answering on ${where}: the Chromewhale MCP server is not running.`,
+          `Nothing is answering on ${where}: the Codewhale for Chrome MCP server is not running.`,
           "Check that the plugin is enabled (/plugin show chromewhale) and that this Codewhale session has started it.",
         ],
       },
       1,
     );
   }
-  return finish({ up: false, lines: [`${where} answered HTTP ${health.status}; it is not a Chromewhale bridge.`] }, 1);
+  return finish({ up: false, lines: [`${where} answered HTTP ${health.status}; it is not a Codewhale for Chrome bridge.`] }, 1);
 }
 
 /**
@@ -159,7 +159,7 @@ function setup(env, root, out, err) {
   const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
   const dest = path.join(stateDir(env), "extension");
   if (fs.existsSync(dest) && !isOurExtension(dest)) {
-    err(`${dest} exists and is not a Chromewhale extension copy; move it aside and run setup again.`);
+    err(`${dest} exists and is not a Codewhale for Chrome extension copy; move it aside and run setup again.`);
     return 1;
   }
   // Copy beside, then swap, so Chrome never reloads a half-written tree.
@@ -175,12 +175,12 @@ function setup(env, root, out, err) {
   out("");
   out(`Extension ${manifest.version} copied to: ${dest}`);
   out("That path stays the same across plugin updates, so Chrome keeps the same extension ID.");
-  out("After updating the plugin, run /chromewhale setup again and click Reload on the Chromewhale card.");
+  out("After updating the plugin, run /chromewhale setup again and click Reload on the Codewhale for Chrome card.");
   out("");
   out("1. Open chrome://extensions and turn on Developer mode.");
   out(`2. Choose Load unpacked and select ${dest}`);
-  out("3. Click the Chromewhale toolbar button to open the side panel.");
-  out(`4. In Settings → Chromewhale bridge, set port ${endpoint.port} and paste the token from /chromewhale token.`);
+  out("3. Click the Codewhale for Chrome toolbar button to open the side panel.");
+  out(`4. In Settings → Codewhale for Chrome bridge, set port ${endpoint.port} and paste the token from /chromewhale token.`);
   out("5. The panel's bridge line reads \"Attached\" when it worked; /chromewhale status confirms it.");
   return 0;
 }
@@ -188,7 +188,7 @@ function setup(env, root, out, err) {
 /** @param {string} dir */
 function isOurExtension(dir) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).name === "Chromewhale";
+    return JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).name === "Codewhale for Chrome";
   } catch {
     return false;
   }

@@ -154,7 +154,9 @@ test("the snapshot budget comes from the call, not from a constant in the panel"
   run.state.scriptResults.set(snapshotPage, () => ({ url: "u", title: "t", outline: "", refCount: 0 }));
   await run.run("page_snapshot", {});
   const injected = run.calls.scripts.find((call) => call.func === snapshotPage);
-  assert.deepEqual(injected.args, [1000], "the server owns how much page text reaches the model");
+  assert.equal(injected.args[0], 1000, "the server owns how much page text reaches the model");
+  assert.equal(injected.args[1].origin, "https://example.com", "the snapshot refuses any other origin");
+  assert.equal(typeof injected.args[1].names, "string", "the sensitive-field rules travel with the call");
 });
 
 test("page_type refuses a password field after inspecting it, and never types", async () => {
@@ -195,7 +197,7 @@ test("page_type fills an ordinary field and reports where it landed", async () =
   assert.equal(result.success, true);
   assert.match(textOf(result), /typed into: Search/);
   const typed = run.calls.scripts.find((call) => call.func === typeRef);
-  assert.deepEqual(typed.args, ["e3", "whales", true, false], "clear defaults on, submit defaults off");
+  assert.deepEqual(typed.args, ["e3", "whales", true, false, "https://example.com"], "clear defaults on, submit defaults off");
 });
 
 test("page_type will not type into something that is not editable", async () => {
@@ -370,7 +372,7 @@ test("page_type with submit proceeds once the user confirms", async () => {
   const result = await run.run("page_type", { ref: "e3", text: "whales", submit: true });
   assert.equal(result.success, true);
   assert.equal(run.calls.confirms.length, 1);
-  assert.deepEqual(run.calls.scripts.find((call) => call.func === typeRef).args, ["e3", "whales", true, true]);
+  assert.deepEqual(run.calls.scripts.find((call) => call.func === typeRef).args, ["e3", "whales", true, true, "https://example.com"]);
 });
 
 test("filling a field without submit never asks for confirmation", async () => {

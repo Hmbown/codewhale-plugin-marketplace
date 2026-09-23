@@ -1,5 +1,5 @@
 /**
- * Executes the `page_*` calls the Chromewhale bridge sends, against the tab the
+ * Executes the `page_*` calls the Codewhale for Chrome bridge sends, against the tab the
  * user is looking at.
  *
  * Every chrome API arrives through `deps`, so the routing and — more to the
@@ -20,13 +20,24 @@
  * holds on the side the model reads from. A page title is as attacker-chosen
  * as its body text.
  *
+ * **Nothing acts late.** A call carries an abort signal (a `cancel` frame from
+ * the bridge, or Pause) and a deadline. Both are checked again, with Pause,
+ * immediately before anything touches the page — after every prompt — so a
+ * user's late click can never act on a call the model was told had failed.
+ *
  * Submitting a form is confirmed per action, even on an allowed origin: a
  * grant lets Codewhale read and fill a site, and a submit is the step that
  * sends what was filled somewhere. `page_type` with `submit`, and a
  * `page_click` on a markup-declared submit control, wait for the user's click.
  */
 
-import { classifyTarget, decisionFor, sensitiveField } from "./policy.js";
+import {
+  SENSITIVE_AUTOCOMPLETE,
+  SENSITIVE_NAME_SOURCE,
+  classifyTarget,
+  decisionFor,
+  sensitiveField,
+} from "./policy.js";
 import { clickRef, inspectRef, snapshotPage, typeRef } from "./page.js";
 
 /** Fallback when a call frame carries no budget (an older bridge). */
@@ -53,8 +64,8 @@ const MAX_PROMPT_URL = 200;
  * @property {(pattern: string) => Promise<boolean>} hasPermission
  * @property {() => Promise<Record<string, unknown>>} readDecisions
  * @property {() => Promise<Record<string, unknown>>} [readSessionDecisions]
- * @property {(request: {origin: string, tool: string, summary: string, detail: string}) => Promise<boolean>} confirmAction
- * @property {(request: {origin: string, tool: string, summary: string, reason: "ask" | "permission"}) => Promise<"allow" | "block" | "denied">} requestDecision
+ * @property {(request: {origin: string, tool: string, summary: string, detail: string, signal?: AbortSignal, deadline?: number}) => Promise<boolean>} confirmAction
+ * @property {(request: {origin: string, tool: string, summary: string, reason: "ask" | "permission", signal?: AbortSignal, deadline?: number}) => Promise<"allow" | "block" | "denied">} requestDecision
  * @property {() => Promise<boolean>} isPaused
  * @property {(entry: {tool: string, summary: string, origin?: string, outcome: string}) => void} log
  * @property {(ms: number) => Promise<void>} sleep
@@ -71,32 +82,81 @@ export function createBrowserTools(deps) {
    * readable sentence, so the model learns what happened instead of the call
    * sitting until the bridge's timeout fires.
    *
-   * @param {{tool: string, args?: Record<string, unknown>, summary?: string, budget?: number}} call
+   * @param {{tool: string, args?: Record<string, unknown>, summary?: string, budget?: number,
+   *          deadline?: number, signal?: AbortSignal}} call
    */
   async function execute(call) {
     const name = call?.tool ?? "";
     const args = call?.args && typeof call.args === "object" ? call.args : {};
     const summary = typeof call?.summary === "string" && call.summary ? call.summary : name;
     const budget = Number.isFinite(call?.budget) ? Number(call.budget) : DEFAULT_SNAPSHOT_BUDGET;
+    /** @type {Live} */
+    const live = {
+      signal: call?.signal,
+      deadline: Number.isFinite(call?.deadline) ? Number(call.deadline) : undefined,
+    };
     try {
       switch (name) {
         case "page_snapshot":
-          return await runSnapshot(summary, budget);
+          return await runSnapshot(summary, budget, live);
         case "page_navigate":
-          return await runNavigate(args, summary);
+          return await runNavigate(args, summary, live);
         case "page_click":
-          return await runClick(args, summary);
+          return await runClick(args, summary, live);
         case "page_type":
-          return await runType(args, summary);
+          return await runType(args, summary, live);
         case "page_screenshot":
-          return await runScreenshot(summary);
+          return await runScreenshot(summary, live);
         default:
-          return failure(`Chromewhale's panel does not implement "${name}".`);
+          return failure(`Codewhale for Chrome's panel does not implement "${name}".`);
       }
     } catch (error) {
       deps.log({ tool: name, summary, outcome: "error" });
-      return failure(`Chromewhale could not run ${name}: ${messageOf(error)}`);
+      return failure(`Codewhale for Chrome could not run ${name}: ${messageOf(error)}`);
     }
+  }
+
+  /**
+   * Why this call must not act now, or `undefined` if it still may. Checked
+   * right before every side effect, after any prompt the user answered.
+   *
+   * @param {Live} live
+   */
+  async function halted(live) {
+    if (live.signal?.aborted) {
+      return live.signal.reason === "paused"
+        ? "The user paused Codewhale for Chrome while this call was waiting. Nothing was done."
+        : "This call was cancelled before it acted. Nothing was done.";
+    }
+    if (live.deadline !== undefined && Date.now() > live.deadline) {
+      return "This call ran out of time before it could act (the user may not have answered a prompt). Nothing was done.";
+    }
+    if (await deps.isPaused()) {
+      return "Codewhale for Chrome is paused. The user can resume it from the side panel.";
+    }
+    return undefined;
+  }
+
+  /**
+   * `halted` as a refusal result, or `undefined` to proceed.
+   *
+   * @param {string} tool
+   * @param {string} summary
+   * @param {string | undefined} origin
+   * @param {Live} live
+   */
+  async function stop(tool, summary, origin, live) {
+    const reason = await halted(live);
+    if (!reason) {
+      return undefined;
+    }
+    deps.log({ tool, summary, origin, outcome: "refused" });
+    return failure(reason);
+  }
+
+  /** The sensitive-field rules and the checked origin, as page-script data. */
+  function pageRules(origin) {
+    return { origin, names: SENSITIVE_NAME_SOURCE, autocomplete: SENSITIVE_AUTOCOMPLETE };
   }
 
   /**
@@ -104,12 +164,13 @@ export function createBrowserTools(deps) {
    *
    * @param {string} tool
    * @param {string} summary
+   * @param {Live} live
    * @param {string} [targetUrl] the URL the call is *about*, when it is not the
    *   tab's current one (a navigation's destination).
    */
-  async function gate(tool, summary, targetUrl) {
+  async function gate(tool, summary, live, targetUrl) {
     if (await deps.isPaused()) {
-      return refuse(tool, summary, undefined, "Chromewhale is paused. The user can resume it from the side panel.");
+      return refuse(tool, summary, undefined, "Codewhale for Chrome is paused. The user can resume it from the side panel.");
     }
     const tab = await deps.activeTab();
     if (!tab || typeof tab.id !== "number") {
@@ -124,7 +185,7 @@ export function createBrowserTools(deps) {
     const session = deps.readSessionDecisions ? await deps.readSessionDecisions() : {};
     let decision = decisionFor(await deps.readDecisions(), origin, session);
     if (decision === "block") {
-      return refuse(tool, summary, origin, `The user has blocked Chromewhale on ${origin}.`);
+      return refuse(tool, summary, origin, `The user has blocked Codewhale for Chrome on ${origin}.`);
     }
 
     // An allowed origin whose Chrome host permission was revoked (or never
@@ -136,6 +197,8 @@ export function createBrowserTools(deps) {
         tool,
         summary,
         reason: decision === "ask" ? "ask" : "permission",
+        signal: live.signal,
+        deadline: live.deadline,
       });
       if (answer !== "allow") {
         return refuse(
@@ -143,15 +206,19 @@ export function createBrowserTools(deps) {
           summary,
           origin,
           answer === "block"
-            ? `The user blocked Chromewhale on ${origin}.`
-            : `The user did not grant Chromewhale access to ${origin}.`,
+            ? `The user blocked Codewhale for Chrome on ${origin}.`
+            : `The user did not grant Codewhale for Chrome access to ${origin}.`,
         );
       }
       decision = "allow";
       permitted = await deps.hasPermission(pattern);
     }
     if (!permitted) {
-      return refuse(tool, summary, origin, `Chrome did not grant Chromewhale access to ${origin}.`);
+      return refuse(tool, summary, origin, `Chrome did not grant Codewhale for Chrome access to ${origin}.`);
+    }
+    const late = await halted(live);
+    if (late) {
+      return refuse(tool, summary, origin, late);
     }
     return { ok: /** @type {true} */ (true), tab, origin };
   }
@@ -159,24 +226,28 @@ export function createBrowserTools(deps) {
   /**
    * @param {string} summary
    * @param {number} budget
+   * @param {Live} live
    */
-  async function runSnapshot(summary, budget) {
-    const gated = await gate("page_snapshot", summary);
+  async function runSnapshot(summary, budget, live) {
+    const gated = await gate("page_snapshot", summary, live);
     if (!gated.ok) {
       return gated.result;
     }
     const page = await deps.executeScript({
       tabId: gated.tab.id,
       func: snapshotPage,
-      args: [budget],
+      args: [budget, pageRules(gated.origin)],
     });
     if (!page || typeof page !== "object") {
       return failure("The page did not return a snapshot. It may still be loading.");
     }
+    if (page.wrongOrigin) {
+      return failure(`The tab left ${gated.origin} before it could be read. Nothing was read; snapshot again.`);
+    }
     deps.log({ tool: "page_snapshot", summary, origin: gated.origin, outcome: "ran" });
     const header = [
       `interactive elements: ${Number(page.refCount) || 0}`,
-      page.truncated ? "note: the outline was cut at Chromewhale's size budget." : undefined,
+      page.truncated ? "note: the outline was cut at Codewhale for Chrome's size budget." : undefined,
     ]
       .filter(Boolean)
       .join("\n");
@@ -192,8 +263,9 @@ export function createBrowserTools(deps) {
   /**
    * @param {Record<string, unknown>} args
    * @param {string} summary
+   * @param {Live} live
    */
-  async function runNavigate(args, summary) {
+  async function runNavigate(args, summary, live) {
     const url = typeof args?.url === "string" ? args.url.trim() : "";
     const action = typeof args?.action === "string" ? args.action : "";
     if (Boolean(url) === Boolean(action)) {
@@ -205,7 +277,7 @@ export function createBrowserTools(deps) {
     // The prompt names the parsed address, not the model's raw string: a URL
     // with spaces in it parses, and would read as a sentence on the card.
     const shown = url ? promptUrl(url) : undefined;
-    const gated = await gate("page_navigate", shown ? `open ${shown}` : summary, url || undefined);
+    const gated = await gate("page_navigate", shown ? `open ${shown}` : summary, live, url || undefined);
     if (!gated.ok) {
       return gated.result;
     }
@@ -224,7 +296,7 @@ export function createBrowserTools(deps) {
           text:
             settled?.status === "complete"
               ? "The page finished loading. Call page_snapshot to read it."
-              : "The page was still loading when Chromewhale stopped waiting. Snapshot to see its current state.",
+              : "The page was still loading when Codewhale for Chrome stopped waiting. Snapshot to see its current state.",
         },
         pageText([`url: ${settled?.url ?? "unknown"}`, `title: ${settled?.title ?? ""}`]),
       ],
@@ -234,8 +306,9 @@ export function createBrowserTools(deps) {
   /**
    * @param {Record<string, unknown>} args
    * @param {string} summary
+   * @param {Live} live
    */
-  async function runClick(args, summary) {
+  async function runClick(args, summary, live) {
     const ref = typeof args?.ref === "string" ? args.ref : "";
     if (!ref) {
       return failure("page_click needs a ref from the latest page_snapshot.");
@@ -243,27 +316,33 @@ export function createBrowserTools(deps) {
     if (!REF_PATTERN.test(ref)) {
       return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
     }
-    const gated = await gate("page_click", summary);
+    const gated = await gate("page_click", summary, live);
     if (!gated.ok) {
       return gated.result;
     }
     // A failed inspection is not fatal here: `clickRef` reports staleness and
     // unknown refs in its own words. Only a control that declares it submits
     // a form needs the extra confirmation.
-    const target = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref] });
+    const target = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref, gated.origin] });
     if (target?.ok && target.submits === true) {
       const confirmed = await deps.confirmAction({
         origin: gated.origin,
         tool: "page_click",
         summary,
         detail: `Clicking ${ref} submits a form on ${gated.origin}.`,
+        signal: live.signal,
+        deadline: live.deadline,
       });
       if (!confirmed) {
         deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
         return failure(`The user did not confirm submitting the form on ${gated.origin}. Nothing was clicked.`);
       }
     }
-    const outcome = await deps.executeScript({ tabId: gated.tab.id, func: clickRef, args: [ref] });
+    const late = await stop("page_click", summary, gated.origin, live);
+    if (late) {
+      return late;
+    }
+    const outcome = await deps.executeScript({ tabId: gated.tab.id, func: clickRef, args: [ref, gated.origin] });
     if (!outcome?.ok) {
       deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
       return failure(outcome?.error ?? "The click did not reach an element.");
@@ -282,8 +361,9 @@ export function createBrowserTools(deps) {
   /**
    * @param {Record<string, unknown>} args
    * @param {string} summary
+   * @param {Live} live
    */
-  async function runType(args, summary) {
+  async function runType(args, summary, live) {
     const ref = typeof args?.ref === "string" ? args.ref : "";
     const text = typeof args?.text === "string" ? args.text : "";
     if (!ref) {
@@ -292,11 +372,11 @@ export function createBrowserTools(deps) {
     if (!REF_PATTERN.test(ref)) {
       return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
     }
-    const gated = await gate("page_type", summary);
+    const gated = await gate("page_type", summary, live);
     if (!gated.ok) {
       return gated.result;
     }
-    const field = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref] });
+    const field = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref, gated.origin] });
     if (!field?.ok) {
       return failure(field?.error ?? `Element ${ref} could not be inspected.`);
     }
@@ -317,6 +397,8 @@ export function createBrowserTools(deps) {
         tool: "page_type",
         summary,
         detail: `Typing into ${ref} and pressing Enter submits it on ${gated.origin}.`,
+        signal: live.signal,
+        deadline: live.deadline,
       });
       if (!confirmed) {
         deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "refused" });
@@ -326,10 +408,14 @@ export function createBrowserTools(deps) {
         );
       }
     }
+    const late = await stop("page_type", summary, gated.origin, live);
+    if (late) {
+      return late;
+    }
     const outcome = await deps.executeScript({
       tabId: gated.tab.id,
       func: typeRef,
-      args: [ref, text, args?.clear !== false, args?.submit === true],
+      args: [ref, text, args?.clear !== false, args?.submit === true, gated.origin],
     });
     if (!outcome?.ok) {
       return failure(outcome?.error ?? "The text did not reach the field.");
@@ -345,13 +431,31 @@ export function createBrowserTools(deps) {
     };
   }
 
-  /** @param {string} summary */
-  async function runScreenshot(summary) {
-    const gated = await gate("page_screenshot", summary);
+  /**
+   * @param {string} summary
+   * @param {Live} live
+   */
+  async function runScreenshot(summary, live) {
+    const gated = await gate("page_screenshot", summary, live);
     if (!gated.ok) {
       return gated.result;
     }
-    const dataUrl = await deps.captureTab(gated.tab.windowId);
+    let dataUrl;
+    try {
+      dataUrl = await deps.captureTab(gated.tab.windowId);
+    } catch (error) {
+      // Chrome lets an extension capture a tab only under `activeTab`, which
+      // the user grants by clicking its toolbar button on that tab. A site
+      // grant is not enough, and asking for every site to get it would be.
+      if (/activeTab|all_urls/i.test(messageOf(error))) {
+        deps.log({ tool: "page_screenshot", summary, origin: gated.origin, outcome: "refused" });
+        return failure(
+          "Chrome only lets Codewhale for Chrome capture a tab after the user clicks its toolbar button on that " +
+            "tab. Ask the user to click the Codewhale for Chrome button, then try again — or use page_snapshot.",
+        );
+      }
+      throw error;
+    }
     const image = splitDataUrl(dataUrl);
     if (!image) {
       return failure("Chrome did not return an image for the visible tab.");
@@ -397,6 +501,12 @@ export function createBrowserTools(deps) {
 
   return { execute };
 }
+
+/**
+ * What a call carries to decide whether it may still act.
+ *
+ * @typedef {{signal?: AbortSignal, deadline?: number}} Live
+ */
 
 /**
  * Split a `data:` URL into the pieces an MCP image block needs.

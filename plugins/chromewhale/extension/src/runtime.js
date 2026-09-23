@@ -4,7 +4,7 @@
  *
  * The runtime binds loopback only. The extension reaches it because
  * `manifest.json` holds `http://127.0.0.1/*` and `http://localhost/*` as
- * required host permissions — the one host access Chromewhale takes up front,
+ * required host permissions — the one host access Codewhale for Chrome takes up front,
  * and the only one it takes without asking, because it is the user's own agent.
  *
  * The bearer token lives in `chrome.storage.local`, never in a URL: a query
@@ -95,7 +95,7 @@ export class RuntimeClient {
    * Start a turn.
    *
    * No `dynamic_tools` here: the browser tools are registered by the
-   * Chromewhale plugin's MCP server, not by this client. Registering them here
+   * Codewhale for Chrome plugin's MCP server, not by this client. Registering them here
    * as well would put a second copy of the same five tools in front of the
    * model — and the runtime's copy would bypass Codewhale's approval gate,
    * because runtime dynamic tools carry `ApprovalRequirement::Auto`.

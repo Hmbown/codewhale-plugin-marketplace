@@ -1,11 +1,11 @@
 /**
- * The Chromewhale side panel.
+ * The Codewhale for Chrome side panel.
  *
  * It holds two loopback connections, and they do different jobs:
  *
  * - the **Codewhale runtime** (`/v1/*`) carries the conversation — this is the
  *   chat you see, streamed over SSE like any other runtime client;
- * - the **Chromewhale bridge** carries tool calls from the plugin's MCP server
+ * - the **Codewhale for Chrome bridge** carries tool calls from the plugin's MCP server
  *   to this tab, and results back.
  *
  * Keeping them separate is what lets the tools go through Codewhale's normal
@@ -45,6 +45,19 @@ const DEFAULT_SETTINGS = {
 const DECISION_TIMEOUT_MS = 60_000;
 
 const MAX_ACTIVITY_ROWS = 40;
+
+/**
+ * How long a prompt may stay up: the usual limit, cut short by the call's own
+ * deadline so a card never outlives the call it is asking about.
+ *
+ * @param {number | undefined} deadline
+ */
+function promptTimeout(deadline) {
+  if (!Number.isFinite(deadline)) {
+    return DECISION_TIMEOUT_MS;
+  }
+  return Math.max(0, Math.min(DECISION_TIMEOUT_MS, Number(deadline) - Date.now()));
+}
 
 const dom = {
   status: document.getElementById("status"),
@@ -347,7 +360,7 @@ function statusForEvent(event) {
 // --- per-origin decisions -------------------------------------------------
 
 /**
- * Ask the user whether Chromewhale may work on an origin.
+ * Ask the user whether Codewhale for Chrome may work on an origin.
  *
  * Resolving to `"allow"` means both gates passed: the user said yes *and*
  * Chrome granted the optional host permission. `chrome.permissions.request` is
@@ -357,7 +370,8 @@ function statusForEvent(event) {
  * the grant lives in `chrome.storage.session` and is gone when Chrome exits.
  * "Always allow" is a separate, deliberate click.
  *
- * @param {{origin: string, tool: string, summary: string, reason: "ask" | "permission"}} request
+ * @param {{origin: string, tool: string, summary: string, reason: "ask" | "permission",
+ *          signal?: AbortSignal, deadline?: number}} request
  * @returns {Promise<"allow" | "block" | "denied">}
  */
 function requestDecision(request) {
@@ -405,7 +419,10 @@ function requestDecision(request) {
       card.remove();
       resolve(answer);
     };
-    const timer = setTimeout(() => finish("denied"), DECISION_TIMEOUT_MS);
+    const timer = setTimeout(() => finish("denied"), promptTimeout(request.deadline));
+    // A cancelled, paused or timed-out call takes its card with it: an answer
+    // to a call that no longer exists must not be possible.
+    request.signal?.addEventListener("abort", () => finish("denied"), { once: true });
 
     /** @param {"session" | "allow"} scope */
     const grant = (scope) => {
@@ -436,7 +453,8 @@ function requestDecision(request) {
  * Used for form submission. Resolves `false` on Cancel and on timeout, so an
  * unattended panel never submits anything.
  *
- * @param {{origin: string, tool: string, summary: string, detail: string}} request
+ * @param {{origin: string, tool: string, summary: string, detail: string,
+ *          signal?: AbortSignal, deadline?: number}} request
  * @returns {Promise<boolean>}
  */
 function confirmAction(request) {
@@ -472,7 +490,8 @@ function confirmAction(request) {
       card.remove();
       resolve(answer);
     };
-    const timer = setTimeout(() => finish(false), DECISION_TIMEOUT_MS);
+    const timer = setTimeout(() => finish(false), promptTimeout(request.deadline));
+    request.signal?.addEventListener("abort", () => finish(false), { once: true });
     confirm.addEventListener("click", () => finish(true));
     cancel.addEventListener("click", () => finish(false));
   });
@@ -735,6 +754,10 @@ dom.pause.addEventListener("click", async () => {
   const stored = await chrome.storage.local.get({ paused: false });
   const paused = !stored.paused;
   await chrome.storage.local.set({ paused });
+  if (paused) {
+    // Pause means now: calls already waiting on a prompt stop too.
+    bridge?.abortAll("paused");
+  }
   dom.pause.setAttribute("aria-pressed", String(paused));
   dom.pause.textContent = paused ? "Paused" : "Pause";
 });

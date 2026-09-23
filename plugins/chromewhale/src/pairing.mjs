@@ -218,6 +218,81 @@ export function bearerOf(header) {
   return match ? match[1] : undefined;
 }
 
+// --- challenge-response ----------------------------------------------------
+//
+// The raw pairing token never crosses the wire from a client. A client first
+// fetches a single-use nonce (`GET /challenge`), then signs the request with
+// an HMAC over that nonce, a nonce of its own, and the method and path. The
+// bridge answers with its own HMAC proof over both nonces (and, for JSON
+// replies, the reply body). So a process that merely squats on the port learns
+// nothing it can replay and cannot forge a reply the client will accept. The
+// extension computes the same MACs with WebCrypto (`extension/src/bridge.js`).
+
+/**
+ * Lowercase hex HMAC-SHA256 of `message` under the pairing token.
+ *
+ * @param {string} token
+ * @param {string} message
+ */
+export function mac(token, message) {
+  return crypto.createHmac("sha256", token).update(message, "utf8").digest("hex");
+}
+
+/**
+ * Constant-time comparison of two hex MACs.
+ *
+ * @param {unknown} presented
+ * @param {string} expected
+ */
+export function macMatches(presented, expected) {
+  if (typeof presented !== "string" || !/^[0-9a-f]{64}$/.test(presented)) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(presented, "hex"), Buffer.from(expected, "hex"));
+}
+
+/** The string a client signs for one request. */
+export function clientMessage(method, path, nonce, cnonce) {
+  return `client|${method.toUpperCase()}|${path}|${nonce}|${cnonce}`;
+}
+
+/** The string the bridge signs for one reply. `payload` is the reply body or frame tag. */
+export function bridgeMessage(nonce, cnonce, payload) {
+  return `bridge|${nonce}|${cnonce}|${payload}`;
+}
+
+/**
+ * Build the `Authorization` header for one signed request.
+ *
+ * @param {string} token
+ * @param {string} method
+ * @param {string} path pathname only, no query
+ * @param {string} nonce from `GET /challenge`
+ * @param {string} cnonce fresh per request
+ */
+export function signedAuthorization(token, method, path, nonce, cnonce) {
+  return `Chromewhale nonce=${nonce},cnonce=${cnonce},mac=${mac(token, clientMessage(method, path, nonce, cnonce))}`;
+}
+
+/**
+ * Parse a signed `Authorization` header.
+ *
+ * @param {unknown} header
+ * @returns {{nonce: string, cnonce: string, mac: string} | undefined}
+ */
+export function parseSignedAuthorization(header) {
+  if (typeof header !== "string") {
+    return undefined;
+  }
+  const match = /^Chromewhale nonce=([0-9a-f]{32}),cnonce=([0-9a-f]{32}),mac=([0-9a-f]{64})$/.exec(header.trim());
+  return match ? { nonce: match[1], cnonce: match[2], mac: match[3] } : undefined;
+}
+
+/** A fresh 128-bit hex nonce. */
+export function newNonce() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
 /** @param {string} file */
 function readToken(file) {
   try {
