@@ -4,12 +4,12 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "4c575707f32634c445889f53e3881d7e2775e7518b24a4d0807d57cf924fed4c",
+      "page_sha256": "cc1e750ff2a7dd755b4bdc5630fc3586f37b94caba1032b3790ae973164140fe",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "33c16c034225c7c3fc2f8e92a208c5eb0d4d70b88a99a75fe0733f1357eaca37",
+          "sha256": "d27c08ddd9a0470909dac094038beee00f4d21d9ca6071485d82424b41e37c3c",
           "bytes": 5754
         },
         {
@@ -45,8 +45,8 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "922e59d347cc6ec105067729e36757c8929e49ad590c485048ba6421f9c85cbd",
-          "bytes": 24659
+          "sha256": "7c75bb3d52e3adf915ea4c7cc951355626235c633876ce87d4a09dd640f380a5",
+          "bytes": 27510
         },
         {
           "path": "plugins/computer-use/docs/releases/0.6.0.json",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "ec7812e363edbb4686c1f72b5f1f72563f9852118187c06268a9270dabd4784c",
-          "bytes": 44355
+          "sha256": "f8717c079b585a0fd86c9121de2de7392a0c84c1d9891e1f843184f3afe9be03",
+          "bytes": 48006
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -97,7 +97,7 @@
           "bytes": 5462
         }
       ],
-      "sealed_at": "2026-09-22T19:56:05.065Z"
+      "sealed_at": "2026-09-23T02:08:19.722Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -210,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-22T19:56:05.066Z"
+  "updated_at": "2026-09-23T02:08:19.722Z"
 }
