@@ -6,12 +6,20 @@ catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.11.3 is a macOS beta candidate. It combines app
+Computer Use source 0.12.0 is a macOS beta candidate. It combines app
 scripting, accessibility and window-routed input, CDP browser control, and
 session-owned Linux desktops through Docker. Local apps require per-app
 consent; foreground activation needs a separate decision. Shared input waits
 for a quiet hardware-input window and refuses `user_busy` if the person
 remains active. Input arriving mid-action is still a documented limitation.
+
+In 0.12.0 the agent has its own pointer on macOS: clicks, hover, drag and
+scroll go to the bound app's window as window-routed events in every mode,
+and the helper refuses any request to drive the person's cursor
+(`real_pointer_refused`). It also adds the shared-computer attach mode for
+Codewhale Computers (browser attach, control lease gate, turn hold) and a
+safety floor: `app_script` refuses shell and keystroke escapes, irreversible
+clicks need an explicit confirmation, and consent is never batched or replayed.
 
 The 0.11.3 patch answers `resources/templates/list` with an empty template
 list instead of `-32601`. The server publishes a fixed skill pack and never a
@@ -32,7 +40,7 @@ and simulated clocks do
 not establish complete Codex parity, clean-machine acceptance, or production
 Linux/Windows readiness. The marketplace remains enabled on macOS only.
 
-The 0.11.3 release packages the notarized universal Mac app and an explicitly
+The 0.12.0 release packages the notarized universal Mac app and an explicitly
 unsigned Windows x64 preview. Linux remains source/Docker-based. A source
 version alone does not establish download availability. The [official setup page](https://codewhale.net/computer-use)
 reports public download availability, and the [release checklist](../../plugins/computer-use/docs/RELEASE_CHECKLIST.md)

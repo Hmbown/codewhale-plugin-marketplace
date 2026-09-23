@@ -1,6 +1,6 @@
 {
   "name": "codewhale-computer-use",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "description": "Let Codewhale see and operate your apps.",
   "license": "MIT",
   "skills": "./skills/",

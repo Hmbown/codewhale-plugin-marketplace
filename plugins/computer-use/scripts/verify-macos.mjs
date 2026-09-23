@@ -74,23 +74,18 @@ try {
   // foreground.
   assert.equal((await tool('get_app_state')).data.bundle_id,foreground,'Background tools and preview preserve foreground app');
 
-  // Pointer actions are the exception, and the receipt has to say so. macOS
-  // drops pointer events posted to a process, so a coordinate with no
-  // pressable accessibility element under it falls back to a real pointer
-  // gesture: the cursor moves (and is put back) and the target application
-  // comes forward. What is verified here is that the receipt admits it.
+  // A coordinate with no pressable accessibility element under it becomes a
+  // window-routed click to the bound app's window. Either way the user's
+  // cursor must not move: verified against the real cursor, not the receipt.
   const pointerBefore=(await tool('cursor_position')).data;
   const click=(await tool('left_click',{target:{type:'coordinate',x:40,y:100}})).data;
   s=await state();assert.equal(value(s),expected,'Pointer click preserves document contents');
-  assert.ok(['a11y','event'].includes(click.strategy),'the click names its strategy');
+  assert.ok(['a11y','window-record'].includes(click.strategy),'the click names its strategy');
   const frontAfterClick=(await tool('get_app_state')).data.bundle_id;
-  if(click.strategy==='event'){
-    assert.equal(click.pointer_moved,true,'a global gesture admits it moved the cursor');
-    assert.equal(click.foreground_taken,frontAfterClick!==foreground,'foreground_taken matches what actually happened');
-  } else {
-    assert.equal(click.pointer_moved,false,'an accessibility press leaves the cursor alone');
-    assert.equal(frontAfterClick,foreground,'an accessibility press leaves the foreground alone');
-  }
+  assert.equal(click.pointer_moved,false,'no click route moves the user cursor');
+  const pointerAfter=(await tool('cursor_position')).data;
+  assert.deepEqual([pointerAfter.x,pointerAfter.y],[pointerBefore.x,pointerBefore.y],'the user cursor stayed where it was');
+  if(click.strategy==='a11y') assert.equal(frontAfterClick,foreground,'an accessibility press leaves the foreground alone');
   await tool('mouse_move',{target:{type:'coordinate',x:40,y:100}});
   const cursor=(await tool('cursor_position')).data;
   assert.ok(Number.isFinite(cursor.x)&&Number.isFinite(cursor.y));
