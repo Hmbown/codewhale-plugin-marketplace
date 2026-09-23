@@ -167,7 +167,10 @@ test("setup registers the connector for installed browsers, allowing only this e
     assert.ok(manifest.path.startsWith(env.CHROMEWHALE_STATE_DIR), "the launcher lives at a path plugin updates do not move");
     assert.match(launcher, /CHROMEWHALE_STATE_DIR=/, "the host reads the same pairing file as the server");
     assert.ok(path.isAbsolute(/exec '([^']+)'/.exec(launcher)[1]), "Chrome's minimal PATH is never relied on");
-    assert.ok(fs.statSync(manifest.path).mode & 0o100, "the launcher is executable");
+    if (process.platform !== "win32") {
+      // Windows filesystems have no execute bit; the layout itself is still checked there.
+      assert.ok(fs.statSync(manifest.path).mode & 0o100, "the launcher is executable");
+    }
     assert.ok(fs.existsSync(path.join(env.CHROMEWHALE_STATE_DIR, "host", "src", "native.mjs")));
     // Browsers that are not installed get nothing written for them.
     assert.equal(fs.existsSync(path.join(home, platform === "darwin" ? "Library/Application Support/Chromium" : ".config/chromium")), false);
