@@ -1,6 +1,6 @@
 ---
 description: Codewhale for Chrome (developer preview) — bridge status, the pairing token, or first-time Chrome extension setup
-usage: /chromewhale [status|token|setup]
+usage: /chromewhale [status|token|setup|setup --remove]
 ---
 
 $ARGUMENTS
@@ -23,8 +23,8 @@ same pairing record the plugin's server writes, so they honour
   MCP server is not running: check that the plugin is enabled. The command
   only ever queries a loopback address.
 
-- **`token`**: print the pairing token so the user can paste it into the side
-  panel's Settings:
+- **`token`**: print the pairing token. Only needed when the connector is not
+  installed and the user pairs by hand in the side panel's Settings:
 
   ```sh
   node bin/chromewhale.mjs token
@@ -44,17 +44,24 @@ same pairing record the plugin's server writes, so they honour
   ```
 
   It copies the extension to a stable path (`~/.codewhale/chromewhale/extension`
-  unless `CHROMEWHALE_STATE_DIR` or `CODEWHALE_HOME` say otherwise) and prints
-  that path with numbered steps. Give the user the path and the steps exactly
-  as printed; never point them at the plugin's staged root, which moves on
-  every plugin update. After a plugin update, run `setup` again and have them
-  click **Reload** on the Codewhale for Chrome card in `chrome://extensions`.
+  unless `CHROMEWHALE_STATE_DIR` or `CODEWHALE_HOME` say otherwise) and installs
+  the connector — a per-user Native Messaging host that pairs the side panel
+  with this session automatically, so there is nothing to paste. It prints the
+  path, which browsers got the connector, and numbered steps. Give the user the
+  path and the steps exactly as printed; never point them at the plugin's
+  staged root. After a plugin update, run `setup` again and have them click
+  **Reload** on the Codewhale for Chrome card in `chrome://extensions`.
 
-  The steps end with the panel's Settings: the **Codewhale for Chrome bridge** fields
-  take the port setup printed and the token from `token` above — that is what
-  carries `page_*` tool calls. The **Codewhale runtime** fields are only for
-  the panel's own chat (`codewhale app-server --http`, default
-  `127.0.0.1:7878`) and are optional for tool use. Confirm with `status`.
+  If setup says no browser profile was found, the connector was not
+  registered; the fallback is the panel's Settings → **Codewhale for Chrome
+  bridge**, with the printed port and the token from `token` above. Confirm
+  pairing with `status`.
+
+- **`setup --remove`**: unregister the connector from every browser:
+
+  ```sh
+  node bin/chromewhale.mjs setup --remove
+  ```
 
 Explain the permission model once, plainly, when setting up: Codewhale for Chrome can
 touch only sites the user allows in the panel; the default answer is **Allow

@@ -31,15 +31,17 @@
       </p>
 
       <h2>Codewhale for Chrome bridge (tools)</h2>
+      <p class="hint">
+        Normally nothing to set here: <code>/chromewhale setup</code> installs a connector that pairs
+        this panel with Codewhale automatically. Fill these in only if the connector is not installed.
+      </p>
       <label for="bridge-port">Port</label>
       <input id="bridge-port" type="number" min="1" max="65535" />
       <label for="bridge-token">Pairing token</label>
-      <input id="bridge-token" type="password" autocomplete="off" placeholder="from /chromewhale" />
+      <input id="bridge-token" type="password" autocomplete="off" placeholder="from /chromewhale token" />
       <p class="hint">
-        Install and enable the Codewhale for Chrome plugin in Codewhale, then run
-        <code>/chromewhale</code> to print this token. It is what lets Codewhale's
-        <code>page_*</code> tools reach this tab. Both tokens stay in this profile's extension
-        storage and are sent only to the loopback addresses above.
+        The token stays in this profile's extension storage and is never sent anywhere: the panel
+        proves it holds it instead.
       </p>
       <div class="row">
         <button id="save-settings" type="button">Save and reconnect</button>

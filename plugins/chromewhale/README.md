@@ -45,25 +45,42 @@ itself. Once enabled, finish the browser half:
 /chromewhale setup
 ```
 
-That copies the extension to a stable path — `~/.codewhale/chromewhale/extension`
-unless `CHROMEWHALE_STATE_DIR` or `CODEWHALE_HOME` say otherwise — and prints it
-with the steps:
+That does two things:
+
+- copies the extension to a stable path — `~/.codewhale/chromewhale/extension`
+  unless `CHROMEWHALE_STATE_DIR` or `CODEWHALE_HOME` say otherwise;
+- installs the **connector**: a small Native Messaging host that Chrome,
+  Chromium, Edge and Brave start when the side panel opens. It pairs the panel
+  with your Codewhale session by itself, so there is no port or token to paste,
+  and the pairing token never enters the browser. Chrome lets only this
+  extension's ID start it. Everything it installs is per user: host manifests
+  in each browser's `NativeMessagingHosts` folder (the registry under `HKCU` on
+  Windows) and a launcher beside the extension copy.
+
+Then:
 
 1. Open `chrome://extensions`, turn on **Developer mode**, choose **Load
-   unpacked**, and select the path setup printed. Do not load `extension/`
-   from the plugin's staged root: that directory moves on every plugin update,
-   and an unpacked extension's ID follows its path.
+   unpacked**, and select the path setup printed.
 2. Click the Codewhale for Chrome toolbar button to open the side panel.
-3. In **Settings → Codewhale for Chrome bridge**, set the port setup printed (8899 by
-   default) and paste the token from `/chromewhale token` — that is what
-   carries tool calls. The **runtime** fields are for the panel's own chat
-   (`codewhale app-server --http`) and are optional for tool use.
 
-The panel's second status line reads "Attached" when the bridge is paired, and
-warns if the extension and the plugin versions differ. After updating the
-plugin, run `/chromewhale setup` again and click **Reload** on the Codewhale for Chrome
-card in `chrome://extensions`. `/chromewhale status` asks the running bridge
-directly.
+The panel's second status line reads "Attached" once a Codewhale session with
+the plugin enabled is running, and warns if the extension and the plugin
+versions differ. After updating the plugin, run `/chromewhale setup` again and
+click **Reload** on the Codewhale for Chrome card in `chrome://extensions`.
+`/chromewhale status` asks the running bridge directly and says which browsers
+have the connector. `/chromewhale setup --remove` unregisters it.
+
+If the connector cannot be installed, the panel falls back to a pasted port
+and token: **Settings → Codewhale for Chrome bridge**, with the port setup
+printed (8899 by default) and the token from `/chromewhale token`. The
+**runtime** fields are for the panel's own chat (`codewhale app-server
+--http`) and are optional for tool use.
+
+The extension's manifest carries a `key`, so its ID
+(`lkblaeekmgngipleaomfkacpacebnajj`) is the same wherever it is loaded from.
+`npm run build:store` produces the Chrome Web Store upload with that key
+removed; the store assigns its own ID, which is then added to the connector's
+allowed list.
 
 ## Use it
 
@@ -158,12 +175,15 @@ which page is in front of you.
 
 ```sh
 npm test    # node --test: policy, tool routing, page guards, SSE framing,
-            # the bridge over real loopback HTTP, and the MCP server end to end
+            # the bridge over real loopback HTTP, the Native Messaging host
+            # over real stdio, setup's connector install, and the MCP server
+npm run build:store   # dist/codewhale-for-chrome-<version>.zip for the Web Store
 ```
 
 From the repository root, `npm run check:web` also runs
 `tests/browser/chromewhale.spec.mjs`: the real MCP server, bridge and unpacked
-extension in Playwright's Chromium against a live page — the signed pairing
+extension in Playwright's Chromium against a live page — pairing through the
+Native Messaging connector with no token in the browser, the signed pairing
 handshake, grants, typing into plain, framework-controlled and rich fields,
 secret refusal and redaction, submit confirmation, host cancellation, stale
 refs, and a port squatter that must get nothing.

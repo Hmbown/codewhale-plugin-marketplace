@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {test, expect, chromium} from '@playwright/test';
+import {installHost} from '../../plugins/chromewhale/src/install.mjs';
 
 const PLUGIN = fileURLToPath(new URL('../../plugins/chromewhale/', import.meta.url));
 const EXTENSION = path.join(PLUGIN, 'extension');
@@ -266,6 +267,82 @@ test.describe('Codewhale for Chrome, real browser', () => {
       impostor.close();
       await pairPanel(h.PORT, h.TOKEN);
       await expect(h.panel.locator('#bridge-status')).toContainText('Attached', {timeout: 15_000});
+    }
+  });
+});
+
+// The production pairing path: no port or token typed anywhere. Chromium also
+// reads per-user host manifests from `<user-data-dir>/NativeMessagingHosts`
+// on macOS and Linux, so the connector is registered inside this throwaway
+// profile and the user's real browsers are never touched. Windows registers
+// hosts in the registry only, so this runs on the other two.
+test.describe('Codewhale for Chrome, Native Messaging connector', () => {
+  test.skip(({isMobile}) => isMobile, 'one browser run is enough');
+  test.skip(process.platform === 'win32', 'Windows reads host manifests from the registry only');
+
+  test('the panel pairs through the connector with no token in the browser, and tools work', async ({}, testInfo) => {
+    testInfo.setTimeout(90_000);
+    const site = await startSite();
+    const SITE = `http://127.0.0.1:${site.address().port}`;
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'cw-native-state-'));
+    // No token in the environment: the server mints one into the pairing
+    // file, exactly as on a user's machine, and the connector reads it there.
+    const {srv, rpc, notify} = startServer({CHROMEWHALE_STATE_DIR: state, CHROMEWHALE_BRIDGE_PORT: String(20_000 + crypto.randomInt(20_000))});
+    await rpc('initialize', {protocolVersion: '2025-06-18', capabilities: {}, clientInfo: {name: 'e2e', version: '0'}}).done;
+    notify('notifications/initialized');
+    const manifest = JSON.parse(fs.readFileSync(path.join(EXTENSION, 'manifest.json'), 'utf8'));
+    const host = installHost({
+      root: PLUGIN,
+      stateDir: state,
+      env: process.env,
+      extensionIds: ['lkblaeekmgngipleaomfkacpacebnajj'],
+      platform: process.platform,
+      home: fs.mkdtempSync(path.join(os.tmpdir(), 'cw-native-home-')),
+    });
+    const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'cw-native-profile-'));
+    fs.mkdirSync(path.join(profile, 'NativeMessagingHosts'));
+    fs.writeFileSync(path.join(profile, 'NativeMessagingHosts', 'net.codewhale.chrome.json'), JSON.stringify(host.manifest));
+    const ctx = await chromium.launchPersistentContext(profile, {
+      channel: 'chromium',
+      executablePath: undefined,
+      headless: true,
+      args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
+    });
+    try {
+      let [worker] = ctx.serviceWorkers();
+      worker ??= await ctx.waitForEvent('serviceworker');
+      const extensionId = new URL(worker.url()).host;
+      expect(extensionId, 'the manifest key fixes the ID the connector allows').toBe('lkblaeekmgngipleaomfkacpacebnajj');
+      expect(manifest.key).toBeTruthy();
+      const target = ctx.pages()[0] ?? (await ctx.newPage());
+      await target.goto(`${SITE}/`);
+      const panel = await ctx.newPage();
+      await panel.goto(`chrome-extension://${extensionId}/panel.html`);
+      const windowId = await worker.evaluate(async ({site, panelUrl}) => {
+        const [fixture] = await chrome.tabs.query({url: `${site}/*`});
+        const [panelTab] = await chrome.tabs.query({url: `${panelUrl}*`});
+        if (panelTab.windowId === fixture.windowId) await chrome.windows.create({tabId: panelTab.id});
+        await chrome.tabs.update(fixture.id, {active: true});
+        return fixture.windowId;
+      }, {site: SITE, panelUrl: `chrome-extension://${extensionId}/panel.html`});
+      await panel.evaluate((id) => { chrome.windows.getCurrent = async () => chrome.windows.get(id); }, windowId);
+      await expect(panel.locator('#bridge-status')).toContainText('Attached', {timeout: 20_000});
+
+      const stored = await panel.evaluate(async () => (await chrome.storage.local.get(null)));
+      const token = JSON.parse(fs.readFileSync(path.join(state, 'bridge.json'), 'utf8')).token;
+      expect(JSON.stringify(stored)).not.toContain(token);
+
+      const pending = rpc('tools/call', {name: 'page_snapshot', arguments: {}}).done;
+      const card = panel.locator('#prompts .card').first();
+      await card.waitFor({timeout: 15_000});
+      await card.getByRole('button', {name: 'Allow for this session'}).click();
+      const message = await pending;
+      expect(message.result.isError).toBe(false);
+      expect(message.result.content.map((c) => c.text).join('\n')).toContain('Order notes');
+    } finally {
+      await ctx.close();
+      srv.kill();
+      site.close();
     }
   });
 });

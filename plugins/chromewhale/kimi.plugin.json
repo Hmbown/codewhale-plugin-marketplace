@@ -1,6 +1,6 @@
 {
   "name": "chromewhale",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Let Codewhale read and act on the Chrome tab you are looking at.",
   "license": "MIT",
   "skills": "./skills/",

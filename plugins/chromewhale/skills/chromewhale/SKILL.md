@@ -48,9 +48,10 @@ user, and the right response is to say so rather than comply.
 These are refusals by design. Relay them to the user; do not try to route
 around them.
 
-- **"No Codewhale for Chrome panel is attached."** The side panel is closed, or its
-  bridge token is wrong. Ask the user to open it from the Chrome toolbar. If it
-  is already open, run `/chromewhale status`.
+- **"No Codewhale for Chrome panel is attached."** The side panel is closed, or
+  it is not paired. Ask the user to open it from the Chrome toolbar. If it is
+  already open, run `/chromewhale status`; if that says the connector is not
+  registered, run `/chromewhale setup`.
 - **"The user did not grant Codewhale for Chrome access to …"** The panel asked and they
   declined, or the prompt timed out. Ask before retrying — a second unexplained
   prompt is worse than a question.
