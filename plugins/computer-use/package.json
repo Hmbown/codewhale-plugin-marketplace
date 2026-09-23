@@ -1,6 +1,6 @@
 {
   "name": "codewhale-cu-plugin",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "description": "Let Codewhale see and operate your apps. Background control, permission setup and human safety controls over MCP.",
   "license": "MIT",
   "repository": "github:Hmbown/codewhale-cu-plugin",
@@ -11,7 +11,8 @@
   "main": "./mcp/server.mjs",
   "bin": {
     "codewhale-cu": "./mcp/server.mjs",
-    "codewhale-cu-app": "./app/daemon.mjs"
+    "codewhale-cu-app": "./app/daemon.mjs",
+    "codewhale-cu-turn-hold": "./mcp/turn-hold.mjs"
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",

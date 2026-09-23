@@ -35,6 +35,15 @@ exercise. They are design intentions, not third-party audit results.
   bypass a stopped helper with direct mode.
 - **No shell over the socket.** The desktop helper and the ssh agent execute
   only an allow-listed tool set; arguments travel as data.
+- **`app_script` is not a shell by default.** Shell escapes, the Objective-C
+  bridge, dynamic code and terminal apps are refused, and every app a script
+  names goes through the per-app consent ledger. The check is lexical defense
+  in depth; hosts should also approve each exact script with the person.
+- **Irreversible actions need the person.** A click or press on a control
+  labelled pay, buy, place order, send, transfer or delete refuses until the
+  person confirms that exact call through `consent`; no app grant covers it.
+- **Trajectories stay private.** Trajectory files are 0600 in a 0700
+  directory, and entered text is redacted before it is written.
 - **Verified updates.** The updater accepts only a stable GitHub release in
   this repository with an exact asset name, checks the download's size and
   SHA-256 digest, validates archive paths before extraction, and requires the
