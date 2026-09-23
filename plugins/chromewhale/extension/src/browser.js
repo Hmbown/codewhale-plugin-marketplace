@@ -41,6 +41,14 @@ const NAVIGATION_POLL_MS = 150;
  */
 const REF_PATTERN = /^e[1-9]\d{0,5}$/i;
 const MAX_PROMPT_URL = 200;
+/**
+ * How long one call may spend, prompts included, before Chromewhale gives up
+ * on it. Under the bridge's 90-second call timeout (`CALL_TIMEOUT_MS` in
+ * `src/tools.mjs`) with room to spare: a site prompt and a submit prompt can
+ * each wait a minute, and an action the user confirms after the model was
+ * already told the call timed out must not happen anyway.
+ */
+const CALL_BUDGET_MS = 80_000;
 
 /**
  * @typedef {Object} BrowserDeps
@@ -58,12 +66,14 @@ const MAX_PROMPT_URL = 200;
  * @property {() => Promise<boolean>} isPaused
  * @property {(entry: {tool: string, summary: string, origin?: string, outcome: string}) => void} log
  * @property {(ms: number) => Promise<void>} sleep
+ * @property {() => number} [now]
  */
 
 /**
  * @param {BrowserDeps} deps
  */
 export function createBrowserTools(deps) {
+  const now = deps.now ?? Date.now;
   /**
    * Run one bridge call and produce its result blocks.
    *
@@ -108,6 +118,7 @@ export function createBrowserTools(deps) {
    *   tab's current one (a navigation's destination).
    */
   async function gate(tool, summary, targetUrl) {
+    const startedAt = now();
     if (await deps.isPaused()) {
       return refuse(tool, summary, undefined, "Chromewhale is paused. The user can resume it from the side panel.");
     }
@@ -153,7 +164,59 @@ export function createBrowserTools(deps) {
     if (!permitted) {
       return refuse(tool, summary, origin, `Chrome did not grant Chromewhale access to ${origin}.`);
     }
-    return { ok: /** @type {true} */ (true), tab, origin };
+    const gated = {
+      ok: /** @type {true} */ (true),
+      tab,
+      origin,
+      tool,
+      summary,
+      startedAt,
+      tabAt: pageIdentity(tab.url),
+    };
+    return (await recheck(gated)) ?? gated;
+  }
+
+  /**
+   * Re-check the gate's premises after anything that waited on the user.
+   *
+   * The site prompt and the submit prompt each hold a call open for up to a
+   * minute, and the page keeps running meanwhile: it can navigate itself, or
+   * the user can switch tabs. A yes given for one origin must not land on
+   * whatever the tab shows afterwards — Chrome may still hold host access to
+   * that other site from an earlier "Allow for this session", because Chrome
+   * keeps optional host permissions across restarts even though the session
+   * grant does not. So before touching the page: same tab, same page origin,
+   * not paused, and still inside the call's budget.
+   *
+   * @param {{tab: {id: number}, origin: string, tool: string, summary: string,
+   *          startedAt: number, tabAt: string}} gated
+   * @returns {Promise<{ok: false, result: ReturnType<typeof failure>} | undefined>}
+   */
+  async function recheck(gated) {
+    const { tool, summary, origin } = gated;
+    if (now() - gated.startedAt > CALL_BUDGET_MS) {
+      return refuse(
+        tool,
+        summary,
+        origin,
+        "This call waited longer than Codewhale waits for an answer, so Chromewhale did nothing. " +
+          "Ask again if it is still wanted.",
+      );
+    }
+    if (await deps.isPaused()) {
+      return refuse(tool, summary, origin, "Chromewhale is paused. The user can resume it from the side panel.");
+    }
+    const current = await deps.activeTab();
+    if (!current || current.id !== gated.tab.id || pageIdentity(current.url) !== gated.tabAt) {
+      // No URL or title here: the new page's address is page-chosen text too.
+      return refuse(
+        tool,
+        summary,
+        origin,
+        "The active tab changed before Chromewhale could act, so it did nothing. Call page_snapshot again.",
+      );
+    }
+    return undefined;
   }
 
   /**
@@ -262,6 +325,10 @@ export function createBrowserTools(deps) {
         deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
         return failure(`The user did not confirm submitting the form on ${gated.origin}. Nothing was clicked.`);
       }
+      const moved = await recheck(gated);
+      if (moved) {
+        return moved.result;
+      }
     }
     const outcome = await deps.executeScript({ tabId: gated.tab.id, func: clickRef, args: [ref] });
     if (!outcome?.ok) {
@@ -324,6 +391,10 @@ export function createBrowserTools(deps) {
           `The user did not confirm submitting on ${gated.origin}. Nothing was typed; ` +
             "call page_type without submit to fill the field only.",
         );
+      }
+      const moved = await recheck(gated);
+      if (moved) {
+        return moved.result;
       }
     }
     const outcome = await deps.executeScript({
@@ -419,6 +490,24 @@ export function splitDataUrl(dataUrl) {
  */
 function pageText(lines) {
   return { type: "text", text: lines.join("\n"), untrusted: true };
+}
+
+/**
+ * The origin a tab is showing, for telling whether it moved. Opaque origins
+ * (`data:`, `about:blank`) all read as "null", so those compare by address.
+ *
+ * @param {unknown} url
+ */
+function pageIdentity(url) {
+  if (typeof url !== "string") {
+    return "";
+  }
+  try {
+    const { origin, href } = new URL(url);
+    return origin === "null" ? href : origin;
+  } catch {
+    return url;
+  }
 }
 
 /**

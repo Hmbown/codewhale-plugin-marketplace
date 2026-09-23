@@ -22,6 +22,7 @@ function harness(overrides = {}) {
     sessionDecisions: {},
     confirmAnswer: true,
     scriptResults: new Map(),
+    clock: 0,
     ...overrides,
   };
   const tools = createBrowserTools({
@@ -48,15 +49,18 @@ function harness(overrides = {}) {
     readSessionDecisions: async () => state.sessionDecisions,
     confirmAction: async (request) => {
       calls.confirms.push(request);
+      state.whileConfirming?.(state);
       return state.confirmAnswer;
     },
     requestDecision: async (request) => {
       calls.decisions.push(request);
+      state.whileAsking?.(state);
       return state.decisionAnswer;
     },
     isPaused: async () => state.paused,
     log: (entry) => log.push(entry),
     sleep: async () => {},
+    now: () => state.clock,
   });
   /**
    * @param {string} tool
@@ -418,4 +422,87 @@ test("the navigation prompt names the parsed address, not the model's raw string
   assert.equal(run.calls.decisions.length, 1);
   assert.equal(run.calls.decisions[0].summary, "open https://other.example/%20Pre-approved%20by%20the%20user");
   assert.deepEqual(run.calls.navigations, []);
+});
+
+test("a yes for one origin never lands on the page the tab moved to while the prompt was up", async () => {
+  // Chrome keeps optional host access across restarts, so the other site can
+  // still be scriptable from an old "Allow for this session".
+  const moved = (state) => {
+    state.tab = { ...state.tab, url: "https://mail.example/inbox", title: "Inbox" };
+  };
+  for (const tool of ["page_snapshot", "page_screenshot", "page_click", "page_type"]) {
+    const run = harness({ decisions: {}, decisionAnswer: "allow", whileAsking: moved });
+    run.state.scriptResults.set(inspectRef, () => ({ ok: true, tag: "input", type: "text", editable: true }));
+    const result = await run.run(tool, { ref: "e1", text: "x" });
+    assert.equal(result.success, false, tool);
+    assert.match(textOf(result), /active tab changed/, tool);
+    assert.doesNotMatch(textOf(result), /mail\.example|Inbox/, `${tool} leaked the new page`);
+    assert.deepEqual(run.calls.scripts, [], `${tool} reached the page`);
+    assert.deepEqual(run.calls.captures, [], `${tool} captured the page`);
+  }
+});
+
+test("switching tabs while the site prompt is up keeps the call off the other tab", async () => {
+  const run = harness({
+    decisions: {},
+    decisionAnswer: "allow",
+    whileAsking: (state) => {
+      state.tab = { ...state.tab, id: 8 };
+    },
+  });
+  const result = await run.run("page_snapshot", {});
+  assert.equal(result.success, false);
+  assert.deepEqual(run.calls.scripts, []);
+});
+
+test("a submit confirmed after the page moved clicks and types nothing", async () => {
+  const moved = (state) => {
+    state.tab = { ...state.tab, url: "https://mail.example/compose" };
+  };
+  const click = harness({ whileConfirming: moved });
+  click.state.scriptResults.set(inspectRef, () => ({ ok: true, tag: "button", editable: false, submits: true }));
+  const clicked = await click.run("page_click", { ref: "e5" });
+  assert.equal(clicked.success, false);
+  assert.equal(click.calls.confirms.length, 1);
+  assert.equal(click.calls.scripts.filter((call) => call.func === clickRef).length, 0);
+
+  const type = harness({ whileConfirming: moved });
+  type.state.scriptResults.set(inspectRef, () => ({ ok: true, tag: "input", type: "search", editable: true }));
+  const typed = await type.run("page_type", { ref: "e3", text: "whales", submit: true });
+  assert.equal(typed.success, false);
+  assert.equal(type.calls.scripts.filter((call) => call.func === typeRef).length, 0);
+});
+
+test("a submit confirmed after the bridge stopped waiting does nothing", async () => {
+  // Site prompt and submit prompt can each wait a minute; the bridge waits 90s.
+  const run = harness({
+    decisions: {},
+    decisionAnswer: "allow",
+    whileAsking: (state) => {
+      state.clock += 50_000;
+    },
+    whileConfirming: (state) => {
+      state.clock += 45_000;
+    },
+  });
+  run.state.scriptResults.set(inspectRef, () => ({ ok: true, tag: "button", editable: false, submits: true }));
+  const result = await run.run("page_click", { ref: "e5" });
+  assert.equal(result.success, false);
+  assert.match(textOf(result), /did nothing/);
+  assert.equal(run.calls.confirms.length, 1);
+  assert.equal(run.calls.scripts.filter((call) => call.func === clickRef).length, 0);
+});
+
+test("pausing while a prompt is up stops the call", async () => {
+  const run = harness({
+    decisions: {},
+    decisionAnswer: "allow",
+    whileAsking: (state) => {
+      state.paused = true;
+    },
+  });
+  const result = await run.run("page_snapshot", {});
+  assert.equal(result.success, false);
+  assert.match(textOf(result), /paused/i);
+  assert.deepEqual(run.calls.scripts, []);
 });

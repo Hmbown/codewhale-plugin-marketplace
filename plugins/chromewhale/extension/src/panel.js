@@ -40,7 +40,8 @@ const DEFAULT_SETTINGS = {
 /**
  * How long an origin prompt waits for the user. Well under the bridge's
  * 90-second call timeout so the model gets an explicit refusal rather than a
- * silent timeout it cannot explain.
+ * silent timeout it cannot explain. A call can stack two prompts (site, then
+ * submit); `browser.js` caps the whole call so the second cannot outlive it.
  */
 const DECISION_TIMEOUT_MS = 60_000;
 
@@ -591,11 +592,11 @@ function renderApprovalCard(approval) {
   row.className = "row";
   const allow = document.createElement("button");
   allow.type = "button";
-  allow.textContent = "Allow";
+  allow.textContent = "Allow once";
   const deny = document.createElement("button");
   deny.type = "button";
   deny.className = "ghost danger";
-  deny.textContent = "Deny";
+  deny.textContent = "Don't allow";
   row.append(allow, deny);
   card.append(title, detail, row);
   dom.prompts.append(card);
