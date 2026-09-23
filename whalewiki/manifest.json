@@ -9,8 +9,8 @@
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "d27c08ddd9a0470909dac094038beee00f4d21d9ca6071485d82424b41e37c3c",
-          "bytes": 5754
+          "sha256": "ffaf7fe5b8f5bd0a767b522e47646bcb190862af4498b44fa877ec4fdb16e455",
+          "bytes": 5775
         },
         {
           "path": "CONTRIBUTING.md",
@@ -97,7 +97,7 @@
           "bytes": 5462
         }
       ],
-      "sealed_at": "2026-09-23T02:08:19.722Z"
+      "sealed_at": "2026-09-23T02:11:24.566Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -210,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-23T02:08:19.722Z"
+  "updated_at": "2026-09-23T02:11:24.566Z"
 }
