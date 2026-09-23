@@ -131,26 +131,26 @@
       "sealed_at": "2026-09-22T19:55:16.816Z"
     },
     "pages/integrations.md": {
-      "title": "integrations",
-      "page_sha256": "2ea4841484ae3c6bd662ebd4fc7bf90e6b78656aa71175f8be89d1a05d8774da",
+      "title": "Connections and inbound requests",
+      "page_sha256": "9b25f620ad38af1d42b56995fc5edcf77201662553313334e82997c8d60d9c70",
       "sources": [
         {
           "path": "connections/catalog.json",
           "root": "repo",
-          "sha256": "0d9754a73043deffebdfcdb396a1682df3843f69feaae36eccdefe2aa9caefe2",
-          "bytes": 2994
+          "sha256": "a7522dc4503fe1fb56a3e1e400c66080f291cf3c4a0243c82283238a5ddbf219",
+          "bytes": 3435
         },
         {
           "path": "scripts/connections.mjs",
           "root": "repo",
-          "sha256": "e5cbe242c2706252de082a2c58c5049ad7e5fc21ff812f8cf37e3022680e8b2b",
-          "bytes": 1690
+          "sha256": "f496b2d1fccc407c29c85ef010c99906729f513207e1d50879bc2ff7c67a9254",
+          "bytes": 1626
         },
         {
           "path": "docs/CONNECTIONS.md",
           "root": "repo",
-          "sha256": "acf8b59c6a9abf7b3f9d33c443d5266f5860ae15d651c1fa80fe815a73c98941",
-          "bytes": 3764
+          "sha256": "dd6ea0bb7e8856bc99792a3502164c3e82225bd42586018498496996c7ce263d",
+          "bytes": 5556
         },
         {
           "path": "integrations/upstream.json",
@@ -207,7 +207,7 @@
           "bytes": 15381
         }
       ],
-      "sealed_at": "2026-09-11T10:39:33.600Z"
+      "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
   "updated_at": "2026-09-23T02:32:45.996Z"
