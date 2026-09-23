@@ -8,13 +8,18 @@
  *
  * Known limitations, stated where the behaviour is owned:
  *
- * - Runtime dynamic tools are registered with `ApprovalRequirement::Auto`
- *   (`crates/tui/src/tools/dynamic.rs`), so Codewhale's own approval gate never
- *   sees a browser tool call. This module plus Chrome's optional host
- *   permissions are the only gate. Do not weaken one assuming the other.
+ * - This is the *second* gate, not the only one. The `page_*` tools reach
+ *   Codewhale over MCP (`mcp/server.mjs`), so every call first passes
+ *   Codewhale's own approval path and permission profile. That gate knows the
+ *   tool and its arguments but not which page is in front of the user; this
+ *   module is the only part that does. Do not weaken either assuming the other.
  * - A decision is per **origin**, matching Chrome's own permission granularity.
- *   There is no per-path or per-action grant, and none is planned: a grant that
- *   is finer than the platform's would be a claim the platform cannot keep.
+ *   There is no per-path grant, and none is planned: a grant that is finer
+ *   than the platform's would be a claim the platform cannot keep. Submitting
+ *   a form is confirmed per action (`browser.js`), which is a confirmation on
+ *   top of the grant, not a finer grant.
+ * - The default answer is "Allow for this session". "Always allow" is a
+ *   separate, deliberate click.
  * - The sensitive-field list below is a floor, not a promise that every secret
  *   input is recognised. It refuses the fields whose markup says what they are.
  */
@@ -110,15 +115,26 @@ export function classifyTarget(rawUrl) {
 }
 
 /**
- * Read the stored decision for an origin.
+ * Read the decision for an origin.
+ *
+ * Two stores feed it. `store` is the standing one (`chrome.storage.local`):
+ * "Always allow" and "Block" live there and survive restarts. `session` holds
+ * "Allow for this session" grants (`chrome.storage.session`), which Chrome
+ * clears when the browser exits. A standing block beats a session grant, so a
+ * block is never silently overridden by an older, looser answer.
  *
  * @param {Record<string, unknown> | undefined | null} store
  * @param {string} origin
+ * @param {Record<string, unknown> | undefined | null} [session]
  * @returns {"allow" | "block" | "ask"}
  */
-export function decisionFor(store, origin) {
+export function decisionFor(store, origin, session) {
   const value = store && typeof store === "object" ? store[origin] : undefined;
-  return value === "allow" || value === "block" ? value : "ask";
+  if (value === "allow" || value === "block") {
+    return value;
+  }
+  const scoped = session && typeof session === "object" ? session[origin] : undefined;
+  return scoped === "allow" ? "allow" : "ask";
 }
 
 /**

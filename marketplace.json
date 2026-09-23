@@ -56,7 +56,7 @@
       "name": "chromewhale",
       "source": "path:plugins/chromewhale",
       "version": "0.1.0",
-      "description": "Let Codewhale read and act on the Chrome tab you are looking at, one granted site at a time. Needs the bundled Chrome extension loaded.",
+      "description": "Developer preview, loaded unpacked. Let Codewhale read and act on the Chrome tab you are looking at, in your own Chrome profile, one granted site at a time.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace/tree/main/plugins/chromewhale",
       "display_name": "Chromewhale",
       "author": "Codewhale"

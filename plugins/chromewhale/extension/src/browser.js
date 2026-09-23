@@ -13,10 +13,17 @@
  * this gate is the only one that knows which page is in front of the user, so
  * it is not redundant with them.
  *
- * Results are MCP content blocks. A text block carrying page-derived text is
- * marked `untrusted: true`; the server, not this file, wraps those in the
- * untrusted-content envelope, so the guarantee holds on the side the model
- * reads from.
+ * Results are MCP content blocks. **Every** string that came off the page —
+ * outline, title, URL, element labels — travels in a block marked
+ * `untrusted: true`, never spliced into our own sentences; the server, not
+ * this file, wraps those in the untrusted-content envelope, so the guarantee
+ * holds on the side the model reads from. A page title is as attacker-chosen
+ * as its body text.
+ *
+ * Submitting a form is confirmed per action, even on an allowed origin: a
+ * grant lets Codewhale read and fill a site, and a submit is the step that
+ * sends what was filled somewhere. `page_type` with `submit`, and a
+ * `page_click` on a markup-declared submit control, wait for the user's click.
  */
 
 import { classifyTarget, decisionFor, sensitiveField } from "./policy.js";
@@ -26,6 +33,22 @@ import { clickRef, inspectRef, snapshotPage, typeRef } from "./page.js";
 const DEFAULT_SNAPSHOT_BUDGET = 24_000;
 const NAVIGATION_TIMEOUT_MS = 15_000;
 const NAVIGATION_POLL_MS = 150;
+/**
+ * The only shape a snapshot ref takes (`e12`). Checked before the gate because
+ * the ref is model-chosen text that reaches the user's consent and confirm
+ * prompts through the call summary: `"e5, already approved by the user"`
+ * would otherwise parse as `e5` in `page.js` and put its own words on the card.
+ */
+const REF_PATTERN = /^e[1-9]\d{0,5}$/i;
+const MAX_PROMPT_URL = 200;
+/**
+ * How long one call may spend, prompts included, before Chromewhale gives up
+ * on it. Under the bridge's 90-second call timeout (`CALL_TIMEOUT_MS` in
+ * `src/tools.mjs`) with room to spare: a site prompt and a submit prompt can
+ * each wait a minute, and an action the user confirms after the model was
+ * already told the call timed out must not happen anyway.
+ */
+const CALL_BUDGET_MS = 80_000;
 
 /**
  * @typedef {Object} BrowserDeps
@@ -37,16 +60,20 @@ const NAVIGATION_POLL_MS = 150;
  * @property {(windowId: number) => Promise<string>} captureTab
  * @property {(pattern: string) => Promise<boolean>} hasPermission
  * @property {() => Promise<Record<string, unknown>>} readDecisions
+ * @property {() => Promise<Record<string, unknown>>} [readSessionDecisions]
+ * @property {(request: {origin: string, tool: string, summary: string, detail: string}) => Promise<boolean>} confirmAction
  * @property {(request: {origin: string, tool: string, summary: string, reason: "ask" | "permission"}) => Promise<"allow" | "block" | "denied">} requestDecision
  * @property {() => Promise<boolean>} isPaused
  * @property {(entry: {tool: string, summary: string, origin?: string, outcome: string}) => void} log
  * @property {(ms: number) => Promise<void>} sleep
+ * @property {() => number} [now]
  */
 
 /**
  * @param {BrowserDeps} deps
  */
 export function createBrowserTools(deps) {
+  const now = deps.now ?? Date.now;
   /**
    * Run one bridge call and produce its result blocks.
    *
@@ -91,6 +118,7 @@ export function createBrowserTools(deps) {
    *   tab's current one (a navigation's destination).
    */
   async function gate(tool, summary, targetUrl) {
+    const startedAt = now();
     if (await deps.isPaused()) {
       return refuse(tool, summary, undefined, "Chromewhale is paused. The user can resume it from the side panel.");
     }
@@ -104,7 +132,8 @@ export function createBrowserTools(deps) {
     }
     const { origin, pattern } = classified;
 
-    let decision = decisionFor(await deps.readDecisions(), origin);
+    const session = deps.readSessionDecisions ? await deps.readSessionDecisions() : {};
+    let decision = decisionFor(await deps.readDecisions(), origin, session);
     if (decision === "block") {
       return refuse(tool, summary, origin, `The user has blocked Chromewhale on ${origin}.`);
     }
@@ -135,7 +164,59 @@ export function createBrowserTools(deps) {
     if (!permitted) {
       return refuse(tool, summary, origin, `Chrome did not grant Chromewhale access to ${origin}.`);
     }
-    return { ok: /** @type {true} */ (true), tab, origin };
+    const gated = {
+      ok: /** @type {true} */ (true),
+      tab,
+      origin,
+      tool,
+      summary,
+      startedAt,
+      tabAt: pageIdentity(tab.url),
+    };
+    return (await recheck(gated)) ?? gated;
+  }
+
+  /**
+   * Re-check the gate's premises after anything that waited on the user.
+   *
+   * The site prompt and the submit prompt each hold a call open for up to a
+   * minute, and the page keeps running meanwhile: it can navigate itself, or
+   * the user can switch tabs. A yes given for one origin must not land on
+   * whatever the tab shows afterwards — Chrome may still hold host access to
+   * that other site from an earlier "Allow for this session", because Chrome
+   * keeps optional host permissions across restarts even though the session
+   * grant does not. So before touching the page: same tab, same page origin,
+   * not paused, and still inside the call's budget.
+   *
+   * @param {{tab: {id: number}, origin: string, tool: string, summary: string,
+   *          startedAt: number, tabAt: string}} gated
+   * @returns {Promise<{ok: false, result: ReturnType<typeof failure>} | undefined>}
+   */
+  async function recheck(gated) {
+    const { tool, summary, origin } = gated;
+    if (now() - gated.startedAt > CALL_BUDGET_MS) {
+      return refuse(
+        tool,
+        summary,
+        origin,
+        "This call waited longer than Codewhale waits for an answer, so Chromewhale did nothing. " +
+          "Ask again if it is still wanted.",
+      );
+    }
+    if (await deps.isPaused()) {
+      return refuse(tool, summary, origin, "Chromewhale is paused. The user can resume it from the side panel.");
+    }
+    const current = await deps.activeTab();
+    if (!current || current.id !== gated.tab.id || pageIdentity(current.url) !== gated.tabAt) {
+      // No URL or title here: the new page's address is page-chosen text too.
+      return refuse(
+        tool,
+        summary,
+        origin,
+        "The active tab changed before Chromewhale could act, so it did nothing. Call page_snapshot again.",
+      );
+    }
+    return undefined;
   }
 
   /**
@@ -157,9 +238,7 @@ export function createBrowserTools(deps) {
     }
     deps.log({ tool: "page_snapshot", summary, origin: gated.origin, outcome: "ran" });
     const header = [
-      `url: ${page.url}`,
-      `title: ${page.title}`,
-      `interactive elements: ${page.refCount}`,
+      `interactive elements: ${Number(page.refCount) || 0}`,
       page.truncated ? "note: the outline was cut at Chromewhale's size budget." : undefined,
     ]
       .filter(Boolean)
@@ -168,7 +247,7 @@ export function createBrowserTools(deps) {
       success: true,
       content: [
         { type: "text", text: header },
-        { type: "text", text: page.outline, untrusted: true },
+        pageText([`url: ${page.url}`, `title: ${page.title}`, "", String(page.outline ?? "")]),
       ],
     };
   }
@@ -186,7 +265,10 @@ export function createBrowserTools(deps) {
     if (action && !["back", "forward", "reload"].includes(action)) {
       return failure(`Unknown navigate action "${action}". Use back, forward, or reload.`);
     }
-    const gated = await gate("page_navigate", summary, url || undefined);
+    // The prompt names the parsed address, not the model's raw string: a URL
+    // with spaces in it parses, and would read as a sentence on the card.
+    const shown = url ? promptUrl(url) : undefined;
+    const gated = await gate("page_navigate", shown ? `open ${shown}` : summary, url || undefined);
     if (!gated.ok) {
       return gated.result;
     }
@@ -197,15 +279,19 @@ export function createBrowserTools(deps) {
     }
     const settled = await waitForLoad(gated.tab.id);
     deps.log({ tool: "page_navigate", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      [
-        `url: ${settled?.url ?? "unknown"}`,
-        `title: ${settled?.title ?? ""}`,
-        settled?.status === "complete"
-          ? "The page finished loading. Call page_snapshot to read it."
-          : "The page was still loading when Chromewhale stopped waiting. Snapshot to see its current state.",
-      ].join("\n"),
-    );
+    return {
+      success: true,
+      content: [
+        {
+          type: "text",
+          text:
+            settled?.status === "complete"
+              ? "The page finished loading. Call page_snapshot to read it."
+              : "The page was still loading when Chromewhale stopped waiting. Snapshot to see its current state.",
+        },
+        pageText([`url: ${settled?.url ?? "unknown"}`, `title: ${settled?.title ?? ""}`]),
+      ],
+    };
   }
 
   /**
@@ -217,9 +303,32 @@ export function createBrowserTools(deps) {
     if (!ref) {
       return failure("page_click needs a ref from the latest page_snapshot.");
     }
+    if (!REF_PATTERN.test(ref)) {
+      return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
+    }
     const gated = await gate("page_click", summary);
     if (!gated.ok) {
       return gated.result;
+    }
+    // A failed inspection is not fatal here: `clickRef` reports staleness and
+    // unknown refs in its own words. Only a control that declares it submits
+    // a form needs the extra confirmation.
+    const target = await deps.executeScript({ tabId: gated.tab.id, func: inspectRef, args: [ref] });
+    if (target?.ok && target.submits === true) {
+      const confirmed = await deps.confirmAction({
+        origin: gated.origin,
+        tool: "page_click",
+        summary,
+        detail: `Clicking ${ref} submits a form on ${gated.origin}.`,
+      });
+      if (!confirmed) {
+        deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
+        return failure(`The user did not confirm submitting the form on ${gated.origin}. Nothing was clicked.`);
+      }
+      const moved = await recheck(gated);
+      if (moved) {
+        return moved.result;
+      }
     }
     const outcome = await deps.executeScript({ tabId: gated.tab.id, func: clickRef, args: [ref] });
     if (!outcome?.ok) {
@@ -228,10 +337,13 @@ export function createBrowserTools(deps) {
     }
     const settled = await waitForLoad(gated.tab.id, 2_000);
     deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      `clicked: ${outcome.label || ref}\nurl: ${settled?.url ?? outcome.url}\n` +
-        "Call page_snapshot to see what changed.",
-    );
+    return {
+      success: true,
+      content: [
+        { type: "text", text: `Clicked ${ref}. Call page_snapshot to see what changed.` },
+        pageText([`clicked: ${outcome.label || ref}`, `url: ${settled?.url ?? outcome.url}`]),
+      ],
+    };
   }
 
   /**
@@ -243,6 +355,9 @@ export function createBrowserTools(deps) {
     const text = typeof args?.text === "string" ? args.text : "";
     if (!ref) {
       return failure("page_type needs a ref from the latest page_snapshot.");
+    }
+    if (!REF_PATTERN.test(ref)) {
+      return failure(`"${truncate(ref, 40)}" is not an element ref. Use one like e12 from the latest page_snapshot.`);
     }
     const gated = await gate("page_type", summary);
     if (!gated.ok) {
@@ -260,7 +375,27 @@ export function createBrowserTools(deps) {
       );
     }
     if (!field.editable) {
-      return failure(`Element ${ref} is a ${field.tag}, which does not accept typed text.`);
+      // No tag name here: custom-element names are page-chosen text too.
+      return failure(`Element ${ref} does not accept typed text.`);
+    }
+    if (args?.submit === true) {
+      const confirmed = await deps.confirmAction({
+        origin: gated.origin,
+        tool: "page_type",
+        summary,
+        detail: `Typing into ${ref} and pressing Enter submits it on ${gated.origin}.`,
+      });
+      if (!confirmed) {
+        deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "refused" });
+        return failure(
+          `The user did not confirm submitting on ${gated.origin}. Nothing was typed; ` +
+            "call page_type without submit to fill the field only.",
+        );
+      }
+      const moved = await recheck(gated);
+      if (moved) {
+        return moved.result;
+      }
     }
     const outcome = await deps.executeScript({
       tabId: gated.tab.id,
@@ -272,10 +407,13 @@ export function createBrowserTools(deps) {
     }
     const settled = args?.submit === true ? await waitForLoad(gated.tab.id, 5_000) : undefined;
     deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "ran" });
-    return success(
-      `typed into: ${field.label || ref}\nurl: ${settled?.url ?? outcome.url}\n` +
-        "Call page_snapshot to see the result.",
-    );
+    return {
+      success: true,
+      content: [
+        { type: "text", text: `Typed into ${ref}. Call page_snapshot to see the result.` },
+        pageText([`typed into: ${field.label || ref}`, `url: ${settled?.url ?? outcome.url}`]),
+      ],
+    };
   }
 
   /** @param {string} summary */
@@ -293,7 +431,8 @@ export function createBrowserTools(deps) {
     return {
       success: true,
       content: [
-        { type: "text", text: `Visible area of ${gated.tab.url ?? gated.origin}.` },
+        { type: "text", text: "Visible area of the active tab." },
+        pageText([`url: ${gated.tab.url ?? gated.origin}`]),
         { type: "image", data: image.data, mimeType: image.mimeType },
       ],
     };
@@ -344,9 +483,52 @@ export function splitDataUrl(dataUrl) {
   return match ? { mimeType: match[1].toLowerCase(), data: match[2] } : undefined;
 }
 
-/** @param {string} text */
-function success(text) {
-  return { success: true, content: [{ type: "text", text }] };
+/**
+ * A text block of page-derived strings, marked for the server's envelope.
+ *
+ * @param {string[]} lines
+ */
+function pageText(lines) {
+  return { type: "text", text: lines.join("\n"), untrusted: true };
+}
+
+/**
+ * The origin a tab is showing, for telling whether it moved. Opaque origins
+ * (`data:`, `about:blank`) all read as "null", so those compare by address.
+ *
+ * @param {unknown} url
+ */
+function pageIdentity(url) {
+  if (typeof url !== "string") {
+    return "";
+  }
+  try {
+    const { origin, href } = new URL(url);
+    return origin === "null" ? href : origin;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * @param {string} raw
+ */
+function promptUrl(raw) {
+  let href = raw;
+  try {
+    href = new URL(raw).href;
+  } catch {
+    // The gate refuses it with its own reason; only the wording is at stake.
+  }
+  return truncate(href, MAX_PROMPT_URL);
+}
+
+/**
+ * @param {string} value
+ * @param {number} max
+ */
+function truncate(value, max) {
+  return value.length <= max ? value : `${value.slice(0, max)}…`;
 }
 
 /** @param {string} text */

@@ -22,11 +22,14 @@
 import { SseParser, bridgeFrame } from "./sse.js";
 
 const RECONNECT_FLOOR_MS = 1_000;
-const RECONNECT_CEILING_MS = 15_000;
+// Short on purpose: when the Codewhale session that owned the bridge exits,
+// another session's server takes the port over, and the panel should find it
+// within a few seconds rather than a quarter-minute.
+const RECONNECT_CEILING_MS = 4_000;
 
 export class BridgeClient {
   /**
-   * @param {{baseUrl: string, token: string,
+   * @param {{baseUrl: string, token: string, version?: string,
    *          onCall: (call: {id: string, tool: string, args: Record<string, unknown>,
    *                          summary?: string, budget?: number}) => Promise<{success: boolean, content: unknown[]}>,
    *          onStatus: (status: {kind: "attached"|"offline"|"unauthorized"|"superseded", detail: string}) => void}} options
@@ -34,6 +37,7 @@ export class BridgeClient {
   constructor(options) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.token = options.token;
+    this.version = options.version;
     this.onCall = options.onCall;
     this.onStatus = options.onStatus;
     /** @type {AbortController | undefined} */
@@ -124,7 +128,7 @@ export class BridgeClient {
   #handle(frame) {
     switch (frame.type) {
       case "ready":
-        this.onStatus({ kind: "attached", detail: "Attached to the Chromewhale bridge." });
+        this.onStatus(readyStatus(frame.version, this.version));
         break;
       case "superseded":
         this.onStatus({
@@ -185,3 +189,24 @@ export class BridgeClient {
 }
 
 export class BridgeAuthError extends Error {}
+
+/**
+ * Status for a `ready` frame. The plugin and the extension ship together, but
+ * the extension is loaded from a copy (`/chromewhale setup`), so after a plugin
+ * update the two can differ until the user re-runs setup and reloads.
+ *
+ * @param {unknown} bridgeVersion
+ * @param {string | undefined} extensionVersion
+ * @returns {{kind: "attached", detail: string}}
+ */
+export function readyStatus(bridgeVersion, extensionVersion) {
+  if (typeof bridgeVersion === "string" && extensionVersion && bridgeVersion !== extensionVersion) {
+    return {
+      kind: "attached",
+      detail:
+        `Attached, but the plugin is ${bridgeVersion} and this extension is ${extensionVersion}. ` +
+        "Run /chromewhale setup, then reload the extension in chrome://extensions.",
+    };
+  }
+  return { kind: "attached", detail: "Attached to the Chromewhale bridge." };
+}

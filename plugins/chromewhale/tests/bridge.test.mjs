@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import test from "node:test";
 
 import { createBridge } from "../src/bridge.mjs";
@@ -191,6 +192,224 @@ test("an unknown route is a 404, not a hang", async () => {
     await bridge.close();
   }
 });
+
+// --- several servers, one port (CW-2) --------------------------------------
+
+test("a second server on a taken port forwards to the owner, and its call reaches the owner's panel", async () => {
+  const port = await freePort();
+  const owner = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  assert.equal(await owner.listen(), true);
+  const second = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  const panel = await attach(`http://127.0.0.1:${port}`);
+  try {
+    assert.equal(await second.listen(), true, "a taken port held by our own bridge is not a failure");
+    assert.equal(second.status().mode, "forwarding");
+    assert.equal(second.status().ownerPid, process.pid, "the owner is named by pid");
+
+    const pending = second.call("page_snapshot", {});
+    const frame = await panel.next("call");
+    assert.equal(frame.tool, "page_snapshot");
+    await postResult(port, frame.id, [{ type: "text", text: "the page", untrusted: true }]);
+    const result = await pending;
+    assert.equal(result.success, true);
+    assert.deepEqual(result.content, [{ type: "text", text: "the page", untrusted: true }]);
+  } finally {
+    panel.close();
+    await second.close();
+    await owner.close();
+  }
+});
+
+test("when the owner exits, the next forwarded call takes the port over and waits for the panel", async () => {
+  const port = await freePort();
+  const owner = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  await owner.listen();
+  const second = createBridge({ token: TOKEN, host: "127.0.0.1", port, takeoverGraceMs: 4_000 });
+  await second.listen();
+  assert.equal(second.status().mode, "forwarding");
+  await owner.close();
+
+  // The panel reconnects on its own backoff; simulate it arriving shortly
+  // after the takeover.
+  const panelArrives = (async () => {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      try {
+        return await attach(`http://127.0.0.1:${port}`);
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    throw new Error("the panel never reattached");
+  })();
+  const pending = second.call("page_snapshot", {});
+  const panel = await panelArrives;
+  try {
+    const frame = await panel.next("call");
+    await postResult(port, frame.id, [{ type: "text", text: "ok" }]);
+    assert.equal((await pending).success, true);
+    assert.equal(second.status().mode, "owner", "the survivor now owns the port");
+  } finally {
+    panel.close();
+    await second.close();
+  }
+});
+
+test("a port held by a Chromewhale bridge with another token is refused, naming its pid", async () => {
+  const port = await freePort();
+  const owner = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  await owner.listen();
+  const stranger = createBridge({ token: "c".repeat(64), host: "127.0.0.1", port });
+  try {
+    assert.equal(await stranger.listen(), false);
+    const result = await stranger.call("page_snapshot", {});
+    assert.equal(result.success, false);
+    assert.match(result.content[0].text, new RegExp(`another Chromewhale bridge \\(pid ${process.pid}\\)`));
+    assert.match(result.content[0].text, /different pairing token/);
+  } finally {
+    await stranger.close();
+    await owner.close();
+  }
+});
+
+test("a port held by some other program is refused as not a Chromewhale bridge", async () => {
+  const port = await freePort();
+  const squatter = http.createServer((req, res) => res.end("hello"));
+  await new Promise((resolve) => squatter.listen(port, "127.0.0.1", resolve));
+  const bridge = createBridge({ token: TOKEN, host: "127.0.0.1", port });
+  try {
+    assert.equal(await bridge.listen(), false);
+    assert.equal(bridge.status().mode, "down");
+    const result = await bridge.call("page_snapshot", {});
+    assert.equal(result.success, false);
+    assert.match(result.content[0].text, /not a Chromewhale bridge/);
+    assert.match(result.content[0].text, /CHROMEWHALE_BRIDGE_PORT/);
+  } finally {
+    await bridge.close();
+    await new Promise((resolve) => squatter.close(resolve));
+  }
+});
+
+test("a forwarded call for a tool that does not exist is refused by the owner", async () => {
+  const bridge = await start();
+  try {
+    const answer = await raw(bridge.status().port, {
+      method: "POST",
+      path: "/invoke",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ tool: "page_teleport", args: {} }),
+    });
+    assert.equal(answer.status, 400);
+  } finally {
+    await bridge.close();
+  }
+});
+
+// --- who may talk to the bridge (CW-9) -------------------------------------
+
+test("a request carrying a web Origin is refused even with the right token", async () => {
+  const bridge = await start();
+  const port = bridge.status().port;
+  try {
+    const web = await raw(port, { headers: { Authorization: `Bearer ${TOKEN}`, Origin: "https://evil.test" } });
+    assert.equal(web.status, 403);
+    assert.equal(JSON.parse(web.body).error, "forbidden_origin");
+    const nullOrigin = await raw(port, { headers: { Authorization: `Bearer ${TOKEN}`, Origin: "null" } });
+    assert.equal(nullOrigin.status, 403, "a sandboxed page's null origin is still a web page");
+    const extension = await raw(port, {
+      headers: { Authorization: `Bearer ${TOKEN}`, Origin: `chrome-extension://${"a".repeat(32)}` },
+    });
+    assert.equal(extension.status, 200, "the extension itself is let through");
+  } finally {
+    await bridge.close();
+  }
+});
+
+test("a Host header that is not our loopback address and port is refused (DNS rebinding)", async () => {
+  const bridge = await start();
+  const port = bridge.status().port;
+  try {
+    for (const host of [`evil.test:${port}`, "127.0.0.1:1", `10.0.0.1:${port}`, "127.0.0.1"]) {
+      const answer = await raw(port, { headers: { Authorization: `Bearer ${TOKEN}`, Host: host } });
+      assert.equal(answer.status, 403, `Host ${host} must be refused`);
+    }
+    for (const host of [`127.0.0.1:${port}`, `localhost:${port}`]) {
+      const answer = await raw(port, { headers: { Authorization: `Bearer ${TOKEN}`, Host: host } });
+      assert.equal(answer.status, 200, `Host ${host} is ours`);
+    }
+  } finally {
+    await bridge.close();
+  }
+});
+
+test("the ready frame and health carry the plugin version", async () => {
+  const bridge = createBridge({ token: TOKEN, host: "127.0.0.1", port: 0, version: "9.9.9" });
+  await bridge.listen();
+  const port = bridge.status().port;
+  try {
+    const health = JSON.parse((await raw(port, { headers: { Authorization: `Bearer ${TOKEN}` } })).body);
+    assert.equal(health.version, "9.9.9");
+    assert.equal(health.pid, process.pid);
+    const controller = new AbortController();
+    const response = await fetch(`http://127.0.0.1:${port}/calls`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      signal: controller.signal,
+    });
+    const reader = response.body.getReader();
+    const { value } = await reader.read();
+    controller.abort();
+    assert.match(new TextDecoder().decode(value), /"type":"ready".*"version":"9\.9\.9"/);
+  } finally {
+    await bridge.close();
+  }
+});
+
+/** A port that was free a moment ago. */
+async function freePort() {
+  const probe = http.createServer();
+  await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const { port } = /** @type {import("node:net").AddressInfo} */ (probe.address());
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
+
+/**
+ * @param {number} port
+ * @param {string} id
+ * @param {unknown[]} content
+ */
+async function postResult(port, id, content) {
+  const response = await fetch(`http://127.0.0.1:${port}/results`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ id, success: true, content }),
+  });
+  assert.equal(response.status, 202);
+}
+
+/**
+ * A request with full control of headers (fetch will not forge Host).
+ *
+ * @param {number} port
+ * @param {{method?: string, path?: string, headers?: Record<string, string>, body?: string}} options
+ * @returns {Promise<{status: number, body: string}>}
+ */
+function raw(port, { method = "GET", path = "/health", headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, method, path, headers }, (res) => {
+      let text = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        text += chunk;
+      });
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text }));
+    });
+    req.on("error", reject);
+    if (body) {
+      req.write(body);
+    }
+    req.end();
+  });
+}
 
 /**
  * Attach to `/calls` the way the panel does and expose the frames as a queue.

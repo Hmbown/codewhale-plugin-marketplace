@@ -2,17 +2,14 @@
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "chromewhale",
   "version": "0.1.0",
-  "description": "Let Codewhale read and act on the Chrome tab you are looking at, one granted site at a time. Needs the bundled Chrome extension loaded.",
+  "description": "Developer preview, loaded unpacked. Let Codewhale read and act on the Chrome tab you are looking at, in your own Chrome profile, one granted site at a time.",
   "author": {
     "name": "Codewhale"
   },
   "license": "MIT",
   "keywords": [
-    "chrome",
-    "browser",
-    "extension",
     "side-panel",
-    "web"
+    "chrome-side-panel"
   ],
   "extensions": {
     "net.codewhale": {

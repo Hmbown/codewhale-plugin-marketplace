@@ -93,3 +93,12 @@ test("a refusal explains itself, because the model reports the reason to the use
   assert.equal(verdict.sensitive, true);
   assert.match(verdict.reason, /password/);
 });
+
+test("a session grant allows, but only under a standing decision", () => {
+  const origin = "https://example.com";
+  assert.equal(decisionFor({}, origin, { [origin]: "allow" }), "allow");
+  assert.equal(decisionFor({ [origin]: "block" }, origin, { [origin]: "allow" }), "block", "a standing block wins");
+  assert.equal(decisionFor({}, origin, { [origin]: "block" }), "ask", "the session store only ever grants");
+  assert.equal(decisionFor({}, origin, undefined), "ask");
+  assert.equal(decisionFor({}, origin, { "https://other.test": "allow" }), "ask", "grants do not leak across origins");
+});
