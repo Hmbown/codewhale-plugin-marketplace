@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "4d6082865e9baedab151550bbe2d624d06a348a956fc1504fb1c3f9e9b061879",
+      "page_sha256": "170fb05d412ccef48859d76c403ad4b098bd82dca59eb8e46eaec05797b873f3",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "d27c08ddd9a0470909dac094038beee00f4d21d9ca6071485d82424b41e37c3c",
-          "bytes": 5754
+          "sha256": "9781ec03ec296319abfa8a682ea05dd53e9fa81b428f7f2b3c65d50d2561a480",
+          "bytes": 5763
         },
         {
           "path": "CONTRIBUTING.md",
@@ -27,8 +27,8 @@
         {
           "path": "scripts/check-marketplace.mjs",
           "root": "repo",
-          "sha256": "b816cf52fe9e239772da13e9fdabcc19422aaec21858b31b7fcd41ebd0388439",
-          "bytes": 15204
+          "sha256": "a902319052a00a41e1e613f6a1bb1a1f1e690aa063d798e3cac94ae04d4c031e",
+          "bytes": 16864
         },
         {
           "path": "package.json",
@@ -87,17 +87,17 @@
         {
           "path": "plugins/chromewhale/README.md",
           "root": "repo",
-          "sha256": "92ece013b510e861757aef34b19ab65442b93684fd0be2fc0913736abc792804",
-          "bytes": 5217
+          "sha256": "8ebbdaa83684acd54e0366e316b4f83f9cb2a64ae896cd7da8f61a8604cde7a5",
+          "bytes": 8722
         },
         {
           "path": "plugins/chromewhale/src/tools.mjs",
           "root": "repo",
-          "sha256": "8af4d1ef1a2305ba48ab96a2be1ded35a8e31edad2230a23f80f83e36976f310",
-          "bytes": 5462
+          "sha256": "e3f91d190b84991a8a392161d37d4cd4baf053839e2ddc88ce9bf002c8716c2c",
+          "bytes": 5480
         }
       ],
-      "sealed_at": "2026-09-23T01:43:29.454Z"
+      "sealed_at": "2026-09-23T02:08:54.601Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -118,8 +118,8 @@
         {
           "path": "plugins/whalewiki/plugin.json",
           "root": "repo",
-          "sha256": "ef3fde70664d0f20b5b5c7074ac35fcf330adfbcada20d2cd180d022a84a5a81",
-          "bytes": 886
+          "sha256": "a4523e2b6913dca582b9273193b721c4764a0cd0aa07bff793210853f5b4e489",
+          "bytes": 837
         },
         {
           "path": "plugins/whalewiki/README.md",
@@ -128,7 +128,7 @@
           "bytes": 6748
         }
       ],
-      "sealed_at": "2026-09-19T12:01:23.767Z"
+      "sealed_at": "2026-09-22T19:55:16.816Z"
     },
     "pages/integrations.md": {
       "title": "integrations",
@@ -210,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-23T01:43:29.456Z"
+  "updated_at": "2026-09-23T02:08:54.602Z"
 }

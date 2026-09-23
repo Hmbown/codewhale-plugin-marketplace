@@ -1,12 +1,12 @@
 {
   "name": "chromewhale",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Let Codewhale read and act on the Chrome tab you are looking at.",
   "license": "MIT",
   "skills": "./skills/",
   "commands": "./commands/",
   "interface": {
-    "displayName": "Chromewhale",
+    "displayName": "Codewhale for Chrome",
     "shortDescription": "Codewhale in your own Chrome",
     "developerName": "Codewhale"
   },

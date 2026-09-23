@@ -15,6 +15,8 @@
 //   local attacker who is already you.
 // - There is one token per machine, not per browser profile. Two Chrome
 //   profiles paired to the same bridge are indistinguishable to it.
+// - The bridge is loopback-only. `CHROMEWHALE_BRIDGE_HOST` may name another
+//   loopback address, never a routable one: the token travels in clear HTTP.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -49,6 +51,11 @@ export function pairingPath(env = process.env) {
  */
 export function resolveEndpoint(env = process.env) {
   const host = env.CHROMEWHALE_BRIDGE_HOST || DEFAULT_HOST;
+  if (!isLoopbackHost(host)) {
+    throw new Error(
+      `CHROMEWHALE_BRIDGE_HOST must be a loopback address (127.x.x.x, ::1, localhost), got "${host}"`,
+    );
+  }
   const port = readPort(env.CHROMEWHALE_BRIDGE_PORT);
 
   if (env.CHROMEWHALE_BRIDGE_TOKEN) {
@@ -63,8 +70,119 @@ export function resolveEndpoint(env = process.env) {
 
   const token = crypto.randomBytes(32).toString("hex");
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(file, `${JSON.stringify({ token, port, host }, null, 2)}\n`, { mode: 0o600 });
+  // Two Codewhale sessions can start this server at the same instant. Writing
+  // the file in place would let each mint its own token and the loser keep
+  // serving a token nobody can read. Instead the file is written whole to a
+  // private temp name and hard-linked into place, which fails if it already
+  // exists — the loser then adopts the winner's token.
+  const temp = `${file}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+  fs.writeFileSync(temp, `${JSON.stringify({ token, port, host }, null, 2)}\n`, { mode: 0o600 });
+  try {
+    fs.linkSync(temp, file);
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error).code !== "EEXIST") {
+      throw error;
+    }
+    const winner = readToken(file);
+    if (!winner) {
+      throw new Error(`${file} exists but holds no pairing token; delete it and restart`);
+    }
+    return { host, port, token: winner, source: "file" };
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
   return { host, port, token, source: "created" };
+}
+
+/**
+ * Record where the bridge that owns the port is actually listening, so
+ * `bin/chromewhale.mjs status` asks the right place instead of assuming 8899.
+ *
+ * Only the pairing file this process read its token from is updated, and only
+ * while it still holds that token. The write is a whole-file rename, so a
+ * concurrent reader sees the old record or the new one, never half of each.
+ *
+ * @param {{host: string, port: number, token: string, pid?: number, version?: string}} live
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function recordEndpoint(live, env = process.env) {
+  const file = pairingPath(env);
+  let current;
+  try {
+    current = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return false;
+  }
+  if (current?.token !== live.token) {
+    return false;
+  }
+  const next = {
+    ...current,
+    host: live.host,
+    port: live.port,
+    pid: live.pid ?? process.pid,
+    version: live.version,
+    updatedAt: new Date().toISOString(),
+  };
+  const temp = `${file}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+  try {
+    fs.writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temp, file);
+    return true;
+  } catch {
+    fs.rmSync(temp, { force: true });
+    return false;
+  }
+}
+
+/**
+ * Read the pairing record for `status`: the recorded endpoint wins over the
+ * environment, because it is where the owning bridge actually bound.
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {{host: string, port: number, token?: string, pid?: number, version?: string, file: string}}
+ */
+export function readPairing(env = process.env) {
+  const file = pairingPath(env);
+  let record = {};
+  try {
+    record = JSON.parse(fs.readFileSync(file, "utf8")) ?? {};
+  } catch {
+    record = {};
+  }
+  const host = typeof record.host === "string" && record.host ? record.host : env.CHROMEWHALE_BRIDGE_HOST || DEFAULT_HOST;
+  const port = Number.isInteger(record.port) ? record.port : readPort(env.CHROMEWHALE_BRIDGE_PORT);
+  const token = env.CHROMEWHALE_BRIDGE_TOKEN || (typeof record.token === "string" ? record.token : undefined);
+  return {
+    host,
+    port,
+    token,
+    pid: Number.isInteger(record.pid) ? record.pid : undefined,
+    version: typeof record.version === "string" ? record.version : undefined,
+    file,
+  };
+}
+
+/**
+ * Is this a loopback host? Names only, no DNS: `localhost` is accepted by
+ * name, everything else must be a literal loopback address.
+ *
+ * @param {unknown} host
+ */
+export function isLoopbackHost(host) {
+  if (typeof host !== "string") {
+    return false;
+  }
+  const bare = host.trim().toLowerCase().replace(/^\[(.*)\]$/, "$1");
+  if (bare === "localhost" || bare === "::1") {
+    return true;
+  }
+  const octets = bare.split(".");
+  return (
+    octets.length === 4 &&
+    octets[0] === "127" &&
+    octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+  );
 }
 
 /**
@@ -98,6 +216,81 @@ export function bearerOf(header) {
   }
   const match = /^Bearer[ \t]+(\S+)$/i.exec(header.trim());
   return match ? match[1] : undefined;
+}
+
+// --- challenge-response ----------------------------------------------------
+//
+// The raw pairing token never crosses the wire from a client. A client first
+// fetches a single-use nonce (`GET /challenge`), then signs the request with
+// an HMAC over that nonce, a nonce of its own, and the method and path. The
+// bridge answers with its own HMAC proof over both nonces (and, for JSON
+// replies, the reply body). So a process that merely squats on the port learns
+// nothing it can replay and cannot forge a reply the client will accept. The
+// extension computes the same MACs with WebCrypto (`extension/src/bridge.js`).
+
+/**
+ * Lowercase hex HMAC-SHA256 of `message` under the pairing token.
+ *
+ * @param {string} token
+ * @param {string} message
+ */
+export function mac(token, message) {
+  return crypto.createHmac("sha256", token).update(message, "utf8").digest("hex");
+}
+
+/**
+ * Constant-time comparison of two hex MACs.
+ *
+ * @param {unknown} presented
+ * @param {string} expected
+ */
+export function macMatches(presented, expected) {
+  if (typeof presented !== "string" || !/^[0-9a-f]{64}$/.test(presented)) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(presented, "hex"), Buffer.from(expected, "hex"));
+}
+
+/** The string a client signs for one request. */
+export function clientMessage(method, path, nonce, cnonce) {
+  return `client|${method.toUpperCase()}|${path}|${nonce}|${cnonce}`;
+}
+
+/** The string the bridge signs for one reply. `payload` is the reply body or frame tag. */
+export function bridgeMessage(nonce, cnonce, payload) {
+  return `bridge|${nonce}|${cnonce}|${payload}`;
+}
+
+/**
+ * Build the `Authorization` header for one signed request.
+ *
+ * @param {string} token
+ * @param {string} method
+ * @param {string} path pathname only, no query
+ * @param {string} nonce from `GET /challenge`
+ * @param {string} cnonce fresh per request
+ */
+export function signedAuthorization(token, method, path, nonce, cnonce) {
+  return `Chromewhale nonce=${nonce},cnonce=${cnonce},mac=${mac(token, clientMessage(method, path, nonce, cnonce))}`;
+}
+
+/**
+ * Parse a signed `Authorization` header.
+ *
+ * @param {unknown} header
+ * @returns {{nonce: string, cnonce: string, mac: string} | undefined}
+ */
+export function parseSignedAuthorization(header) {
+  if (typeof header !== "string") {
+    return undefined;
+  }
+  const match = /^Chromewhale nonce=([0-9a-f]{32}),cnonce=([0-9a-f]{32}),mac=([0-9a-f]{64})$/.exec(header.trim());
+  return match ? { nonce: match[1], cnonce: match[2], mac: match[3] } : undefined;
+}
+
+/** A fresh 128-bit hex nonce. */
+export function newNonce() {
+  return crypto.randomBytes(16).toString("hex");
 }
 
 /** @param {string} file */

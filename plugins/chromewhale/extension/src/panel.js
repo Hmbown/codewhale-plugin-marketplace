@@ -1,11 +1,11 @@
 /**
- * The Chromewhale side panel.
+ * The Codewhale for Chrome side panel.
  *
  * It holds two loopback connections, and they do different jobs:
  *
  * - the **Codewhale runtime** (`/v1/*`) carries the conversation — this is the
  *   chat you see, streamed over SSE like any other runtime client;
- * - the **Chromewhale bridge** carries tool calls from the plugin's MCP server
+ * - the **Codewhale for Chrome bridge** carries tool calls from the plugin's MCP server
  *   to this tab, and results back.
  *
  * Keeping them separate is what lets the tools go through Codewhale's normal
@@ -45,6 +45,19 @@ const DEFAULT_SETTINGS = {
 const DECISION_TIMEOUT_MS = 60_000;
 
 const MAX_ACTIVITY_ROWS = 40;
+
+/**
+ * How long a prompt may stay up: the usual limit, cut short by the call's own
+ * deadline so a card never outlives the call it is asking about.
+ *
+ * @param {number | undefined} deadline
+ */
+function promptTimeout(deadline) {
+  if (!Number.isFinite(deadline)) {
+    return DECISION_TIMEOUT_MS;
+  }
+  return Math.max(0, Math.min(DECISION_TIMEOUT_MS, Number(deadline) - Date.now()));
+}
 
 const dom = {
   status: document.getElementById("status"),
@@ -110,7 +123,9 @@ const browserTools = createBrowserTools({
   captureTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 80 }),
   hasPermission: (pattern) => chrome.permissions.contains({ origins: [pattern] }),
   readDecisions: async () => (await chrome.storage.local.get({ origins: {} })).origins,
+  readSessionDecisions: async () => (await chrome.storage.session.get({ origins: {} })).origins,
   requestDecision,
+  confirmAction,
   isPaused: async () => (await chrome.storage.local.get({ paused: false })).paused === true,
   log: recordActivity,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -187,6 +202,7 @@ function connectBridge(settings) {
     baseUrl: `http://127.0.0.1:${settings.bridgePort}`,
     token: settings.bridgeToken,
     onCall: (call) => browserTools.execute(call),
+    version: chrome.runtime.getManifest().version,
     onStatus: ({ kind, detail }) => setBridgeStatus(kind, `Bridge: ${detail}`),
   });
   bridge.start();
@@ -344,13 +360,18 @@ function statusForEvent(event) {
 // --- per-origin decisions -------------------------------------------------
 
 /**
- * Ask the user whether Chromewhale may work on an origin.
+ * Ask the user whether Codewhale for Chrome may work on an origin.
  *
  * Resolving to `"allow"` means both gates passed: the user said yes *and*
  * Chrome granted the optional host permission. `chrome.permissions.request` is
  * called first thing inside the click handler so the user gesture is still live.
  *
- * @param {{origin: string, tool: string, summary: string, reason: "ask" | "permission"}} request
+ * The first button, and the one Enter lands on, is "Allow for this session":
+ * the grant lives in `chrome.storage.session` and is gone when Chrome exits.
+ * "Always allow" is a separate, deliberate click.
+ *
+ * @param {{origin: string, tool: string, summary: string, reason: "ask" | "permission",
+ *          signal?: AbortSignal, deadline?: number}} request
  * @returns {Promise<"allow" | "block" | "denied">}
  */
 function requestDecision(request) {
@@ -366,21 +387,26 @@ function requestDecision(request) {
     detail.textContent =
       request.reason === "permission"
         ? `${request.origin} is allowed, but Chrome no longer holds access to it. Grant it again to continue.`
-        : `Codewhale wants to use ${request.tool} on ${request.origin}. Allowing lets it read and act on every page of that site while this panel is open.`;
+        : `Codewhale wants to use ${request.tool} on ${request.origin}. Allowing lets it read and act on every page of that site whenever this panel is open, until Chrome quits; "Always allow" keeps that after a restart. Submitting a form still asks each time.`;
     card.append(detail);
 
     const row = document.createElement("div");
     row.className = "row";
-    const allow = document.createElement("button");
-    allow.type = "button";
-    allow.textContent = `Allow ${request.origin}`;
+    const session = document.createElement("button");
+    session.type = "button";
+    session.textContent = "Allow for this session";
+    const always = document.createElement("button");
+    always.type = "button";
+    always.className = "ghost";
+    always.textContent = `Always allow ${request.origin}`;
     const block = document.createElement("button");
     block.type = "button";
     block.className = "ghost danger";
     block.textContent = "Block";
-    row.append(allow, block);
+    row.append(session, always, block);
     card.append(row);
     dom.prompts.append(card);
+    session.focus();
 
     let settled = false;
     /** @param {"allow" | "block" | "denied"} answer */
@@ -393,9 +419,13 @@ function requestDecision(request) {
       card.remove();
       resolve(answer);
     };
-    const timer = setTimeout(() => finish("denied"), DECISION_TIMEOUT_MS);
+    const timer = setTimeout(() => finish("denied"), promptTimeout(request.deadline));
+    // A cancelled, paused or timed-out call takes its card with it: an answer
+    // to a call that no longer exists must not be possible.
+    request.signal?.addEventListener("abort", () => finish("denied"), { once: true });
 
-    allow.addEventListener("click", () => {
+    /** @param {"session" | "allow"} scope */
+    const grant = (scope) => {
       // Kept synchronous: an await before this call would spend the gesture.
       chrome.permissions
         .request({ origins: [`${request.origin}/*`] })
@@ -404,11 +434,13 @@ function requestDecision(request) {
             finish("denied");
             return;
           }
-          await persistDecision(request.origin, "allow");
+          await persistDecision(request.origin, scope);
           finish("allow");
         })
         .catch(() => finish("denied"));
-    });
+    };
+    session.addEventListener("click", () => grant("session"));
+    always.addEventListener("click", () => grant("allow"));
     block.addEventListener("click", () => {
       void persistDecision(request.origin, "block").then(() => finish("block"));
     });
@@ -416,13 +448,71 @@ function requestDecision(request) {
 }
 
 /**
+ * Ask the user to confirm one action on an origin they already allowed.
+ *
+ * Used for form submission. Resolves `false` on Cancel and on timeout, so an
+ * unattended panel never submits anything.
+ *
+ * @param {{origin: string, tool: string, summary: string, detail: string,
+ *          signal?: AbortSignal, deadline?: number}} request
+ * @returns {Promise<boolean>}
+ */
+function confirmAction(request) {
+  return new Promise((resolve) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const title = document.createElement("h3");
+    title.textContent = `Confirm: ${request.summary}`;
+    const detail = document.createElement("p");
+    detail.textContent = `${request.detail} Codewhale needs your click to send it.`;
+    const row = document.createElement("div");
+    row.className = "row";
+    const confirm = document.createElement("button");
+    confirm.type = "button";
+    confirm.textContent = "Submit";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost danger";
+    cancel.textContent = "Cancel";
+    row.append(confirm, cancel);
+    card.append(title, detail, row);
+    dom.prompts.append(card);
+    cancel.focus();
+
+    let settled = false;
+    /** @param {boolean} answer */
+    const finish = (answer) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      card.remove();
+      resolve(answer);
+    };
+    const timer = setTimeout(() => finish(false), promptTimeout(request.deadline));
+    request.signal?.addEventListener("abort", () => finish(false), { once: true });
+    confirm.addEventListener("click", () => finish(true));
+    cancel.addEventListener("click", () => finish(false));
+  });
+}
+
+/**
+ * Record a decision. `"session"` lands in `chrome.storage.session`; `"allow"`
+ * and `"block"` in `chrome.storage.local`; `"ask"` (Forget) clears both.
+ *
  * @param {string} origin
- * @param {"allow" | "block" | "ask"} decision
+ * @param {"allow" | "block" | "ask" | "session"} decision
  */
 async function persistDecision(origin, decision) {
   const stored = await chrome.storage.local.get({ origins: {} });
-  await chrome.storage.local.set({ origins: withDecision(stored.origins, origin, decision) });
-  if (decision !== "allow") {
+  const scoped = await chrome.storage.session.get({ origins: {} });
+  const standing = decision === "session" ? "ask" : decision;
+  await chrome.storage.local.set({ origins: withDecision(stored.origins, origin, standing) });
+  await chrome.storage.session.set({
+    origins: withDecision(scoped.origins, origin, decision === "session" ? "allow" : "ask"),
+  });
+  if (decision === "ask" || decision === "block") {
     await chrome.permissions.remove({ origins: [`${origin}/*`] }).catch(() => false);
   }
   await renderSites();
@@ -561,7 +651,18 @@ function recordActivity(entry) {
 
 async function renderSites() {
   const stored = await chrome.storage.local.get({ origins: {} });
-  const entries = Object.entries(stored.origins ?? {});
+  const scoped = await chrome.storage.session.get({ origins: {} });
+  /** @type {Record<string, string>} */
+  const merged = {};
+  for (const [origin, value] of Object.entries(scoped.origins ?? {})) {
+    if (value === "allow") {
+      merged[origin] = "this session";
+    }
+  }
+  for (const [origin, value] of Object.entries(stored.origins ?? {})) {
+    merged[origin] = value === "allow" ? "always" : String(value);
+  }
+  const entries = Object.entries(merged);
   if (entries.length === 0) {
     const empty = document.createElement("li");
     empty.textContent = "No site has been allowed or blocked yet.";
@@ -653,6 +754,10 @@ dom.pause.addEventListener("click", async () => {
   const stored = await chrome.storage.local.get({ paused: false });
   const paused = !stored.paused;
   await chrome.storage.local.set({ paused });
+  if (paused) {
+    // Pause means now: calls already waiting on a prompt stop too.
+    bridge?.abortAll("paused");
+  }
   dom.pause.setAttribute("aria-pressed", String(paused));
   dom.pause.textContent = paused ? "Paused" : "Pause";
 });

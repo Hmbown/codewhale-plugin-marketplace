@@ -33,7 +33,7 @@ test("browser-internal and local schemes are refused outright", () => {
   ]) {
     const classified = classifyTarget(url);
     assert.equal(classified.ok, false, `${url} must not be usable`);
-    assert.match(classified.reason, /Chromewhale/);
+    assert.match(classified.reason, /Codewhale for Chrome/);
   }
 });
 
@@ -92,4 +92,25 @@ test("a refusal explains itself, because the model reports the reason to the use
   const verdict = sensitiveField({ tag: "input", type: "password" });
   assert.equal(verdict.sensitive, true);
   assert.match(verdict.reason, /password/);
+});
+
+test("a session grant allows, but only under a standing decision", () => {
+  const origin = "https://example.com";
+  assert.equal(decisionFor({}, origin, { [origin]: "allow" }), "allow");
+  assert.equal(decisionFor({ [origin]: "block" }, origin, { [origin]: "allow" }), "block", "a standing block wins");
+  assert.equal(decisionFor({}, origin, { [origin]: "block" }), "ask", "the session store only ever grants");
+  assert.equal(decisionFor({}, origin, undefined), "ask");
+  assert.equal(decisionFor({}, origin, { "https://other.test": "allow" }), "ask", "grants do not leak across origins");
+});
+
+test("sensitive names match with separators, digits and camelCase, labels and placeholders included", () => {
+  for (const name of ["otp_code", "otpCode", "card_cvv", "cvv2", "cc_number", "ccnum", "security_code", "verification_code",
+    "pin", "ssn", "totp", "mfa_code", "user_password", "login[passwd]", "card-number", "cardNumber", "two_factor"]) {
+    assert.equal(sensitiveField({ name }).sensitive, true, name);
+  }
+  assert.equal(sensitiveField({ fieldLabel: "Card number" }).sensitive, true);
+  assert.equal(sensitiveField({ placeholder: "6-digit code from your authenticator app" }).sensitive, true);
+  for (const name of ["email", "username", "spinner", "search", "shipping", "cc", "option", "topic", "promo_code", "zip_code"]) {
+    assert.equal(sensitiveField({ name }).sensitive, false, name);
+  }
 });

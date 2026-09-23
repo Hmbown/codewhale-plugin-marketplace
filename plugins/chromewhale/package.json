@@ -1,9 +1,9 @@
 {
   "name": "chromewhale",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Chromewhale: Codewhale in your own Chrome. MCP server, loopback bridge, and the side-panel extension it drives.",
+  "description": "Codewhale for Chrome: Codewhale in your own Chrome. MCP server, loopback bridge, and the side-panel extension it drives.",
   "license": "MIT",
   "scripts": {
     "test": "node --test tests/*.test.mjs",

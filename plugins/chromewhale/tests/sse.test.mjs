@@ -61,3 +61,10 @@ test("previous_seq travels so a client can tell that replay skipped history", ()
   const event = runtimeEvent('{"seq":90,"previous_seq":12,"event":"item.started"}');
   assert.equal(event.previousSeq, 12);
 });
+
+test("the ready frame's version is checked against the extension's", async () => {
+  const { readyStatus } = await import("../extension/src/bridge.js");
+  assert.equal(readyStatus("0.1.0", "0.1.0").detail, "Attached to the Codewhale for Chrome bridge.");
+  assert.match(readyStatus("0.2.0", "0.1.0").detail, /plugin is 0\.2\.0 and this extension is 0\.1\.0.*\/chromewhale setup/);
+  assert.equal(readyStatus(undefined, "0.1.0").detail, "Attached to the Codewhale for Chrome bridge.", "an older bridge sends none");
+});

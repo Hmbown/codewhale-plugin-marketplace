@@ -15,7 +15,7 @@ open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
 | Job | Start here | What is available |
 | --- | --- | --- |
 | Understand a repo and find where to change it | [WhaleWiki](plugins/whalewiki/README.md) | Cited explanations, documentation impact lookup, six read tools and an offline reader |
-| Work in the Chrome tab you are looking at | [Chromewhale](plugins/chromewhale/README.md) | A side panel and five `page_*` tools for your own browser and your own logged-in sessions, gated per site. Load the bundled extension unpacked |
+| Work in the Chrome tab you are looking at | [Codewhale for Chrome](plugins/chromewhale/README.md) | A side panel and five `page_*` tools for your own browser and your own logged-in sessions, gated per site. Load the bundled extension unpacked |
 | Operate a computer | [Computer Use](https://codewhale.net/computer-use) | Source v0.11.3: app scripting, isolated Linux desktops, per-app consent, busy-user refusal and complete spawn packaging. Pair it with the Mac app for one-grant control — the notarized build is published as the [v0.11.3 GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.11.3); without the app the tools run on the host's own grants. [Source and platform support](plugins/computer-use/README.md) |
 | Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
 | Add workflows to an agent | [47 skills, organized by task](skills/README.md) | Coding, research, documents, email, calendar, travel, shopping, photos and audio; setup requirements shown |

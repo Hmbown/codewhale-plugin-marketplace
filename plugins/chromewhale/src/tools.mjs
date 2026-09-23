@@ -1,10 +1,10 @@
-// The tool surface Chromewhale advertises over MCP.
+// The tool surface Codewhale for Chrome advertises over MCP.
 //
 // These are deliberately NOT named `browser_*`. The computer-use plugin already
 // owns that vocabulary (`plugins/computer-use/src/browser-cdp.mjs`) for a
 // browser it launches itself, under a stated commitment that "the person's own
 // browser profile is never attached to, never typed into, and never closed".
-// Chromewhale is the opposite case: your real Chrome, your logged-in sessions,
+// Codewhale for Chrome is the opposite case: your real Chrome, your logged-in sessions,
 // the tab you are looking at. Two capabilities with that different a blast
 // radius must not answer to the same verbs, so these are `page_*` — they act on
 // the page in front of you.
