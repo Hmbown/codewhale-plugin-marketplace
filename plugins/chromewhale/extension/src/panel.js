@@ -26,6 +26,7 @@
 
 import { RuntimeClient } from "./runtime.js";
 import { BridgeClient } from "./bridge.js";
+import { NativeClient } from "./native.js";
 import { createBrowserTools } from "./browser.js";
 import { withDecision } from "./policy.js";
 
@@ -85,6 +86,8 @@ const dom = {
 let client;
 /** @type {BridgeClient | undefined} */
 let bridge;
+/** @type {NativeClient | undefined} */
+let native;
 /** @type {string | undefined} */
 let threadId;
 /** @type {string | undefined} */
@@ -185,6 +188,11 @@ async function connect() {
 }
 
 /**
+ * Pair with the bridge. The Native Messaging connector `/chromewhale setup`
+ * installs comes first: it holds the token itself, so there is nothing to
+ * paste and nothing secret in this profile. A pasted port and token are the
+ * fallback for machines where the connector is not installed.
+ *
  * The bridge is always loopback, whatever the runtime host is set to. The two
  * are different services: pointing the runtime at another machine must not
  * quietly aim tool calls there too, and `manifest.json` grants no other host
@@ -194,18 +202,36 @@ async function connect() {
  */
 function connectBridge(settings) {
   bridge?.stop();
-  if (!settings.bridgeToken) {
-    setBridgeStatus("offline", "Bridge: paste the pairing token from /chromewhale in Settings.");
-    return;
-  }
-  bridge = new BridgeClient({
-    baseUrl: `http://127.0.0.1:${settings.bridgePort}`,
-    token: settings.bridgeToken,
-    onCall: (call) => browserTools.execute(call),
-    version: chrome.runtime.getManifest().version,
-    onStatus: ({ kind, detail }) => setBridgeStatus(kind, `Bridge: ${detail}`),
+  bridge = undefined;
+  native?.stop();
+  const onCall = (call) => browserTools.execute(call);
+  const onStatus = ({ kind, detail }) => setBridgeStatus(kind, `Bridge: ${detail}`);
+  const version = chrome.runtime.getManifest().version;
+  native = new NativeClient({
+    onCall,
+    onStatus,
+    version,
+    onMissing: () => {
+      native = undefined;
+      if (!settings.bridgeToken) {
+        setBridgeStatus(
+          "offline",
+          "Bridge: run /chromewhale setup in Codewhale — it installs the connector this panel uses — then reopen this panel.",
+        );
+        return;
+      }
+      bridge = new BridgeClient({
+        baseUrl: `http://127.0.0.1:${settings.bridgePort}`,
+        token: settings.bridgeToken,
+        onCall,
+        version,
+        onStatus,
+      });
+      bridge.start();
+    },
   });
-  bridge.start();
+  setBridgeStatus("offline", "Bridge: connecting…");
+  native.start();
 }
 
 async function ensureThread() {
@@ -757,6 +783,7 @@ dom.pause.addEventListener("click", async () => {
   if (paused) {
     // Pause means now: calls already waiting on a prompt stop too.
     bridge?.abortAll("paused");
+    native?.abortAll("paused");
   }
   dom.pause.setAttribute("aria-pressed", String(paused));
   dom.pause.textContent = paused ? "Paused" : "Pause";

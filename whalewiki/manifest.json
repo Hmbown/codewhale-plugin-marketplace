@@ -4,12 +4,12 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "170fb05d412ccef48859d76c403ad4b098bd82dca59eb8e46eaec05797b873f3",
+      "page_sha256": "177c96d9a62168a3fe3b025d02d7f48cc2f5a05941918fcfeb0b89d404fa3047",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "9781ec03ec296319abfa8a682ea05dd53e9fa81b428f7f2b3c65d50d2561a480",
+          "sha256": "c50cc61983053753c1f1d1cef5a24d8d0266df50e6d5f794ecd893aeddfa0d0f",
           "bytes": 5763
         },
         {
@@ -87,8 +87,8 @@
         {
           "path": "plugins/chromewhale/README.md",
           "root": "repo",
-          "sha256": "8ebbdaa83684acd54e0366e316b4f83f9cb2a64ae896cd7da8f61a8604cde7a5",
-          "bytes": 8722
+          "sha256": "24387c686af1025cc3e5489a23020e9b4864747f0a9bbaa2a38fa6871c5a364a",
+          "bytes": 9759
         },
         {
           "path": "plugins/chromewhale/src/tools.mjs",
@@ -97,7 +97,7 @@
           "bytes": 5480
         }
       ],
-      "sealed_at": "2026-09-23T02:08:54.601Z"
+      "sealed_at": "2026-09-23T02:32:45.996Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -210,5 +210,5 @@
       "sealed_at": "2026-09-11T10:39:33.600Z"
     }
   },
-  "updated_at": "2026-09-23T02:08:54.602Z"
+  "updated_at": "2026-09-23T02:32:45.996Z"
 }

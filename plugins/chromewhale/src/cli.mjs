@@ -7,27 +7,48 @@
 // that owns the port updates with where it actually bound.
 //
 // `setup` copies the extension to a stable path outside the plugin's staged
-// root. The staged root is content-hashed and moves on every plugin update; an
-// unpacked extension's ID is derived from its path, so loading it from there
-// would give the user a new, unpaired extension after each update.
+// root (which is content-hashed and moves on every plugin update), and
+// installs the Native Messaging connector that pairs the panel with no token
+// to paste (`src/install.mjs`). The extension's ID comes from the `key` in its
+// manifest, so it is the same wherever it is loaded from.
+//
+// `status` asks the running bridge over the signed challenge-response
+// protocol: it never sends the pairing token to whatever holds the port.
 
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
-import { isLoopbackHost, readPairing, resolveEndpoint, stateDir } from "./pairing.mjs";
+import { STORE_EXTENSION_IDS, extensionIdFromKey, installHost, registeredBrowsers, removeHost } from "./install.mjs";
+import {
+  bridgeMessage,
+  isLoopbackHost,
+  mac,
+  macMatches,
+  newNonce,
+  readPairing,
+  resolveEndpoint,
+  signedAuthorization,
+  stateDir,
+} from "./pairing.mjs";
 
 const PREVIEW =
   "Codewhale for Chrome is a developer preview: you load it unpacked, and it works inside your own Chrome profile " +
   "(your logged-in sessions), one allowed site at a time.";
 
+/** Names this extension has shipped under, for recognising an earlier copy. */
+const EXTENSION_NAMES = new Set(["Codewhale for Chrome", "Chromewhale"]);
+
 /**
  * @param {string[]} argv
  * @param {{env?: NodeJS.ProcessEnv, root: string, out?: (line: string) => void,
- *          err?: (line: string) => void}} io
+ *          err?: (line: string) => void, platform?: NodeJS.Platform, home?: string,
+ *          registry?: (args: string[]) => void}} io
  * @returns {Promise<number>} exit code
  */
 export async function runCli(argv, io) {
+  // `platform`, `home` and `registry` are seams for the tests; the real
+  // command uses this machine's.
   const env = io.env ?? process.env;
   const out = io.out ?? ((line) => process.stdout.write(`${line}\n`));
   const err = io.err ?? ((line) => process.stderr.write(`${line}\n`));
@@ -39,9 +60,9 @@ export async function runCli(argv, io) {
       case "token":
         return token(env, out);
       case "setup":
-        return setup(env, io.root, out, err);
+        return rest.includes("--remove") ? teardown(env, out, io) : setup(env, io.root, out, err, io);
       default:
-        err(`Unknown command "${command}". Use status, token, or setup.`);
+        err(`Unknown command "${command}". Use status, token, setup, or setup --remove.`);
         return 2;
     }
   } catch (error) {
@@ -90,7 +111,11 @@ async function status(env, out, json) {
     );
   }
   const health = await getHealth(pairing.host, pairing.port, pairing.token);
-  if (health.status === 200 && health.body?.service === "chromewhale") {
+  const connector = registeredBrowsers();
+  const connectorLine = connector.length
+    ? `Connector: registered for ${connector.map((entry) => entry.browser).join(", ")}.`
+    : "Connector: not registered (run /chromewhale setup), so the panel needs a pasted token.";
+  if (health.status === 200 && health.verified && health.body?.service === "chromewhale") {
     const body = health.body;
     return finish(
       {
@@ -103,6 +128,7 @@ async function status(env, out, json) {
           body.paired === true
             ? "Side panel: attached. The page_* tools will reach the active tab."
             : "Side panel: not attached. Open the Codewhale for Chrome side panel in Chrome; the page_* tools refuse until it is.",
+          ...(process.platform === "win32" ? [] : [connectorLine]),
         ],
       },
       0,
@@ -133,6 +159,12 @@ async function status(env, out, json) {
       1,
     );
   }
+  if (health.status === 200) {
+    return finish(
+      { up: false, lines: [`${where} answers like a Codewhale for Chrome bridge but could not prove it holds the pairing token. Something else may be listening there.`] },
+      1,
+    );
+  }
   return finish({ up: false, lines: [`${where} answered HTTP ${health.status}; it is not a Codewhale for Chrome bridge.`] }, 1);
 }
 
@@ -147,17 +179,20 @@ function token(env, out) {
 }
 
 /**
- * Copy the bundled extension to `<state dir>/extension` and explain loading it.
+ * Copy the bundled extension to `<state dir>/extension`, install the
+ * connector, and explain loading the extension.
  *
  * @param {NodeJS.ProcessEnv} env
  * @param {string} root plugin root holding `extension/`
  * @param {(line: string) => void} out
  * @param {(line: string) => void} err
+ * @param {{platform?: NodeJS.Platform, home?: string, registry?: (args: string[]) => void}} seams
  */
-function setup(env, root, out, err) {
+function setup(env, root, out, err, seams) {
   const source = path.join(root, "extension");
   const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
-  const dest = path.join(stateDir(env), "extension");
+  const state = stateDir(env);
+  const dest = path.join(state, "extension");
   if (fs.existsSync(dest) && !isOurExtension(dest)) {
     err(`${dest} exists and is not a Codewhale for Chrome extension copy; move it aside and run setup again.`);
     return 1;
@@ -170,40 +205,106 @@ function setup(env, root, out, err) {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.renameSync(staging, dest);
 
-  const endpoint = resolveEndpoint(env);
+  // The server writes the token on first run; make sure it exists so the
+  // connector can pair even before the first Codewhale session starts it.
+  resolveEndpoint(env);
+  const id = extensionIdFromKey(manifest.key);
+  const host = installHost({
+    root,
+    stateDir: state,
+    env,
+    extensionIds: [id, ...STORE_EXTENSION_IDS],
+    platform: seams.platform,
+    home: seams.home,
+    registry: seams.registry,
+  });
+
   out(PREVIEW);
   out("");
   out(`Extension ${manifest.version} copied to: ${dest}`);
-  out("That path stays the same across plugin updates, so Chrome keeps the same extension ID.");
+  out(`Its ID is ${id}, the same wherever it is loaded from.`);
+  if (host.installed.length) {
+    out(`Connector installed for: ${host.installed.join(", ")}. The panel pairs by itself — no token to paste.`);
+  } else {
+    out("No Chrome, Chromium, Edge or Brave profile was found, so the connector was not registered. Install a");
+    out("browser and run setup again, or paste the port and token from /chromewhale token into the panel's Settings.");
+  }
   out("After updating the plugin, run /chromewhale setup again and click Reload on the Codewhale for Chrome card.");
   out("");
   out("1. Open chrome://extensions and turn on Developer mode.");
   out(`2. Choose Load unpacked and select ${dest}`);
   out("3. Click the Codewhale for Chrome toolbar button to open the side panel.");
-  out(`4. In Settings → Codewhale for Chrome bridge, set port ${endpoint.port} and paste the token from /chromewhale token.`);
-  out("5. The panel's bridge line reads \"Attached\" when it worked; /chromewhale status confirms it.");
+  out("4. The panel's bridge line reads \"Attached\" once a Codewhale session with the plugin is running;");
+  out("   /chromewhale status confirms it.");
+  return 0;
+}
+
+/**
+ * Undo `setup`'s connector registration (the extension itself is removed from
+ * chrome://extensions by the user).
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @param {(line: string) => void} out
+ * @param {{platform?: NodeJS.Platform, home?: string, registry?: (args: string[]) => void}} seams
+ */
+function teardown(env, out, seams) {
+  const removed = removeHost({ stateDir: stateDir(env), platform: seams.platform, home: seams.home, registry: seams.registry });
+  out(
+    removed.length
+      ? `Connector removed from: ${removed.join(", ")}.`
+      : "The connector was not registered with any browser.",
+  );
+  out("Remove the Codewhale for Chrome card in chrome://extensions to finish uninstalling the extension.");
   return 0;
 }
 
 /** @param {string} dir */
 function isOurExtension(dir) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).name === "Codewhale for Chrome";
+    return EXTENSION_NAMES.has(JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).name);
   } catch {
     return false;
   }
 }
 
 /**
+ * `GET /health`, signed against a fresh challenge; the reply is only trusted
+ * (`verified`) when its proof checks out. The token itself is never sent.
+ *
  * @param {string} host
  * @param {number} port
- * @param {string} bearer
+ * @param {string} token
+ * @returns {Promise<{status: number, body?: any, verified: boolean}>}
+ */
+async function getHealth(host, port, token) {
+  const challenge = await getJson(host, port, "/challenge", {});
+  if (challenge.status !== 200 || typeof challenge.body?.nonce !== "string") {
+    // An older bridge has no /challenge; it answers 401 and names itself.
+    return { status: challenge.status, body: challenge.body, verified: false };
+  }
+  const nonce = challenge.body.nonce;
+  const cnonce = newNonce();
+  const answer = await getJson(host, port, "/health", {
+    Authorization: signedAuthorization(token, "GET", "/health", nonce, cnonce),
+  });
+  if (answer.body && typeof answer.body.proof === "string") {
+    const { proof, ...body } = answer.body;
+    return { status: answer.status, body, verified: macMatches(proof, mac(token, bridgeMessage(nonce, cnonce, JSON.stringify(body)))) };
+  }
+  return { status: answer.status, body: answer.body, verified: false };
+}
+
+/**
+ * @param {string} host
+ * @param {number} port
+ * @param {string} pathname
+ * @param {Record<string, string>} headers
  * @returns {Promise<{status: number, body?: any}>}
  */
-function getHealth(host, port, bearer) {
+function getJson(host, port, pathname, headers) {
   return new Promise((resolve) => {
     const req = http.request(
-      { host, port, path: "/health", method: "GET", timeout: 3_000, headers: { Authorization: `Bearer ${bearer}` } },
+      { host, port, path: pathname, method: "GET", timeout: 3_000, headers },
       (res) => {
         let text = "";
         res.setEncoding("utf8");

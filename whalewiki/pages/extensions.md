@@ -48,7 +48,7 @@ records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
 
-Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.2.0 is a developer preview that also drives a browser, and the two do not overlap.
+Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.3.0 is a developer preview that also drives a browser, and the two do not overlap.
 Computer Use owns a Chromium instance it launches under its own
 `--user-data-dir` and states that the person's own profile is never attached
 to, typed into or closed; Codewhale for Chrome acts on the tab the person is already
@@ -59,9 +59,13 @@ Chrome extension it ships, so they reach the model through the ordinary tool
 path and the bundle's trust review; a client that registered them with the
 Runtime directly would carry `ApprovalRequirement::Auto` and reach no approval
 gate. `/chromewhale setup` copies the extension to a stable path outside the
-content-hashed staged root, where it is loaded unpacked; it dials out to a
-loopback bridge — a Chrome extension cannot listen on a socket — that refuses
-web origins and foreign `Host` headers. Pairing is challenge-response: both
+content-hashed staged root, where it is loaded unpacked (a manifest `key`
+fixes its ID), and installs a per-user Native Messaging connector that Chrome,
+Chromium, Edge and Brave start for that ID only. The connector holds the
+pairing token and dials the loopback bridge — a Chrome extension cannot listen
+on a socket — so nothing is pasted and the token never enters the browser; a
+pasted port and token remain the fallback. The bridge refuses web origins and
+foreign `Host` headers. Pairing is challenge-response: both
 ends prove they hold the token with HMACs over single-use nonces and neither
 ever sends it, so a program squatting on the port can neither learn it nor
 drive the panel. Several Codewhale sessions share one bridge port: the first
