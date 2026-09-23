@@ -138,12 +138,23 @@ test.describe('Codewhale for Chrome, real browser', () => {
     let [worker] = ctx.serviceWorkers();
     worker ??= await ctx.waitForEvent('serviceworker');
     const extensionId = new URL(worker.url()).host;
-    const target = await ctx.newPage();
+    const target = ctx.pages()[0] ?? (await ctx.newPage());
     await target.goto(`${SITE}/`);
-    const windowId = await worker.evaluate(async (url) => (await chrome.tabs.query({url: `${url}/*`}))[0].windowId, SITE);
-    await worker.evaluate((url) => chrome.windows.create({url}), `chrome-extension://${extensionId}/panel.html`);
-    const panel = await ctx.waitForEvent('page', (page) => page.url().includes('panel.html'));
-    await panel.waitForLoadState();
+    // The panel is opened by Playwright (a page created by the extension's own
+    // chrome.windows.create is closed again on Windows runners), then its tab
+    // is moved into a window of its own so the fixture stays the active tab of
+    // its window — which is the tab the panel acts on.
+    const panel = await ctx.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/panel.html`);
+    const windowId = await worker.evaluate(async ({site, panelUrl}) => {
+      const [fixture] = await chrome.tabs.query({url: `${site}/*`});
+      const [panelTab] = await chrome.tabs.query({url: `${panelUrl}*`});
+      if (panelTab.windowId === fixture.windowId) {
+        await chrome.windows.create({tabId: panelTab.id});
+      }
+      await chrome.tabs.update(fixture.id, {active: true});
+      return fixture.windowId;
+    }, {site: SITE, panelUrl: `chrome-extension://${extensionId}/panel.html`});
     await panel.evaluate((id) => { chrome.windows.getCurrent = async () => chrome.windows.get(id); }, windowId);
     h = {site, SITE, srv, rpc, notify, ctx, panel, target, PORT, TOKEN};
     await pairPanel(PORT, TOKEN);
