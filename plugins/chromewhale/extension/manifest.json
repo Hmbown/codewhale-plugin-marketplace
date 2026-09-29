@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Codewhale for Chrome",
-  "version": "0.3.0",
-  "description": "Codewhale in Chrome. Chat with your local Codewhale runtime in a side panel and let it read and act on the tab you are looking at, one granted site at a time.",
+  "version": "0.4.0",
+  "description": "Codewhale in Chrome. Chat with your local Codewhale runtime in a side panel and let it read and act on selected tabs, one granted site at a time.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx0UaYHmB4J7ebLZfC/8IiotIt5VCvX0d+hhN8tIZX423o6NRFe4DnxQvuxo5XQSKV0BcI6YX2Tw9NCWwTlNjUQ2Ik33B5UaMH1JbGxbM3Dr08M1z2UPuB80YG+9mlotpkiUNjN38BM7soCJX3ouG6BzGkUjJWi/JH9SqOUr2ijPqqXEIKFvWkUlCgFi5d9KM/JBMQK73dTOsE9CXCcCLvSMAJrvirRZuqwX59RXuA4vz/U4yWQ6UFoYQpgcaop8irmLJcg3+KXGilyR7QdfwmgADd81pOQedUTuIPkGTuqoIe1jdgZfJ/z0qUEA1uAHYIKAodbuKalOR71ZvEka+uQIDAQAB",
   "minimum_chrome_version": "116",
   "icons": {
@@ -31,7 +31,8 @@
     "storage",
     "tabs",
     "activeTab",
-    "nativeMessaging"
+    "nativeMessaging",
+    "webNavigation"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",

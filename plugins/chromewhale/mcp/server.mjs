@@ -17,6 +17,7 @@
 // `ApprovalRequirement::Auto` and never reach the approval gate.
 
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import url from "node:url";
 
@@ -27,6 +28,11 @@ import { SERVER_NAME, TOOLS, annotationsFor, isTool } from "../src/tools.mjs";
 
 const ROOT = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
 const VERSION = readVersion();
+// Read once: initialize and resources/read serve the same packaged bytes.
+// Missing guidance is an incomplete installation, not silent loss of rules.
+const SESSION_ID = crypto.randomUUID();
+const SKILL_URI = "skill://chromewhale/SKILL.md";
+const GUIDE = fs.readFileSync(path.join(ROOT, "skills/chromewhale/SKILL.md"), "utf8");
 
 /** stderr only: stdout is the JSON-RPC transport and must stay clean. */
 const log = (line) => process.stderr.write(`[chromewhale] ${line}\n`);
@@ -64,9 +70,19 @@ const HANDLERS = {
   initialize(params) {
     return {
       protocolVersion: params?.protocolVersion ?? "2025-06-18",
-      capabilities: { tools: { listChanged: false } },
+      capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false } },
+      instructions: GUIDE,
       serverInfo: { name: SERVER_NAME, version: VERSION },
     };
+  },
+
+  "resources/list"() {
+    return { resources: [{ uri: SKILL_URI, name: "Chromewhale operating guide", mimeType: "text/markdown" }] };
+  },
+  "resources/templates/list"() { return { resourceTemplates: [] }; },
+  "resources/read"(params) {
+    if (params?.uri !== SKILL_URI) throw Object.assign(new Error("Unknown skill resource URI"), { rpcCode: -32602 });
+    return { contents: [{ uri: SKILL_URI, mimeType: "text/markdown", text: GUIDE }] };
   },
 
   "tools/list"() {
@@ -90,7 +106,7 @@ const HANDLERS = {
       return errorResult(`chromewhale has no tool named "${String(name ?? "")}".`);
     }
     const args = params?.arguments && typeof params.arguments === "object" ? params.arguments : {};
-    const answer = await bridge.call(name, args, { signal });
+    const answer = await bridge.call(name, { ...args, __sessionId: SESSION_ID }, { signal });
     const content = normalizeContent(answer?.content);
     return {
       content: content.length ? content : [{ type: "text", text: answer?.success ? "(no output)" : "The panel returned no detail." }],
@@ -166,7 +182,7 @@ async function handleLine(line) {
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     if (id != null) {
-      respondError(id, -32603, detail);
+      respondError(id, error?.rpcCode ?? -32603, detail);
     } else {
       log(`notification ${method} failed: ${detail}`);
     }

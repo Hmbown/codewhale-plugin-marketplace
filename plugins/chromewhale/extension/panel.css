@@ -284,3 +284,6 @@ code {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 12px;
 }
+
+.target-row { padding: 0 12px 8px; }
+#target-status { overflow-wrap: anywhere; flex: 1; }

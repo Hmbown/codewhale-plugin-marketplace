@@ -125,3 +125,26 @@ test("no source string names a browser_* tool, which Codewhale for Chrome does n
     }
   }
 });
+
+
+test("a control that becomes a submit after inspection refuses an unconfirmed click", () => {
+  const element = fakeElement({ tagName: "BUTTON", form: {}, attributes: { type: "button" } });
+  element.scrollIntoView = () => {};
+  element.focus = () => { element.type = "submit"; };
+  globalThis.__chromewhale = { refs: [element] };
+  const result = clickRef("e1");
+  assert.equal(result.ok, false);
+  assert.match(result.error, /confirmation/);
+});
+
+
+test("a focus handler cannot turn a fill into entry of a one-time code", () => {
+  const attributes = { type: "text" };
+  const element = fakeElement({ attributes });
+  element.scrollIntoView = () => {};
+  element.focus = () => { attributes.autocomplete = "one-time-code"; };
+  globalThis.__chromewhale = { refs: [element] };
+  const result = typeRef("e1", "secret", true, false);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /protected/);
+});

@@ -101,10 +101,19 @@ const itemNodes = new Map();
 const activity = [];
 
 const browserTools = createBrowserTools({
-  activeTab: async () => {
-    const win = await chrome.windows.getCurrent();
+  activeTab: async (windowId) => {
+    const win = windowId === undefined ? await chrome.windows.getCurrent() : { id: windowId };
     const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
     return tab;
+  },
+  listTabs: () => chrome.tabs.query({}),
+  createTab: (url) => chrome.tabs.create({ url, active: false }),
+  closeTab: (tabId) => chrome.tabs.remove(tabId),
+  listFrames: (tabId) => chrome.webNavigation.getAllFrames({ tabId }),
+  getFrame: (tabId, frameId) => chrome.webNavigation.getFrame({ tabId, frameId }),
+  onTarget: (tab) => {
+    const target = document.getElementById("target-status");
+    target.textContent = tab ? `Target: ${tab.title || tab.url || "Tab"} (${tab.id})` : "Choose a tab to begin";
   },
   getTab: (tabId) => chrome.tabs.get(tabId).catch(() => undefined),
   navigateTab: async (tabId, url) => {
@@ -119,9 +128,10 @@ const browserTools = createBrowserTools({
       await chrome.tabs.goForward(tabId);
     }
   },
-  executeScript: async ({ tabId, func, args }) => {
-    const [injection] = await chrome.scripting.executeScript({ target: { tabId }, func, args });
-    return injection?.result;
+  executeScript: async ({ tabId, frameId = 0, documentId, func, args }) => {
+    const target = documentId ? { tabId, documentIds: [documentId] } : { tabId, frameIds: [frameId] };
+    const [injection] = await chrome.scripting.executeScript({ target, func, args });
+    return injection?.result ? { ...injection.result, documentId: injection.documentId } : undefined;
   },
   captureTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 80 }),
   hasPermission: (pattern) => chrome.permissions.contains({ origins: [pattern] }),
@@ -822,3 +832,14 @@ void (async () => {
   await renderSites();
   await connect();
 })();
+
+// Target selection is explicit and never activates or navigates the user's tab.
+document.getElementById("use-current-tab").addEventListener("click", async () => {
+  const win = await chrome.windows.getCurrent();
+  const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
+  if (tab) {
+    bridge?.abortAll("target-changed");
+    native?.abortAll("target-changed");
+    await browserTools.selectFromPanel(tab.id);
+  }
+});

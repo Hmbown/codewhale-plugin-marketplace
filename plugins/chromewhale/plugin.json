@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "chromewhale",
-  "version": "0.3.0",
-  "description": "Let Codewhale read and act on the Chrome tab you are looking at, one granted site at a time. Needs the bundled Chrome extension loaded.",
+  "version": "0.4.0",
+  "description": "Let Codewhale read and act on selected Chrome tabs and frames, one granted site at a time. Needs the bundled Chrome extension loaded.",
   "author": {
     "name": "Codewhale"
   },

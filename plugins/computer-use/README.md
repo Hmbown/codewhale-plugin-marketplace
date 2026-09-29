@@ -50,9 +50,10 @@ Three doors, same destination — pick one:
    Recording), and run the background check. No terminal, no Node, no
    compiler needed.
 2. **Inside Codewhale.** Computer Use ships built in: review, trust and
-   enable it through Codewhale's plugin panel. The Mac app from door 1 is
-   what gives it real control; without it the tools load and tell you
-   what's missing instead of failing blind.
+   enable it through Codewhale's plugin panel. Current macOS Engine builds
+   include the native helper; you do not need a second app installation.
+   Run `request_access` and follow its actual permission owner and setup hint.
+   An installed Computer Use app remains the control owner when present.
 3. **From source.** Clone, test, install:
    ```bash
    git clone https://github.com/Hmbown/codewhale-cu-plugin
@@ -64,17 +65,30 @@ Three doors, same destination — pick one:
    Needs Node 20+ and, on a Mac, Xcode Command Line Tools. Then wire your
    host from the table in [Developer quick start](#developer-quick-start).
 
-**Verify (every door).** Ask your host for `request_access`: a working
-install reports `via: "app"`, `app.version` matching the plugin,
-Accessibility `granted` and screen capture `ok`. Anything else names the
-missing piece — install the app, add the grant, or check the host wiring,
-in that order. If it names a permission, the fix is in
+**Verify (every door).** Ask your host for `request_access`. It identifies the
+computer, helper/version, available tools and missing permissions without
+sending input. `via: "app"` means grants belong to the Computer Use app;
+`via: "direct"` means they belong to the hosting app or terminal. Follow that
+receipt's `appHint`, not a second install ceremony. An installed but disconnected
+helper is an error, never permission to bypass it. Permission recovery is in
 [Setup and troubleshooting](docs/TROUBLESHOOTING.md).
+
+**Choose your surface.** Apps on this Mac use Computer Use; your signed-in Chrome
+uses [Codewhale for Chrome](https://github.com/Hmbown/codewhale-plugin-marketplace/tree/main/plugins/chromewhale);
+a clean browser uses Computer Use's `browser` tool. `/computer status` checks
+the first route; Chrome has its own connector and per-site grants.
+
+**Operating guidance.** The server sends its concise packaged skill in standard
+MCP `initialize.instructions`. Hosts that consume that field can supply it
+before the first action. `resources/list` / `resources/read` expose the exact
+same guide plus detailed operations, refusal recovery and recording references.
+This supplies guidance; host-side delivery/logging and approvals remain the
+host's responsibility. Engine support is maintained separately.
 
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
 notarized Mac app is published on this repository's
 [GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)
-(latest stable: v0.12.0, matching the source in this checkout); remaining
+(stable release: v0.12.0; this checkout prepares 0.12.1); remaining
 gates are tracked in [the release checklist](docs/RELEASE_CHECKLIST.md). The
 [setup page](https://codewhale.net/computer-use) offers the notarized disk
 image directly.
@@ -115,7 +129,7 @@ notarization and release procedure.
 
 ## Developer quick start
 
-Install the desktop helper first ([Install](#install), any door), then point
+Choose the appropriate setup route ([Install](#install)), then point
 your host at the server:
 
 | Host | Configuration |

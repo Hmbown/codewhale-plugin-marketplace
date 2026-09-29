@@ -1,6 +1,6 @@
 {
   "name": "chromewhale",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Codewhale for Chrome: Codewhale in your own Chrome. MCP server, loopback bridge, and the side-panel extension it drives.",

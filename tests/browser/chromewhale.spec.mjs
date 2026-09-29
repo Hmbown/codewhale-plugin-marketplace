@@ -85,9 +85,12 @@ function startServer(env) {
 }
 
 /** One tools/call, returning its text and error flag. */
+let latestSnapshotId;
 async function call(name, args = {}) {
+  if (["page_click", "page_type"].includes(name)) args = { snapshotId: latestSnapshotId, ...args };
   const message = await h.rpc('tools/call', {name, arguments: args}).done;
   const content = message.result?.content ?? [];
+  if (name === "page_snapshot" && !message.result?.isError) latestSnapshotId = content[0]?.text?.match(/snapshotId: ([a-f0-9-]+)/)?.[1];
   return {isError: message.result?.isError === true, text: content.filter((c) => c.type === 'text').map((c) => c.text).join('\n')};
 }
 
@@ -216,7 +219,7 @@ test.describe('Codewhale for Chrome, real browser', () => {
   test('a submit waits for the user; a host cancel closes the prompt and nothing is sent', async () => {
     await h.target.goto(`${h.SITE}/`);
     const go = refOf((await call('page_snapshot')).text, 'Place order');
-    const request = h.rpc('tools/call', {name: 'page_click', arguments: {ref: go}});
+    const request = h.rpc('tools/call', {name: 'page_click', arguments: {ref: go, snapshotId: latestSnapshotId}});
     const card = h.panel.locator('#prompts .card').first();
     await card.waitFor();
     expect(await card.locator('h3').textContent()).toContain(`Confirm: click ${go}`);
@@ -237,6 +240,54 @@ test.describe('Codewhale for Chrome, real browser', () => {
     const shot = await call('page_screenshot');
     expect(shot.isError).toBe(true);
     expect(shot.text).toMatch(/toolbar button/);
+  });
+
+  test('a task tab stays targeted when the person activates a different tab', async () => {
+    await h.target.goto(`${h.SITE}/`);
+    const pageEvent = h.ctx.waitForEvent('page');
+    const created = await call('page_tabs', {action: 'create', url: `${h.SITE}/?task-tab`});
+    expect(created.isError).toBe(false);
+    const taskId = Number(created.text.match(/tabId: (\d+)/)[1]);
+    const taskTab = await pageEvent;
+    await taskTab.waitForLoadState();
+    const snap = await call('page_snapshot', {tabId: taskId});
+    const snapshotId = latestSnapshotId;
+    await h.target.bringToFront();
+    const typed = await call('page_type', {snapshotId, ref: refOf(snap.text, '"Name"'), text: 'Only the task tab'});
+    expect(typed.isError, typed.text).toBe(false);
+    expect(await taskTab.inputValue('#name')).toBe('Only the task tab');
+    expect(await h.target.inputValue('#name')).toBe('');
+    expect((await call('page_tabs', {action: 'close', tabId: taskId})).isError).toBe(false);
+    expect((await call('page_type', {snapshotId, ref: 'e1', text: 'late'})).isError).toBe(true);
+  });
+
+  test('an embedded site requires its own grant and document-bound actions', async () => {
+    const embeddedSite = await startSite();
+    const embedded = `http://127.0.0.1:${embeddedSite.address().port}`;
+    try {
+      await h.target.goto(`${h.SITE}/`);
+      await h.target.evaluate((src) => {
+        const frame = document.createElement('iframe');
+        frame.src = src;
+        document.body.append(frame);
+      }, embedded);
+      await expect(h.target.frameLocator('iframe').locator('#name')).toBeVisible();
+      const listed = await call('page_frames');
+      const entry = listed.text.split('\n').find(line => line.includes(`"url":"${embedded}/"`));
+      const frameId = JSON.parse(entry).frameId;
+      const pending = call('page_snapshot', {frameId});
+      await answer('Allow for this session');
+      const snap = await pending;
+      expect(snap.isError, snap.text).toBe(false);
+      const snapshotId = latestSnapshotId;
+      expect((await call('page_type', {snapshotId, ref: refOf(snap.text, '"Name"'), text: 'Inside the frame'})).isError).toBe(false);
+      expect(await h.target.frameLocator('iframe').locator('#name').inputValue()).toBe('Inside the frame');
+      await h.target.locator('iframe').evaluate(frame => { frame.src = frame.src + '?replacement'; });
+      await expect(h.target.frameLocator('iframe').locator('#name')).toHaveValue('');
+      const stale = await call('page_type', {snapshotId, ref: refOf(snap.text, '"Name"'), text: 'Must not land'});
+      expect(stale.isError).toBe(true);
+      expect(await h.target.frameLocator('iframe').locator('#name').inputValue()).toBe('');
+    } finally { embeddedSite.close(); }
   });
 
   test('a program squatting on the bridge port gets no token and cannot drive the panel', async () => {
