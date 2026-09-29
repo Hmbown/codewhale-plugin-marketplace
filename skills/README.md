@@ -1,6 +1,6 @@
 # Codewhale skills
 
-47 active skills from Core generation 14. Each installs as
+47 active skills from Core generation 15. Each installs as
 `codewhale-skills:<name>`. Skills provide instructions; they do not connect
 accounts, install dependencies, grant permissions, or prove live service access.
 
@@ -91,7 +91,7 @@ search this directory, or `npm run skills -- --json` for the full inventory.
 
 ## Source and maintenance
 
-Generated from [Core](https://github.com/Hmbown/Codewhale/tree/44ec195dc52ff2b01c9b51d7ed195d999942796d/crates/tui/assets/skills) by `scripts/skills.mjs`. `upstream.json` pins the exact revision and hashes
+Generated from [Core](https://github.com/Hmbown/Codewhale/tree/f46dc252f1f785ad9fd122d6ca2725f3bcd46092/crates/tui/assets/skills) by `scripts/skills.mjs`. `upstream.json` pins the exact revision and hashes
 of every mirrored file. `npm run check` validates the inventory and this directory;
 `npm run check -- --core ../codewhale` also compares the active Core catalog.
 
