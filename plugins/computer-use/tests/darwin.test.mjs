@@ -1111,3 +1111,52 @@ test('macOS raster dimensions are read from both PNG and JPEG headers', async (t
     fs.rmSync(bundle, { recursive: true, force: true });
   }
 });
+
+const NATIVE_FLAGS=['-fobjc-arc','-Os','-framework','Cocoa','-framework','ApplicationServices','-framework','ScreenCaptureKit','-framework','AVFoundation','-framework','CoreMedia','-framework','Vision','src/backends/darwin-accessibility.m'];
+
+// AXEnhancedUserInterface makes AppKit animate every AXPosition/AXSize write,
+// and the position re-assert cancelled the resize animation a quarter of the
+// way in (DESKTOP-QA-20260923 bug 5: 1100x800 -> 1600x900 froze at 1232x827).
+test('set_window_frame clears AXEnhancedUserInterface around geometry writes and always restores it', {skip:process.platform!=='darwin'}, t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cu-native-eui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const binary=path.join(dir,'native');
+  const build=spawnSync('clang',['-DCU_TEST=1',...NATIVE_FLAGS,'-o',binary],{encoding:'utf8'});
+  assert.equal(build.status,0,build.stderr);
+  const run=args=>{const r=spawnSync(binary,[JSON.stringify({tool:'inspect_enhanced_ui_frame',args})],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);};
+  // The fake window logs each geometry write with the app's enhanced-UI state
+  // at that moment; this is the same write path set_window_frame takes.
+  const geometry=eui=>[`AXPosition(AXEnhancedUserInterface=${eui})`,`AXSize(AXEnhancedUserInterface=${eui})`,`AXPosition(AXEnhancedUserInterface=${eui})`];
+  const cleared=['AXEnhancedUserInterface=0',...geometry(0),'AXEnhancedUserInterface=1'];
+  let r=run({enhanced:true});
+  assert.deepEqual(r.writes,cleared,'geometry is written with enhanced UI off');
+  assert.equal(r.enhanced,true,'enhanced UI is restored for content observation');
+  assert.deepEqual(r.after,{x:200,y:120,w:1600,h:900},'the readback reports the applied frame');
+  r=run({enhanced:true,refuse:true});
+  assert.match(r.error,/refused the window frame change/);
+  assert.deepEqual(r.writes,['AXEnhancedUserInterface=0','AXPosition(AXEnhancedUserInterface=0)','AXSize(AXEnhancedUserInterface=0)','AXEnhancedUserInterface=1'],'a refused frame still restores enhanced UI');
+  assert.equal(r.enhanced,true);
+  assert.deepEqual(run({}).writes,geometry(0),'apps without the attribute are not touched');
+  assert.deepEqual(run({enhanced:false}).writes,geometry(0),'an app with it off is left off');
+});
+
+// Live proof against a real NSWindow. Needs Accessibility trust for the test
+// host, so it is opt-in: CU_LIVE_AX=1 node --test tests/darwin.test.mjs
+test('set_window_frame reaches the exact requested size on a live AppKit window with enhanced UI on', {skip:process.platform!=='darwin'||process.env.CU_LIVE_AX!=='1'}, async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cu-native-frame-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const binary=path.join(dir,'native'), host=path.join(dir,'window');
+  assert.equal(spawnSync('clang',[...NATIVE_FLAGS,'-o',binary],{encoding:'utf8'}).status,0);
+  fs.writeFileSync(host+'.m',`#import <Cocoa/Cocoa.h>
+int main(void){ @autoreleasepool { NSApplication *a=NSApplication.sharedApplication; [a setActivationPolicy:NSApplicationActivationPolicyRegular];
+  NSWindow *w=[[NSWindow alloc] initWithContentRect:NSMakeRect(300,300,1100,800) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
+  [w makeKeyAndOrderFront:nil]; [a run]; } }`);
+  const hb=spawnSync('clang',['-fobjc-arc','-framework','Cocoa',host+'.m','-o',host],{encoding:'utf8'});
+  assert.equal(hb.status,0,hb.stderr);
+  const child=spawn(host,[],{stdio:'ignore'});t.after(()=>child.kill('SIGKILL'));
+  await new Promise(r=>setTimeout(r,1500));
+  for(const frame of [{x:200,y:120,w:1600,h:900},{x:40,y:80,w:1440,h:810}]) {
+    const r=spawnSync(binary,[JSON.stringify({tool:'set_window_frame',args:{app_ref:{pid:child.pid},window_id:0,frame}})],{encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);
+    const {after}=JSON.parse(r.stdout);
+    assert.deepEqual(after,frame,`frame ${JSON.stringify(frame)} -> ${JSON.stringify(after)}`);
+  }
+});

@@ -118,6 +118,8 @@ after(() => { try { server.stdin.end(); } catch {} server?.kill("SIGTERM"); });
 
 test("initialize advertises resources and the skills extension", async () => {
   const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {} });
+  assert.equal(init.result.instructions, fs.readFileSync(path.join(ROOT, "skills/computer-use/SKILL.md"), "utf8"));
+  assert.ok(Buffer.byteLength(init.result.instructions) < 6500);
   assert.equal(init.result.capabilities.resources.listChanged, false);
   assert.ok(init.result.capabilities.experimental["io.modelcontextprotocol/skills"], "the skills extension is advertised");
 });
@@ -139,7 +141,7 @@ test("resources/list names the pack; resources/read returns exact bytes with has
     const read = await rpc("resources/read", { uri });
     const text = read.result.contents[0].text;
     const rel = uri.replace("skill://codewhale-cu/", "");
-    const onDisk = fs.readFileSync(path.join(ROOT, "skills", "computer-use", rel), "utf8");
+    const onDisk = fs.readFileSync(path.join(ROOT, "skills", rel === "recording/SKILL.md" ? rel : `computer-use/${rel}`), "utf8");
     assert.equal(text, onDisk, `${uri} must serve exactly the file on disk`);
   }
 });
@@ -156,13 +158,13 @@ test("skills/list and skills/get carry the manifest with matching sha256 digests
   const entry = skills.result.skills[0];
   assert.equal(entry.name, "computer-use");
   assert.ok(entry.description.length > 40, "the description comes from SKILL.md frontmatter");
-  assert.equal(entry.files.length, 3);
+  assert.equal(entry.files.length, 5);
 
   const got = await rpc("skills/get", { uri: "skill://codewhale-cu/SKILL.md" });
   assert.equal(got.result.skill.frontmatter.name, "computer-use");
   for (const file of got.result.manifest) {
     const rel = file.uri.replace("skill://codewhale-cu/", "");
-    const bytes = fs.readFileSync(path.join(ROOT, "skills", "computer-use", rel));
+    const bytes = fs.readFileSync(path.join(ROOT, "skills", rel === "recording/SKILL.md" ? rel : `computer-use/${rel}`));
     const digest = crypto.createHash("sha256").update(bytes).digest("hex");
     assert.equal(file.sha256, digest, `${rel} sha256 must match the bytes`);
     assert.equal(file.bytes, bytes.length);

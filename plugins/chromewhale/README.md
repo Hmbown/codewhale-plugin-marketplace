@@ -10,8 +10,7 @@
 `CHROMEWHALE_*` settings keep that name, so existing installs keep working.
 
 Codewhale in your own Chrome. A side panel that chats with your local Codewhale
-runtime, and five tools that let the model read and act on the tab you are
-looking at — one granted site at a time, only while the panel is open.
+runtime, and seven tools that let the model read and act on selected tabs and frames — one granted site at a time, only while the panel is open.
 
 Your browser, your logged-in sessions, your tabs. Nothing is relayed anywhere:
 the plugin, the runtime, and the bridge are all on loopback.
@@ -21,11 +20,11 @@ the plugin, the runtime, and the bridge are all on loopback.
 Both can drive a browser. They are for different jobs, and the difference is
 whose browser it is.
 
-| | **Codewhale for Chrome** (`page_*`) | **computer-use** (`browser_*`) |
+| | **Codewhale for Chrome** (`page_*`) | **computer-use** (`browser`) |
 | --- | --- | --- |
 | Whose browser | Yours, already open, already logged in | One it launches, in a profile of its own |
 | Your cookies and sessions | Used — that is the point | Never touched |
-| How you address things | `[eN]` refs from a page snapshot | CSS selectors |
+| How you address things | `snapshotId` + `[eN]` refs from an observed tab/frame | CSS selectors |
 | Where you talk to it | A side panel next to the page | Wherever you run Codewhale |
 | Good for | "What does this page say?", filling a form you are on, following a link | Scripted flows, scraping, anything that should not see your identity |
 
@@ -84,6 +83,23 @@ allowed list.
 
 ## Use it
 
+The unreleased 0.4 source adds an explicit target shown in the panel. Use **Use current tab**,
+ask for a specific tab, or let `page_tabs` list/select/create a background task tab.
+Switching your foreground no longer redirects the next action. `page_frames`
+lists embedded frames; each embedded site's origin requires separate consent.
+Actions require the `snapshotId` returned by `page_snapshot` along with an `eN`
+ref. Reload or navigate, then take a fresh snapshot. A closed panel or restarted MCP server forgets its
+handles and task-tab ownership; it never closes your tabs automatically.
+
+The added `webNavigation` permission supplies frame/document identity, so an
+old element reference cannot land in a replacement frame. It does not grant
+site content access. Existing per-origin grants still gate every page script.
+
+The MCP server supplies this operating skill through `initialize.instructions`
+and `skill://chromewhale/SKILL.md`. Hosts own delivery and logging; guidance
+never bypasses Codewhale's approval path or the extension's site controls.
+
+
 Ask about the tab you are on, or tell Codewhale what to do in it — from the
 side panel, or from any Codewhale session once the panel is open:
 
@@ -108,10 +124,9 @@ chat.
   Store.
 - Act on a site you have not allowed, or on any site while paused or while the
   panel is closed.
-- Enumerate or switch your tabs. It works on the active tab of the window the
-  panel is open in, and nothing else.
-- See inside iframes (same-origin ones included, for now), or dispatch clicks
-  that pass an `event.isTrusted` check.
+- Close user-owned tabs or silently move your foreground to the agent's target.
+- Read an embedded site without its own origin grant, or see closed shadow roots.
+- Dispatch clicks that pass an `event.isTrusted` check; verify the observed result.
 - Take a screenshot of a tab you have not clicked its toolbar button on.
   Chrome only lets an extension capture a tab under `activeTab`, which that
   click grants; `page_snapshot` covers reading text without it.

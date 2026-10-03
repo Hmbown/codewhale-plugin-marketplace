@@ -97,6 +97,14 @@ test("the server initializes and advertises exactly the page_* surface", async (
   try {
     const initialized = await server.request("initialize", { protocolVersion: "2025-06-18" });
     assert.equal(initialized.result.serverInfo.name, "chromewhale");
+    const guide = fs.readFileSync(new URL("../skills/chromewhale/SKILL.md", import.meta.url), "utf8");
+    assert.equal(initialized.result.instructions, guide);
+    const resources = await server.request("resources/list");
+    const uri = resources.result.resources[0].uri;
+    const read = await server.request("resources/read", { uri });
+    assert.equal(read.result.contents[0].text, guide);
+    const traversal = await server.request("resources/read", { uri: "skill://chromewhale/../../etc/passwd" });
+    assert.equal(traversal.error.code, -32602);
     assert.equal(initialized.result.protocolVersion, "2025-06-18");
     assert.deepEqual(initialized.result.capabilities.tools, { listChanged: false });
 
@@ -148,7 +156,7 @@ test("an unknown method answers with method-not-found, and an unknown notificati
   const server = startServer();
   try {
     await server.request("initialize", {});
-    const unknown = await server.request("resources/list");
+    const unknown = await server.request("unimplemented/method");
     assert.equal(unknown.error.code, -32601);
 
     // A notification carries no id; answering one would itself be a protocol

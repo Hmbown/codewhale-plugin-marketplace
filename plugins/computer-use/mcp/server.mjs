@@ -1339,7 +1339,8 @@ function paramError(message) {
 // The operating guide travels with the server and is served as MCP resources
 // (skill://codewhale-cu/…) so any host can read the loop, the failure codes and
 // the safety rules without paying for them in every receipt. The pack is loaded
-// once at startup; a trimmed install without skills/ simply serves none.
+// once at startup. An incomplete pack is an installation error, never a
+// silently instruction-free computer-control server.
 const SKILL_NAME = "computer-use";
 const SKILL_ROOT_URI = `skill://codewhale-cu/SKILL.md`;
 
@@ -1364,18 +1365,20 @@ const skillPack = (() => {
     ["SKILL.md", "text/markdown"],
     ["references/quick-reference.md", "text/markdown"],
     ["references/refusal-codes.md", "text/markdown"],
+    ["references/operating-details.md", "text/markdown"],
+    ["recording/SKILL.md", "text/markdown"],
   ];
   const pack = [];
   for (const [rel, mime] of files) {
     try {
-      const bytes = fs.readFileSync(new URL(rel, root));
+      const bytes = fs.readFileSync(new URL(rel === "recording/SKILL.md" ? "../recording/SKILL.md" : rel, root));
       const text = bytes.toString("utf8");
       pack.push({
         rel, uri: `skill://codewhale-cu/${rel}`, mime, size: bytes.length, text,
-        frontmatter: rel === "SKILL.md" ? parseFrontmatter(text) : null,
+        frontmatter: rel.endsWith("SKILL.md") ? parseFrontmatter(text) : null,
         sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
       });
-    } catch { /* no pack on disk — serve nothing */ }
+    } catch (error) { throw new Error(`Computer Use skill pack is incomplete (${rel}): ${error.message}`); }
   }
   return pack;
 })();
@@ -1405,6 +1408,7 @@ const HANDLERS = {
         resources: { listChanged: false, subscribe: false },
         experimental: { "io.modelcontextprotocol/skills": {} },
       },
+      instructions: skillPack.find((file) => file.uri === SKILL_ROOT_URI).text,
       serverInfo: { name: SERVER_NAME, version: APP_VERSION, platforms: ["darwin", "win32", "linux", "harmonyos"], transports: ["local", "ssh", "hdc"] },
     };
   },
@@ -1443,7 +1447,7 @@ const HANDLERS = {
     const entry = skillPack.find((f) => f.uri === (params?.uri ?? SKILL_ROOT_URI));
     if (!entry) throw paramError(`skill "${params?.uri ?? ""}" is unknown — skills/list names the catalog`);
     return {
-      skill: { uri: entry.uri, name: SKILL_NAME, description: SKILL_DESCRIPTION, frontmatter: entry.frontmatter, content: entry.text },
+      skill: { uri: entry.uri, name: entry.frontmatter?.name ?? SKILL_NAME, description: SKILL_DESCRIPTION, frontmatter: entry.frontmatter, content: entry.text },
       manifest: skillPack.map(({ uri, sha256, size }) => ({ uri, sha256, bytes: size })),
     };
   },

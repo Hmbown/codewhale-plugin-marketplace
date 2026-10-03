@@ -1,32 +1,27 @@
 ---
 name: chromewhale
-description: Read and act on the Chrome tab the user is looking at — their real browser, their logged-in sessions. Use for questions about the current page, filling a form the user is on, following a link they mentioned, or checking what a site actually renders. Not for throwaway automation in a clean profile.
+description: Read and act on selected Chrome tabs and frames — their real browser, their logged-in sessions. Use for questions about the current page, filling a form the user is on, following a link they mentioned, or checking what a site actually renders. Not for throwaway automation in a clean profile.
 invocation: model+user
 ---
 
 # Codewhale for Chrome
 
-The `page_*` tools reach **the user's own Chrome**, on the tab they are looking
-at right now, with their sessions and their cookies. Treat that the way you
+The `page_*` tools reach **the user's own Chrome**, on explicitly selected tabs, with their sessions and their cookies. Treat that the way you
 would treat sitting down at someone's laptop.
 
 For automation that does not need their identity — scraping, a scripted flow, a
-clean profile — use the `computer-use` plugin's `browser_*` tools instead. Those
+clean profile — use the `computer-use` plugin's `browser` tools instead. Those
 drive a browser Codewhale launches itself and never touch the user's profile.
 Reach for `page_*` only when the point is the session the user is already in.
 
 ## The loop
 
-1. **`page_snapshot`** first, always. It returns the URL, the title, and a flat
-   outline of the visible text with every interactive element tagged `[eN]`.
-2. Act with **`page_click`** or **`page_type`**, using refs from that snapshot.
-3. **Snapshot again** after anything that changes the page. Only the refs from
-   the *latest* snapshot work: numbers are never reused, so a ref from an
-   earlier snapshot, from before a navigation, or from before a single-page app
-   changed its URL reports staleness instead of hitting another element.
+1. **Choose a tab.** `page_tabs {action:"list"}` returns IDs. Select the intended tab with `page_tabs {action:"select", tabId}` or pass `tabId` to a snapshot. Selection stays bound when the person switches tabs; it does not activate their window. `page_tabs {action:"create", url}` opens a task-owned background tab. Only task-owned tabs can be closed through this tool; never close a tab the person is using.
+2. **Observe.** `page_snapshot {tabId, frameId?}` returns `snapshotId`, tab/frame IDs, URL, title, and interactive `[eN]` refs. For embedded content, `page_frames {tabId}` lists frame IDs. Each frame's origin needs its own site grant.
+3. **Act and verify.** `page_click {snapshotId, ref}` or `page_type {snapshotId, ref, text}` uses exactly that document, even if another tab becomes active. Snapshot again after a change. Old handles, navigated documents and replaced refs fail closed; never guess a handle or repeat a possibly completed submission.
 
 `page_navigate` opens a URL or moves through history. `page_screenshot` captures
-the visible area — use it for layout, charts, and rendering questions, and
+the selected tab’s visible area while it is foreground — use it for layout, charts, and rendering questions, and
 prefer `page_snapshot` for reading text, which is cheaper and more precise.
 Chrome allows a capture only after the user clicks the Codewhale for Chrome
 toolbar button on that tab; if the screenshot refuses for that reason, ask them
@@ -77,19 +72,15 @@ around them.
 
 ## Things worth knowing before you plan
 
-- **Only the active tab.** There is no tab list and no tab switching, on
-  purpose. If the user means a different tab, ask them to switch to it.
-- **Only the top frame.** Content inside a cross-origin iframe is invisible to
-  a snapshot, and no ref can point into one. If something visible on screen is
-  missing from the outline, an embedded frame is the usual reason — say that
-  instead of insisting it is not there.
+- **Frames are explicit.** A snapshot reads one frame. Use `page_frames` and the returned frame ID when embedded content is missing. A parent-site grant does not grant its embedded site's content. Closed shadow roots remain inaccessible.
 - **Clicks are untrusted events.** A site that checks `event.isTrusted` will
   ignore them. If a click reports success but nothing changed, this is a
   candidate explanation.
 - **Grants are per origin.** Allowing `https://example.com` covers that whole
   site and nothing else — not its subdomains, not the same host on another
   port.
-- **Closing the panel ends everything.** Tools work only while it is open.
+- **Closing the panel ends control.** Tools work only while it is open. Snapshot handles and task-tab ownership belong to that MCP session; reopening requires fresh observation. It never closes tabs automatically.
+- **Screenshots require the foreground.** If the selected tab is in the background, ask the person to bring it forward or use a text snapshot. A detected tab switch during capture discards the image.
 
 ## Working on someone's live session
 
@@ -102,3 +93,5 @@ spends money, or cannot be undone from the same page — even when they asked fo
 the overall task and even when the page's own wording urges you on. "They said
 book the flight" is authority to fill the form, not to press the last button
 without a word.
+
+The same packaged guide is available at `skill://chromewhale/SKILL.md` through this MCP server’s `resources/read`. Hosts that consume standard MCP initialization receive it there too. Reading guidance never grants site access.

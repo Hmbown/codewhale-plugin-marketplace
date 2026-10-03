@@ -1,7 +1,7 @@
 {
   "name": "chromewhale",
-  "version": "0.3.0",
-  "description": "Let Codewhale read and act on the Chrome tab you are looking at.",
+  "version": "0.4.0",
+  "description": "Let Codewhale read and act on selected Chrome tabs and frames.",
   "license": "MIT",
   "skills": "./skills/",
   "commands": "./commands/",

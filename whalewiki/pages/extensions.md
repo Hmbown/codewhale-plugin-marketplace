@@ -6,7 +6,7 @@ catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.12.0 is a macOS beta candidate. It combines app
+Computer Use source 0.12.1 is unreleased; the stable macOS release remains 0.12.0. It combines app
 scripting, accessibility and window-routed input, CDP browser control, and
 session-owned Linux desktops through Docker. Local apps require per-app
 consent; foreground activation needs a separate decision. Shared input waits
@@ -20,6 +20,13 @@ and the helper refuses any request to drive the person's cursor
 Codewhale Computers (browser attach, control lease gate, turn hold) and a
 safety floor: `app_script` refuses shell and keystroke escapes, irreversible
 clicks need an explicit confirmation, and consent is never batched or replayed.
+
+The 0.12.1 server supplies its concise packaged operating guide through standard
+MCP `initialize.instructions`; resources expose the same bytes and detailed
+operations, refusal recovery and recording references. Host delivery is a separate
+Engine responsibility. `/computer setup` distinguishes local apps, signed-in
+Chrome and an isolated browser; `request_access` identifies the actual helper
+and permission owner. Bundled macOS builds do not require a second helper install.
 
 The 0.11.3 patch answers `resources/templates/list` with an empty template
 list instead of `-32601`. The server publishes a fixed skill pack and never a
@@ -48,11 +55,15 @@ records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
 
-Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.3.0 is a developer preview that also drives a browser, and the two do not overlap.
+Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.4.0 is an unreleased developer preview that also drives a browser, with a separate profile boundary.
 Computer Use owns a Chromium instance it launches under its own
 `--user-data-dir` and states that the person's own profile is never attached
-to, typed into or closed; Codewhale for Chrome acts on the tab the person is already
-looking at, in their own profile and their own sessions. The vocabularies are
+to, typed into or closed; Codewhale for Chrome acts on selected tabs and frames in the person's own profile and sessions. `page_tabs` selects or creates a background task tab;
+`page_frames` finds embedded content, with consent checked for each origin.
+Actions require an opaque snapshot handle bound to the MCP session, tab, frame
+and document. Changing the foreground does not redirect an action; navigation
+invalidates the observed document. Only the creating session can close a task
+tab. The panel displays the target and lets the person explicitly change it. The vocabularies are
 kept apart for that reason: `browser_*` for the self-owned instance, `page_*`
 for the person's. Codewhale for Chrome's tools live in its MCP server rather than in the
 Chrome extension it ships, so they reach the model through the ordinary tool
@@ -77,9 +88,13 @@ untrusted-content envelope whose markers carry a per-block random nonce. A
 per-origin decision in the side panel (defaulting to this browser session),
 Chrome's own optional host permission, a confirming click before any form
 submit, and a refusal to type into password, one-time-code or payment-card
-fields sit under that. Source tests cover the server, bridge and gates; no run
-against a live Chrome profile is recorded, so the extension half is
-unqualified.
+fields sit under that. The server also supplies its packaged skill through standard initialization
+and a fixed resource. Automated tests cover the server, signed bridge, native
+pairing and unpacked extension against real Chromium with disposable profiles
+and local fixtures. The harness opens the panel page separately and supplies
+its window identity. This does not establish ordinary toolbar onboarding, a
+provider-led task, Chrome Store availability or packaged-app acceptance. DOM
+clicks remain synthetic; sites requiring trusted input need further work.
 
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
@@ -134,7 +149,7 @@ also catches upstream changes to membership, wording or resources.
 
 Run `npm run check` and `npm test && npm run check:web`. The catalog check covers
 manifest identity, declared remote hosts and skill metadata. Unit and protocol
-tests cover implementation behavior; browser tests exercise the wiki reader.
+tests cover implementation behavior; browser tests exercise the wiki reader and Chrome extension.
 The catalog check also rejects generic manifest keywords (browser, web, wiki
 and the like, listed in the check itself), because keywords feed Codewhale's
 plugin offers.
@@ -164,3 +179,6 @@ handoff and inspect the current validation receipt before publication.
   not reuse the `browser_*` names.
 
 The current macOS candidate refuses background actions that borrow keyboard focus, including raw pointer fallbacks and modified keys. Accessibility and browser control remain the preferred routes for concurrent use. Native sharing-picker integration and continuous keyboard coexistence qualification remain open.
+
+- `plugins/computer-use/mcp/server.mjs`, `plugins/computer-use/skills/computer-use/SKILL.md`: standard MCP guidance and setup routing.
+- `tests/browser/chromewhale.spec.mjs`: Chrome fixture coverage and harness limits.

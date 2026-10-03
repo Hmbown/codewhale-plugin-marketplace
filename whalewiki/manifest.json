@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "177c96d9a62168a3fe3b025d02d7f48cc2f5a05941918fcfeb0b89d404fa3047",
+      "page_sha256": "0af9fb78a843713fbb58b031ee62bac3c519caafd1621889cc505a3a9952441d",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "c50cc61983053753c1f1d1cef5a24d8d0266df50e6d5f794ecd893aeddfa0d0f",
-          "bytes": 5763
+          "sha256": "8d8d44ec26bf83024c7dcf22c084f2d5217fce79798a46dc9c814fb9fe47e341",
+          "bytes": 5761
         },
         {
           "path": "CONTRIBUTING.md",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "f8717c079b585a0fd86c9121de2de7392a0c84c1d9891e1f843184f3afe9be03",
-          "bytes": 48006
+          "sha256": "da15095b15ff41c485503e9f7d3be851a9c8df7d02d9b8848d78b9eee8fe331f",
+          "bytes": 48498
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -87,17 +87,47 @@
         {
           "path": "plugins/chromewhale/README.md",
           "root": "repo",
-          "sha256": "24387c686af1025cc3e5489a23020e9b4864747f0a9bbaa2a38fa6871c5a364a",
-          "bytes": 9759
+          "sha256": "d164f8bd3f5e750c0edff9ec0f6eda8c33eb5903c33a84ac4576ff6e81aaa639",
+          "bytes": 10847
         },
         {
           "path": "plugins/chromewhale/src/tools.mjs",
           "root": "repo",
-          "sha256": "e3f91d190b84991a8a392161d37d4cd4baf053839e2ddc88ce9bf002c8716c2c",
-          "bytes": 5480
+          "sha256": "04db16bfd670214db28cc83518a9a2b565437341f258a4d0cbe986e952ea1fb2",
+          "bytes": 7078
+        },
+        {
+          "path": "plugins/computer-use/mcp/server.mjs",
+          "root": "repo",
+          "sha256": "7c699d1e855d6e1f6a20d9fcfa3eea60ac51a65a3647803623bdcda994613a6e",
+          "bytes": 88401
+        },
+        {
+          "path": "plugins/computer-use/skills/computer-use/SKILL.md",
+          "root": "repo",
+          "sha256": "9bce2b2daf6dd8abc2d5227c95bb89f1c56b41181fabaceab073026c37804fad",
+          "bytes": 5085
+        },
+        {
+          "path": "tests/browser/chromewhale.spec.mjs",
+          "root": "repo",
+          "sha256": "56bb3888818b088b0b81e31953824eb892f48f6b684de2277dd9c24a1e9e9ae8",
+          "bytes": 21302
+        },
+        {
+          "path": "plugins/chromewhale/extension/src/browser.js",
+          "root": "repo",
+          "sha256": "e6280bca11504a78a6ce4328ba2ede1f972bf800380503318f60542248a7ceec",
+          "bytes": 34850
+        },
+        {
+          "path": "plugins/chromewhale/tests/browser.test.mjs",
+          "root": "repo",
+          "sha256": "328636d3c33339deb5842f2ad98e141439b6049c60254c7eb66ae3fad2157207",
+          "bytes": 41173
         }
       ],
-      "sealed_at": "2026-10-03T08:49:41.448Z"
+      "sealed_at": "2026-10-03T10:11:17.470Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -210,5 +240,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-10-03T08:49:41.449Z"
+  "updated_at": "2026-10-03T10:11:17.470Z"
 }

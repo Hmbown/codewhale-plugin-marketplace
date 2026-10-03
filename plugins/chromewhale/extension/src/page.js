@@ -23,15 +23,15 @@
  * in the panel and the moment the script lands.
  *
  * Known limitations:
- * - Only the top frame is walked. Text and controls inside cross-origin iframes
- *   are invisible to a snapshot, and a ref can never point into one.
+ * - One explicitly selected frame is walked per call. The panel gates each
+ *   frame origin and pins actions to the snapshot's Chrome document ID.
  * - Open shadow roots are traversed; closed ones are not reachable by design.
  * - `element.click()` dispatches an untrusted event. Sites that gate on
  *   `event.isTrusted` will ignore it, and nothing here can change that.
  */
 
 /**
- * Walk the visible top frame, numbering interactive elements.
+ * Walk the visible selected frame, numbering interactive elements.
  *
  * @param {number} budget maximum characters of outline to return
  * @param {{origin?: string, names?: string, autocomplete?: string[]}} [rules]
@@ -357,7 +357,7 @@ export function inspectRef(ref, origin) {
  * @param {string} ref
  * @param {string} [origin] the origin the call was checked for
  */
-export function clickRef(ref, origin) {
+export function clickRef(ref, origin, submitConfirmed = false) {
   if (origin && location.origin !== origin) {
     return { ok: false, error: "The tab is on a different site than the one this call was checked for. Nothing was clicked; snapshot again." };
   }
@@ -389,6 +389,11 @@ export function clickRef(ref, origin) {
     .slice(0, 120);
   element.scrollIntoView({ block: "center", inline: "center" });
   element.focus?.();
+  // Recheck at delivery: the page can change a button's type while consent
+  // is pending, after inspectRef. Never turn an ordinary click into a submit.
+  const submits = Boolean(element.form) && ((element.tagName === "BUTTON" && element.type === "submit") ||
+    (element.tagName === "INPUT" && ["submit", "image"].includes(element.type)));
+  if (submits && !submitConfirmed) return { ok: false, error: "This control now submits a form. Snapshot again and request confirmation." };
   element.click();
   return { ok: true, label, url: location.href };
 }
@@ -406,7 +411,7 @@ export function clickRef(ref, origin) {
  * @param {boolean} submit
  * @param {string} [origin] the origin the call was checked for
  */
-export function typeRef(ref, text, clear, submit, origin) {
+export function typeRef(ref, text, clear, submit, origin, rules = {}) {
   if (origin && location.origin !== origin) {
     return { ok: false, error: "The tab is on a different site than the one this call was checked for. Nothing was typed; snapshot again." };
   }
@@ -434,6 +439,18 @@ export function typeRef(ref, text, clear, submit, origin) {
   }
   element.scrollIntoView({ block: "center", inline: "center" });
   element.focus();
+  // Focus handlers can replace a field or change it into a credential field
+  // after the panel's inspection. Revalidate immediately before inserting.
+  const protectedNames = new RegExp(rules.names ?? "pass(word|wd|code)|(^|[^a-z])(otp|cvv|cvc)($|[^a-z])");
+  const protectedAutocomplete = new Set(rules.autocomplete ?? ["current-password", "new-password", "one-time-code", "cc-number", "cc-csc", "cc-exp"]);
+  const labels = element.labels ? Array.from(element.labels).map(label => label.textContent).join(" ") : "";
+  const named = [element.getAttribute("name"), element.id, element.getAttribute("aria-label"), labels, element.getAttribute("placeholder")]
+    .map(value => String(value ?? "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim().toLowerCase()).join(" | ");
+  if (!element.isConnected || element.disabled || element.readOnly) return { ok: false, error: "The field changed before typing. Snapshot again." };
+  if (element.type === "password" || protectedNames.test(named) ||
+      String(element.getAttribute("autocomplete") ?? "").toLowerCase().split(/\s+/).some(value => protectedAutocomplete.has(value))) {
+    return { ok: false, error: "The field is now protected. Ask the user to fill it themselves." };
+  }
   if (element.isContentEditable) {
     // Through the editing pipeline, not `textContent`: that would replace every
     // child node (links, mentions, formatting) and rich editors revert it.

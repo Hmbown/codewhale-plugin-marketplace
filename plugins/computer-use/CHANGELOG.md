@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.12.1 — unreleased
+
+- Supply the concise operating skill through standard MCP initialization.
+- Serve detailed operations and recording as exact packaged MCP resources; incomplete skill packs fail at startup.
+- Clarify bundled-helper setup and the local-app, signed-in-Chrome and isolated-browser routes.
+
+Host guidance delivery is owned by Engine separately. No app or store publication is claimed.
+Local source checks: 389 passed / 18 skipped; focused MCP resource suite: 11 passed.
+
 ## 0.12.0 — the agent gets its own pointer
 
 The agent no longer uses the person's cursor on macOS; the shared-computer
