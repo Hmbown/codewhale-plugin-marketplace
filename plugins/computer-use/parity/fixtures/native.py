@@ -202,5 +202,13 @@ entry.bind("<KeyPress>", keys, add="+")
 # chord rather than decoding raw state bits here.
 entry.bind("<Command-b>", lambda e: (state.__setitem__("keys", (state["keys"] + ["cmd+b"])[-8:]), oracle()), add="+")
 
+# Windows maps the window only once the event loop is running, so the
+# pre-mainloop report reads winfo_rootx/y as 0 and the runner then computes
+# every client-relative target from a 0,0 origin: top-of-window widgets sit
+# outside the frame and miss, while mid-window widgets can still land by luck.
+# Wait for the window to be visible before the first honest report. The X11
+# driver reads window geometry and AT-SPI instead of this origin, so the wait
+# only covers the win32 path it was written for.
+root.wait_visibility()
 oracle()
 root.mainloop()

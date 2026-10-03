@@ -141,6 +141,21 @@ export function createDesktop({ parityDir, tasksDoc, isolated }) {
     })();
   }
 
+  /**
+   * A fixture that never reports must not outlive the wait that gave up on it.
+   * Both fixture spawns are detached, so an unkilled process survives the run
+   * and the next attempt inherits a stale window; kill what we started before
+   * surfacing the timeout.
+   */
+  async function waitForFixture(proc, repCtx, check, what) {
+    try {
+      await waitFor(check, 25_000, what);
+    } catch (error) {
+      await killFixture(proc, repCtx);
+      throw error;
+    }
+  }
+
   async function launchFixture(kind, repCtx) {
     const fx = TASKS_DOC.fixtures[kind];
     if (kind === "browser") {
@@ -162,7 +177,7 @@ export function createDesktop({ parityDir, tasksDoc, isolated }) {
       ], { stdio: "ignore", detached: true });
       proc.unref();
       repCtx.pid = proc.pid;
-      await waitFor(() => browser.frame, 25_000, "browser fixture");
+      await waitForFixture(proc, repCtx, () => browser.frame, "browser fixture");
       return proc;
     }
     if (kind === "native") {
@@ -171,9 +186,9 @@ export function createDesktop({ parityDir, tasksDoc, isolated }) {
       proc.unref();
       repCtx.pid = proc.pid;
       repCtx.nativeStateFile = stateFile;
-      await waitFor(() => {
+      await waitForFixture(proc, repCtx, () => {
         try { return JSON.parse(fs.readFileSync(stateFile, "utf8")).origin ? true : false; } catch { return false; }
-      }, 25_000, "native fixture");
+      }, "native fixture");
       return proc;
     }
     return null;
