@@ -111,11 +111,11 @@
         {
           "path": "tests/browser/chromewhale.spec.mjs",
           "root": "repo",
-          "sha256": "58717c1fb883878a2c8e7dbfd15d03e1f73545b50f317d5bb5b20f3414e5bfdc",
-          "bytes": 20747
+          "sha256": "56bb3888818b088b0b81e31953824eb892f48f6b684de2277dd9c24a1e9e9ae8",
+          "bytes": 21302
         }
       ],
-      "sealed_at": "2026-10-03T09:18:47.258Z"
+      "sealed_at": "2026-10-03T09:32:34.945Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -228,5 +228,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-10-03T09:18:47.258Z"
+  "updated_at": "2026-10-03T09:32:34.946Z"
 }

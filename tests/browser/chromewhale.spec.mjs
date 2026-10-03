@@ -106,7 +106,10 @@ async function answer(label) {
 const refOf = (text, label) => (text.match(new RegExp(`\\[(e\\d+)\\][^\\n]*${label}`)) ?? [])[1];
 
 async function pairPanel(port, token) {
-  if (await h.panel.locator('#settings').isHidden()) await h.panel.click('#toggle-settings');
+  // Startup opens Settings after the fixture's unavailable runtime settles.
+  // A conditional toggle can race that open and close the fields again.
+  await expect(h.panel.locator('#settings')).toBeVisible({timeout: 15_000});
+  await expect(h.panel.locator('#status')).toHaveAttribute('data-kind', 'offline');
   await h.panel.fill('#bridge-port', String(port));
   await h.panel.fill('#bridge-token', token);
   await h.panel.click('#save-settings');
@@ -139,6 +142,9 @@ test.describe('Codewhale for Chrome, real browser', () => {
       headless: true,
       args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
     });
+    // Keep the runtime unavailable inside this disposable fixture instead
+    // of letting an ambient local server change the startup/setup path.
+    await ctx.route('http://127.0.0.1:7878/**', (route) => route.abort('connectionrefused'));
     let [worker] = ctx.serviceWorkers();
     worker ??= await ctx.waitForEvent('serviceworker');
     const extensionId = new URL(worker.url()).host;
@@ -360,6 +366,7 @@ test.describe('Codewhale for Chrome, Native Messaging connector', () => {
       args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
     });
     try {
+      await ctx.route('http://127.0.0.1:7878/**', (route) => route.abort('connectionrefused'));
       let [worker] = ctx.serviceWorkers();
       worker ??= await ctx.waitForEvent('serviceworker');
       const extensionId = new URL(worker.url()).host;
