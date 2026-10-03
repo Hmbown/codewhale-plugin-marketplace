@@ -29,9 +29,9 @@ its login. Use the official docs linked there before granting access.
 For a supported OAuth service, the ordinary terminal flow is:
 
 ```sh
-codewhale mcp add http linear https://mcp.linear.app/mcp/readonly
+codewhale mcp add linear --url https://mcp.linear.app/mcp/readonly
 codewhale mcp login linear
-codewhale mcp doctor
+codewhale doctor
 ```
 
 The real qualification is: authorize the intended account, list tools, perform
@@ -60,6 +60,40 @@ Plugin-contributed MCP servers currently cannot invoke Codewhale's interactive
 OAuth login path. User-level MCP configuration can. Keep authentication in the
 host; do not work around this with browser-driving login scripts, copied OAuth
 tokens or an extra credential store inside every plugin.
+
+## BaizhiCloud Agent Toolkit
+
+BaizhiCloud provides a hosted Streamable HTTP MCP endpoint with API-key bearer
+authentication. Obtain your own Agent Toolkit key from
+[BaizhiCloud](https://baizhi.cloud/landing/agent-toolkit), review the service's
+pricing, and make `BAIZHI_API_KEY` available to the Codewhale process. Keep the
+value out of committed configuration and terminal transcripts.
+
+```sh
+npm run connections -- show baizhi
+npm run connections -- doctor baizhi
+```
+
+`show` emits a server entry using Codewhale's `bearer_token_env_var` field.
+On Codewhale v0.9.13, `codewhale mcp init` prints the resolved config path
+(the default is `~/.codewhale/mcp.json`). Merge the generated server entry into
+that config, preserving existing entries; use `codewhale mcp list` to confirm
+it was read, then `codewhale doctor` for local diagnostics. `mcp list` may make
+authentication-discovery requests; it is not guaranteed to be offline. The
+directory's `doctor` command only checks whether the variable is present: it does not contact BaizhiCloud
+or validate the key.
+
+A first task after connecting is: “Find the official Model Context Protocol
+transport documentation, read the relevant page, and summarize it with source
+links.” Review the offered tools and the requested operation before approving
+the call. Queries, URLs and other tool inputs are sent to BaizhiCloud, and calls
+may incur service charges. An authentication error requires checking the key
+and account access; a configured entry or successful local prerequisite check
+does not prove a tool call worked.
+
+This entry is `documented`, not live-qualified in Codewhale. The linked public
+integration code does not make the hosted service's backend open source, and
+catalog membership is not an endorsement or service certification.
 
 ## Bots and webhooks
 

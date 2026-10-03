@@ -16,6 +16,13 @@ keeps service setup outside installable URL wrappers. Slack and Vercel require
 further Codewhale client qualification, so their recipes offer no install
 command. A documented endpoint is not a verified login.
 
+BaizhiCloud Agent Toolkit is a documented bearer connection. The generated
+server entry keeps the token in the host environment through the native
+`bearer_token_env_var` field. It offers search/read setup guidance but does not
+claim every remote tool is read-only or that a live service account was tested.
+Codewhale v0.9.13 uses `mcp add <name> --url <url>` and `codewhale doctor`;
+`codewhale mcp list` is not guaranteed to be a network-free check.
+
 ## Existing chat adapters
 
 Telegram, WeChat/Weixin, WeCom, Feishu and `bridge-core` are copied from the exact

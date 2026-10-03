@@ -2,6 +2,7 @@
   "version": 1,
   "checked_at": "2026-09-11",
   "connections": [
+    {"id":"baizhi","name":"BaizhiCloud Agent Toolkit","url":"https://agent-toolkit.app.baizhi.cloud/mcp","auth":"bearer","env":"BAIZHI_API_KEY","status":"documented","docs":"https://github.com/chaitin/baizhi-agent-toolkit","note":"Use your own BaizhiCloud Agent Toolkit API key. Tool calls may incur charges and send queries, URLs or other tool inputs to BaizhiCloud. Live Codewhale authentication and tools have not been qualified here."},
     {"id":"linear","name":"Linear","url":"https://mcp.linear.app/mcp/readonly","auth":"oauth","status":"documented","docs":"https://linear.app/docs/mcp","note":"Starts read-only. The service also supports a scoped API key in a bearer header. Codewhale account login is separate from Linear authorization."},
     {"id":"github","name":"GitHub","url":"https://api.githubcopilot.com/mcp/readonly","auth":"bearer","env":"GITHUB_PERSONAL_ACCESS_TOKEN","status":"documented","docs":"https://github.com/github/github-mcp-server","note":"Use a fine-grained personal access token with only the repositories and permissions needed."},
     {"id":"stripe","name":"Stripe","url":"https://mcp.stripe.com","auth":"oauth","status":"documented","docs":"https://docs.stripe.com/mcp","note":"Review scopes and use a test environment for initial qualification. Installation is not permission for a financial action."},
