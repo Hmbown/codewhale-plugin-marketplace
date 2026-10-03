@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "36c0c1eb2bf86b2fa4a8fe48cc8e746f47cb6691d46bfd102209261567a53de2",
+      "page_sha256": "177c96d9a62168a3fe3b025d02d7f48cc2f5a05941918fcfeb0b89d404fa3047",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "5338670dd9f2f67d9c1e08db9fe5fcfa8a39e008dbb2487f45ab342c9e49b825",
-          "bytes": 5311
+          "sha256": "c50cc61983053753c1f1d1cef5a24d8d0266df50e6d5f794ecd893aeddfa0d0f",
+          "bytes": 5763
         },
         {
           "path": "CONTRIBUTING.md",
@@ -27,14 +27,14 @@
         {
           "path": "scripts/check-marketplace.mjs",
           "root": "repo",
-          "sha256": "b816cf52fe9e239772da13e9fdabcc19422aaec21858b31b7fcd41ebd0388439",
-          "bytes": 15204
+          "sha256": "a902319052a00a41e1e613f6a1bb1a1f1e690aa063d798e3cac94ae04d4c031e",
+          "bytes": 16864
         },
         {
           "path": "package.json",
           "root": "repo",
-          "sha256": "bfeff421124c384a184d379a7e94d07e65355c376d7aff2f91a2b433a4b6a3d3",
-          "bytes": 1138
+          "sha256": "6270ac30bdfa5d28bcbafbb494cd3f67f2202a4704a4ce3d323a0e04bd5dda17",
+          "bytes": 1231
         },
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
@@ -45,8 +45,8 @@
         {
           "path": "plugins/computer-use/docs/RELEASE_CHECKLIST.md",
           "root": "repo",
-          "sha256": "922e59d347cc6ec105067729e36757c8929e49ad590c485048ba6421f9c85cbd",
-          "bytes": 24659
+          "sha256": "7c75bb3d52e3adf915ea4c7cc951355626235c633876ce87d4a09dd640f380a5",
+          "bytes": 27510
         },
         {
           "path": "plugins/computer-use/docs/releases/0.6.0.json",
@@ -57,8 +57,8 @@
         {
           "path": "plugins/computer-use/CHANGELOG.md",
           "root": "repo",
-          "sha256": "ec7812e363edbb4686c1f72b5f1f72563f9852118187c06268a9270dabd4784c",
-          "bytes": 44355
+          "sha256": "f8717c079b585a0fd86c9121de2de7392a0c84c1d9891e1f843184f3afe9be03",
+          "bytes": 48006
         },
         {
           "path": "plugins/computer-use/docs/PUBLICATION_REVIEW.md",
@@ -75,17 +75,29 @@
         {
           "path": "skills/upstream.json",
           "root": "repo",
-          "sha256": "f1e6e05a952b0fbf8c8684bc7fca6273fe1b2a5332dcf5124a86f74c527ce06d",
+          "sha256": "69259e7572ce5707e5925d77d112b2077dc2e13475150e696c1930b38d248555",
           "bytes": 5332
         },
         {
           "path": "skills/README.md",
           "root": "repo",
-          "sha256": "0c26378f21f8da6916291f56b6938a3925777429f688dae9c1498e9141466b50",
+          "sha256": "e9669cf7299edeaa9a4bb4946a793247f463e9f390c5165a3b3e03da23d00328",
           "bytes": 10919
+        },
+        {
+          "path": "plugins/chromewhale/README.md",
+          "root": "repo",
+          "sha256": "24387c686af1025cc3e5489a23020e9b4864747f0a9bbaa2a38fa6871c5a364a",
+          "bytes": 9759
+        },
+        {
+          "path": "plugins/chromewhale/src/tools.mjs",
+          "root": "repo",
+          "sha256": "e3f91d190b84991a8a392161d37d4cd4baf053839e2ddc88ce9bf002c8716c2c",
+          "bytes": 5480
         }
       ],
-      "sealed_at": "2026-09-22T02:13:44.806Z"
+      "sealed_at": "2026-10-03T08:49:41.448Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -106,8 +118,8 @@
         {
           "path": "plugins/whalewiki/plugin.json",
           "root": "repo",
-          "sha256": "ef3fde70664d0f20b5b5c7074ac35fcf330adfbcada20d2cd180d022a84a5a81",
-          "bytes": 886
+          "sha256": "a4523e2b6913dca582b9273193b721c4764a0cd0aa07bff793210853f5b4e489",
+          "bytes": 837
         },
         {
           "path": "plugins/whalewiki/README.md",
@@ -116,7 +128,7 @@
           "bytes": 6748
         }
       ],
-      "sealed_at": "2026-09-19T12:01:23.767Z"
+      "sealed_at": "2026-09-22T19:55:16.816Z"
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
@@ -198,5 +210,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-09-22T02:13:44.806Z"
+  "updated_at": "2026-10-03T08:49:41.449Z"
 }

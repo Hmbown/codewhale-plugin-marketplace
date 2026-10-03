@@ -6,7 +6,7 @@
     {
       "name": "computer-use",
       "source": "path:plugins/computer-use",
-      "version": "0.11.3",
+      "version": "0.12.0",
       "description": "Control apps with Codewhale. macOS beta; unsigned Windows preview and experimental Linux/Docker support.",
       "homepage": "https://codewhale.net/computer-use",
       "display_name": "Computer Use",
@@ -50,6 +50,15 @@
       "description": "47 workflows for coding, research, documents, email, calendar, travel, shopping and local audio. Account and tool setup is separate; see the skill directory.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace",
       "display_name": "Codewhale Skills",
+      "author": "Codewhale"
+    },
+    {
+      "name": "chromewhale",
+      "source": "path:plugins/chromewhale",
+      "version": "0.3.0",
+      "description": "Let Codewhale read and act on the Chrome tab you are looking at, one granted site at a time. Needs the bundled Chrome extension loaded.",
+      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace/tree/main/plugins/chromewhale",
+      "display_name": "Codewhale for Chrome",
       "author": "Codewhale"
     }
   ]

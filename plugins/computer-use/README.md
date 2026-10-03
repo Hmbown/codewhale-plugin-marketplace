@@ -7,7 +7,7 @@
 
 **By Codewhale · macOS beta (notarized app and source) · Windows experimental unsigned preview · Linux experimental source/Docker**
 
-The [0.11.3 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.11.3)
+The [0.12.0 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.12.0)
 provides the notarized universal Mac app and an **unsigned Windows x64 preview**.
 The Windows ZIP bundles Node and includes setup instructions; it is intended
 for testing, with physical-device, mixed-DPI and signing acceptance still open.
@@ -74,7 +74,7 @@ in that order. If it names a permission, the fix is in
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
 notarized Mac app is published on this repository's
 [GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)
-(latest stable: v0.11.3, matching the source in this checkout); remaining
+(latest stable: v0.12.0, matching the source in this checkout); remaining
 gates are tracked in [the release checklist](docs/RELEASE_CHECKLIST.md). The
 [setup page](https://codewhale.net/computer-use) offers the notarized disk
 image directly.
@@ -278,11 +278,14 @@ including raw double/triple/middle click, drag and hover, remain unavailable in
 background mode. There is no automatic foreground fallback.
 
 When the user authorizes exclusive desktop use, select `activate: true` for
-shared-desktop control. Pointer gestures move the real cursor while the selected
-app stays frontmost; restoring the cursor afterward is not isolation. The receipt
-reports `strategy: "event"`, `pointer_moved` and `foreground_taken`. A point
-covered by another application's window is still refused. Return to
-`activate: false` when the shared-desktop step ends.
+foreground control. Raw clicks, hover, drag and wheel then go to the bound
+app's window as window-routed event records (`strategy: "window-record"`,
+`pointer_moved: false`) — the agent has its own pointer, drawn in the preview,
+and **the user's cursor is never moved, warped or held on macOS**. There is no
+real-cursor fallback: a helper that cannot resolve the window route refuses
+`bg_dispatch_unavailable`. `pointer` down/move/up buffer a drag and deliver it
+to the window on `up`. Return to `activate: false` when the foreground step
+ends.
 
 `activate: false` is the default on every platform, not just macOS: Windows
 launches the app minimized and Linux hands focus back to the previous window
@@ -290,8 +293,8 @@ after launch. Raw input on Windows and Linux is still shared-surface by
 nature — background there means the launch does not steal focus, not that
 input becomes background-safe.
 
-The binding receipt exposes `input_scope`, `shared_pointer` and
-`isolated_desktop: false`. The preview title distinguishes background app
+The binding receipt exposes `input_scope`, `shared_pointer: false`,
+`pointer_route: "window-record"` and `isolated_desktop: false`. The preview title distinguishes background app
 control from shared-desktop control. It is a view of the app, not a sandbox.
 
 Only when the user asks to watch, enable `preview` with `enabled: true` to show a small, nonactivating window

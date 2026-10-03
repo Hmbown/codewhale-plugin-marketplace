@@ -1,17 +1,25 @@
 # Choose and ship an extension
 
-This repository has five installable bundles: Computer Use, WhaleSong,
-WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The catalog
-declares
+This repository has six installable bundles: Computer Use, Codewhale for Chrome,
+WhaleSong, WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The
+catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
-Computer Use source 0.11.3 is a macOS beta candidate. It combines app
+Computer Use source 0.12.0 is a macOS beta candidate. It combines app
 scripting, accessibility and window-routed input, CDP browser control, and
 session-owned Linux desktops through Docker. Local apps require per-app
 consent; foreground activation needs a separate decision. Shared input waits
 for a quiet hardware-input window and refuses `user_busy` if the person
 remains active. Input arriving mid-action is still a documented limitation.
+
+In 0.12.0 the agent has its own pointer on macOS: clicks, hover, drag and
+scroll go to the bound app's window as window-routed events in every mode,
+and the helper refuses any request to drive the person's cursor
+(`real_pointer_refused`). It also adds the shared-computer attach mode for
+Codewhale Computers (browser attach, control lease gate, turn hold) and a
+safety floor: `app_script` refuses shell and keystroke escapes, irreversible
+clicks need an explicit confirmation, and consent is never batched or replayed.
 
 The 0.11.3 patch answers `resources/templates/list` with an empty template
 list instead of `-32601`. The server publishes a fixed skill pack and never a
@@ -32,13 +40,46 @@ and simulated clocks do
 not establish complete Codex parity, clean-machine acceptance, or production
 Linux/Windows readiness. The marketplace remains enabled on macOS only.
 
-The 0.11.3 release packages the notarized universal Mac app and an explicitly
+The 0.12.0 release packages the notarized universal Mac app and an explicitly
 unsigned Windows x64 preview. Linux remains source/Docker-based. A source
 version alone does not establish download availability. The [official setup page](https://codewhale.net/computer-use)
 reports public download availability, and the [release checklist](../../plugins/computer-use/docs/RELEASE_CHECKLIST.md)
 records qualification and remaining final-installed, fresh-grant and upgrade
 checks. Actual isolated model observe/edit/verify and checkpoint Stop/reconnect
 checks passed; physical keyboard coexistence remains open. The existing Engine remains the session and model-loop authority.
+
+Codewhale for Chrome (formerly Chromewhale; the plugin id and `/chromewhale` commands keep that name) source 0.3.0 is a developer preview that also drives a browser, and the two do not overlap.
+Computer Use owns a Chromium instance it launches under its own
+`--user-data-dir` and states that the person's own profile is never attached
+to, typed into or closed; Codewhale for Chrome acts on the tab the person is already
+looking at, in their own profile and their own sessions. The vocabularies are
+kept apart for that reason: `browser_*` for the self-owned instance, `page_*`
+for the person's. Codewhale for Chrome's tools live in its MCP server rather than in the
+Chrome extension it ships, so they reach the model through the ordinary tool
+path and the bundle's trust review; a client that registered them with the
+Runtime directly would carry `ApprovalRequirement::Auto` and reach no approval
+gate. `/chromewhale setup` copies the extension to a stable path outside the
+content-hashed staged root, where it is loaded unpacked (a manifest `key`
+fixes its ID), and installs a per-user Native Messaging connector that Chrome,
+Chromium, Edge and Brave start for that ID only. The connector holds the
+pairing token and dials the loopback bridge — a Chrome extension cannot listen
+on a socket — so nothing is pasted and the token never enters the browser; a
+pasted port and token remain the fallback. The bridge refuses web origins and
+foreign `Host` headers. Pairing is challenge-response: both
+ends prove they hold the token with HMACs over single-use nonces and neither
+ever sends it, so a program squatting on the port can neither learn it nor
+drive the panel. Several Codewhale sessions share one bridge port: the first
+server owns it and later ones forward to it, taking over when the owner exits
+without re-running a call the old owner may have started. Calls carry
+deadlines and host cancellations reach the panel, so a late click never acts
+on a call the model was told had failed. Everything read off a page travels in an
+untrusted-content envelope whose markers carry a per-block random nonce. A
+per-origin decision in the side panel (defaulting to this browser session),
+Chrome's own optional host permission, a confirming click before any form
+submit, and a refusal to type into password, one-time-code or payment-card
+fields sit under that. Source tests cover the server, bridge and gates; no run
+against a live Chrome profile is recorded, so the extension half is
+unqualified.
 
 Catalog artwork is inline PNG, bounded to
 32 KiB and 256 by 256 pixels; browsing a listing never fetches an icon URL.
@@ -94,6 +135,9 @@ also catches upstream changes to membership, wording or resources.
 Run `npm run check` and `npm test && npm run check:web`. The catalog check covers
 manifest identity, declared remote hosts and skill metadata. Unit and protocol
 tests cover implementation behavior; browser tests exercise the wiki reader.
+The catalog check also rejects generic manifest keywords (browser, web, wiki
+and the like, listed in the check itself), because keywords feed Codewhale's
+plugin offers.
 The repository wiki has its own `npm run check:wiki` source-drift gate.
 
 Passing local checks is not hosted CI, a real service login, native platform
@@ -105,7 +149,7 @@ handoff and inspect the current validation receipt before publication.
 - `marketplace.json`: installable names, versions and source directories.
 - `CONTRIBUTING.md`: admission and ownership rules.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
-- `scripts/check-marketplace.mjs`: catalog, manifest and MCP contract checks.
+- `scripts/check-marketplace.mjs`: catalog, manifest, keyword and MCP contract checks.
 - `package.json`: executable repository gates.
 - `scripts/skills.mjs`, `skills/upstream.json`, `skills/README.md`: active catalog,
   provenance, resource checks and user-facing workflow directory.
@@ -114,5 +158,9 @@ handoff and inspect the current validation receipt before publication.
 - `plugins/computer-use/docs/releases/0.6.0.json`: packaging and notarization receipt for the signed 0.6.0 macOS build.
 - `plugins/computer-use/CHANGELOG.md`: release record and open qualification gates.
 - `plugins/computer-use/docs/PUBLICATION_REVIEW.md`: review findings, source fixes and platform release gates.
+- `plugins/chromewhale/README.md`: the `page_*` surface, the bridge, and the
+  stated split from Computer Use's `browser_*` tools.
+- `plugins/chromewhale/src/tools.mjs`: the advertised tool set and why it does
+  not reuse the `browser_*` names.
 
 The current macOS candidate refuses background actions that borrow keyboard focus, including raw pointer fallbacks and modified keys. Accessibility and browser control remain the preferred routes for concurrent use. Native sharing-picker integration and continuous keyboard coexistence qualification remain open.
