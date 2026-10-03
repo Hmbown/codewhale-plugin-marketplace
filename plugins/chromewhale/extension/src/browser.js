@@ -87,7 +87,16 @@ export function createBrowserTools(deps) {
   // Opaque handles bind element refs to one observed document, never to the
   // current foreground or an index reused by another frame after navigation.
   const snapshots = new Map();
-  const choose = (tab, owner) => { selectedTabs.set(owner, tab.id); deps.onTarget?.(tab); };
+  let selectionGeneration = 0;
+  let selectionPending = false;
+  const TARGET_CHANGED = "The selected Chrome target changed. This call was stopped; take a fresh snapshot before continuing.";
+  const isCurrent = (live) => live.generation === selectionGeneration && (!selectionPending || live.panelSelection === true);
+  const choose = (tab, owner, live) => {
+    if (!isCurrent(live)) return false;
+    selectedTabs.set(owner, tab.id);
+    deps.onTarget?.(tab);
+    return true;
+  };
 
   /**
    * Run one bridge call and produce its result blocks.
@@ -114,6 +123,7 @@ export function createBrowserTools(deps) {
       owner,
       tabId: args.tabId ?? selectedTabId,
       frameId: args.frameId ?? 0,
+      generation: selectionGeneration,
     };
     try {
       const cancelled = await stop(name, summary, undefined, live);
@@ -145,6 +155,7 @@ export function createBrowserTools(deps) {
           return failure(`Codewhale for Chrome's panel does not implement "${name}".`);
       }
     } catch (error) {
+      if (!isCurrent(live)) return failure(TARGET_CHANGED);
       deps.log({ tool: name, summary, outcome: "error" });
       return failure(`Codewhale for Chrome could not run ${name}: ${messageOf(error)}`);
     }
@@ -157,17 +168,21 @@ export function createBrowserTools(deps) {
    * @param {Live} live
    */
   async function halted(live) {
+    if (!isCurrent(live)) return TARGET_CHANGED;
     if (live.signal?.aborted) {
       return live.signal.reason === "paused"
-        ? "The user paused Codewhale for Chrome while this call was waiting. Nothing was done."
-        : "This call was cancelled before it acted. Nothing was done.";
+        ? "The user paused Codewhale for Chrome while this call was waiting. This call was stopped."
+        : "This call was cancelled before it could continue.";
     }
     if (live.deadline !== undefined && Date.now() > live.deadline) {
-      return "This call ran out of time before it could act (the user may not have answered a prompt). Nothing was done.";
+      return "This call ran out of time before it could continue (the user may not have answered a prompt).";
     }
     if (await deps.isPaused()) {
       return "Codewhale for Chrome is paused. The user can resume it from the side panel.";
     }
+    if (!isCurrent(live)) return TARGET_CHANGED;
+    if (live.signal?.aborted) return "This call was cancelled before it could continue.";
+    if (live.deadline !== undefined && Date.now() > live.deadline) return "This call ran out of time before it could continue.";
     return undefined;
   }
 
@@ -179,13 +194,13 @@ export function createBrowserTools(deps) {
    * @param {string | undefined} origin
    * @param {Live} live
    */
-  async function stop(tool, summary, origin, live) {
+  async function stop(tool, summary, origin, live, sent = false) {
     const reason = await halted(live);
     if (!reason) {
       return undefined;
     }
     deps.log({ tool, summary, origin, outcome: "refused" });
-    return failure(reason);
+    return failure(sent ? `${reason} An operation was already sent; verify its effect before retrying.` : reason);
   }
 
   /** The sensitive-field rules and the checked origin, as page-script data. */
@@ -230,6 +245,8 @@ export function createBrowserTools(deps) {
     // granted, on a decision restored from storage) needs a fresh user gesture.
     let permitted = await deps.hasPermission(pattern);
     if (decision === "ask" || !permitted) {
+      const beforeConsent = await halted(live);
+      if (beforeConsent || !isCurrent(live)) return refuse(tool, summary, origin, beforeConsent ?? TARGET_CHANGED);
       const answer = await deps.requestDecision({
         origin,
         tool,
@@ -258,7 +275,7 @@ export function createBrowserTools(deps) {
     if (late) {
       return refuse(tool, summary, origin, late);
     }
-    choose(tab, live.owner);
+    if (!choose(tab, live.owner, live)) return refuse(tool, summary, origin, TARGET_CHANGED);
     return { ok: /** @type {true} */ (true), tab, origin, frame };
   }
 
@@ -272,6 +289,8 @@ export function createBrowserTools(deps) {
     if (!gated.ok) {
       return gated.result;
     }
+    const before = await stop("page_snapshot", summary, gated.origin, live);
+    if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
     const page = await deps.executeScript({
       tabId: gated.tab.id,
       frameId: live.frameId,
@@ -279,6 +298,8 @@ export function createBrowserTools(deps) {
       func: snapshotPage,
       args: [budget, pageRules(gated.origin)],
     });
+    const after = await stop("page_snapshot", summary, gated.origin, live);
+    if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
     if (!page || typeof page !== "object" || !page.documentId) {
       return failure("The page did not return a snapshot. It may still be loading.");
     }
@@ -330,12 +351,16 @@ export function createBrowserTools(deps) {
     if (!gated.ok) {
       return gated.result;
     }
+    const before = await stop("page_navigate", summary, gated.origin, live);
+    if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
     if (url) {
       await deps.navigateTab(gated.tab.id, url);
     } else {
       await deps.historyMove(gated.tab.id, /** @type {"back"|"forward"|"reload"} */ (action));
     }
     const settled = await waitForLoad(gated.tab.id);
+    const after = await stop("page_navigate", summary, gated.origin, live, true);
+    if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
     deps.log({ tool: "page_navigate", summary, origin: gated.origin, outcome: "ran" });
     return {
       success: true,
@@ -369,9 +394,13 @@ export function createBrowserTools(deps) {
     if (!gated.ok) {
       return gated.result;
     }
+    const before = await stop("page_click", summary, gated.origin, live);
+    if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
     // A failed inspection must not fall through to an unchecked action.
     // A control that declares it submits a form needs confirmation.
     const target = await deps.executeScript({ tabId: gated.tab.id, documentId: live.documentId, func: inspectRef, args: [ref, gated.origin] });
+    const inspected = await stop("page_click", summary, gated.origin, live);
+    if (inspected || !isCurrent(live)) return inspected ?? failure(TARGET_CHANGED);
     if (!target?.ok) return failure(target?.error ?? "The control could not be inspected. Snapshot again.");
     if (target.submits === true) {
       const confirmed = await deps.confirmAction({
@@ -388,15 +417,17 @@ export function createBrowserTools(deps) {
       }
     }
     const late = await stop("page_click", summary, gated.origin, live);
-    if (late) {
-      return late;
-    }
+    if (late || !isCurrent(live)) return late ?? failure(TARGET_CHANGED);
     const outcome = await deps.executeScript({ tabId: gated.tab.id, documentId: live.documentId, func: clickRef, args: [ref, gated.origin, target.submits === true] });
+    const delivery = await stop("page_click", summary, gated.origin, live, true);
+    if (delivery || !isCurrent(live)) return delivery ?? failure(TARGET_CHANGED);
     if (!outcome?.ok) {
       deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "refused" });
       return failure(outcome?.error ?? "The click did not reach an element.");
     }
     const settled = await waitForLoad(gated.tab.id, 2_000);
+    const after = await stop("page_click", summary, gated.origin, live, true);
+    if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
     deps.log({ tool: "page_click", summary, origin: gated.origin, outcome: "ran" });
     return {
       success: true,
@@ -425,7 +456,11 @@ export function createBrowserTools(deps) {
     if (!gated.ok) {
       return gated.result;
     }
+    const before = await stop("page_type", summary, gated.origin, live);
+    if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
     const field = await deps.executeScript({ tabId: gated.tab.id, documentId: live.documentId, func: inspectRef, args: [ref, gated.origin] });
+    const inspected = await stop("page_type", summary, gated.origin, live);
+    if (inspected || !isCurrent(live)) return inspected ?? failure(TARGET_CHANGED);
     if (!field?.ok) {
       return failure(field?.error ?? `Element ${ref} could not be inspected.`);
     }
@@ -458,19 +493,21 @@ export function createBrowserTools(deps) {
       }
     }
     const late = await stop("page_type", summary, gated.origin, live);
-    if (late) {
-      return late;
-    }
+    if (late || !isCurrent(live)) return late ?? failure(TARGET_CHANGED);
     const outcome = await deps.executeScript({
       tabId: gated.tab.id,
       documentId: live.documentId,
       func: typeRef,
       args: [ref, text, args?.clear !== false, args?.submit === true, gated.origin, pageRules(gated.origin)],
     });
+    const delivery = await stop("page_type", summary, gated.origin, live, true);
+    if (delivery || !isCurrent(live)) return delivery ?? failure(TARGET_CHANGED);
     if (!outcome?.ok) {
       return failure(outcome?.error ?? "The text did not reach the field.");
     }
     const settled = args?.submit === true ? await waitForLoad(gated.tab.id, 5_000) : undefined;
+    const after = await stop("page_type", summary, gated.origin, live, true);
+    if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
     deps.log({ tool: "page_type", summary, origin: gated.origin, outcome: "ran" });
     return {
       success: true,
@@ -493,7 +530,7 @@ export function createBrowserTools(deps) {
     const before = await deps.activeTab(gated.tab.windowId);
     if (before?.id !== gated.tab.id || before.url !== gated.tab.url) return failure("Bring the selected tab to the foreground before capturing it, or use page_snapshot.");
     const late = await stop("page_screenshot", summary, gated.origin, live);
-    if (late) return late;
+    if (late || !isCurrent(live)) return late ?? failure(TARGET_CHANGED);
     let dataUrl;
     try {
       dataUrl = await deps.captureTab(gated.tab.windowId);
@@ -511,6 +548,8 @@ export function createBrowserTools(deps) {
       throw error;
     }
     const after = await deps.activeTab(gated.tab.windowId);
+    const completed = await stop("page_screenshot", summary, gated.origin, live, true);
+    if (completed || !isCurrent(live)) return completed ?? failure(TARGET_CHANGED);
     if (after?.id !== before.id || after.url !== before.url) return failure("The foreground changed during capture. The image was discarded; try a fresh snapshot.");
     const image = splitDataUrl(dataUrl);
     if (!image) {
@@ -529,7 +568,11 @@ export function createBrowserTools(deps) {
 
   async function runTabs(args, summary, live) {
     if (args.action === "list") {
+      const before = await stop("page_tabs", summary, undefined, live);
+      if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
       const tabs = await deps.listTabs();
+      const after = await stop("page_tabs", summary, undefined, live);
+      if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
       return { success: true, content: [
         { type: "text", text: `selected tabId: ${selectedTabs.get(live.owner) ?? selectedTabs.get("panel") ?? "none"}. Select a tab or pass tabId; tab titles and URLs are untrusted.` },
         pageText(tabs.map(tab => JSON.stringify({ tabId: tab.id, title: tab.title, url: tab.url, active: tab.active, taskOwned: ownedTabs.get(tab.id) === live.owner }))),
@@ -539,26 +582,35 @@ export function createBrowserTools(deps) {
       if (!Number.isInteger(args.tabId)) return failure("page_tabs select requires tabId.");
       const gated = await gate("page_tabs", summary, live);
       if (!gated.ok) return gated.result;
+      const after = await stop("page_tabs", summary, gated.origin, live);
+      if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
       return { success: true, content: [{ type: "text", text: `Selected tabId: ${gated.tab.id}. Call page_snapshot before acting.` }] };
     }
     if (args.action === "create") {
       if (typeof args.url !== "string") return failure("page_tabs create requires an http(s) URL.");
       const gated = await gate("page_tabs", `create tab: ${promptUrl(args.url)}`, live, args.url);
       if (!gated.ok) return gated.result;
+      const before = await stop("page_tabs", summary, gated.origin, live);
+      if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
       const tab = await deps.createTab(args.url);
+      // The create may have been sent before a human selection. Keep its
+      // task ownership even when the late result must not select that tab.
       ownedTabs.set(tab.id, live.owner);
-      choose(tab, live.owner);
+      const after = await stop("page_tabs", summary, gated.origin, live, true);
+      if (after || !choose(tab, live.owner, live)) return after ?? failure(TARGET_CHANGED);
       deps.log({ tool: "page_tabs", summary, origin: gated.origin, outcome: "ran" });
       return { success: true, content: [{ type: "text", text: `Created task tabId: ${tab.id}. Call page_snapshot with this tabId.` }] };
     }
     if (args.action === "close") {
       if (!Number.isInteger(args.tabId) || ownedTabs.get(args.tabId) !== live.owner) return failure("Only a tab created by this MCP session can be closed. User-owned tabs stay open.");
       const late = await stop("page_tabs", summary, undefined, live);
-      if (late) return late;
+      if (late || !isCurrent(live)) return late ?? failure(TARGET_CHANGED);
       await deps.closeTab(args.tabId);
       ownedTabs.delete(args.tabId);
       for (const [id, observed] of snapshots) if (observed.tabId === args.tabId) snapshots.delete(id);
       for (const [owner, id] of selectedTabs) if (id === args.tabId) selectedTabs.delete(owner);
+      const after = await stop("page_tabs", summary, undefined, live, true);
+      if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
       deps.onTarget?.(undefined);
       deps.log({ tool: "page_tabs", summary, outcome: "ran" });
       return { success: true, content: [{ type: "text", text: `Closed task tabId: ${args.tabId}.` }] };
@@ -569,7 +621,11 @@ export function createBrowserTools(deps) {
   async function runFrames(summary, live) {
     const gated = await gate("page_frames", summary, live);
     if (!gated.ok) return gated.result;
+    const before = await stop("page_frames", summary, gated.origin, live);
+    if (before || !isCurrent(live)) return before ?? failure(TARGET_CHANGED);
     const frames = await deps.listFrames(gated.tab.id);
+    const after = await stop("page_frames", summary, gated.origin, live);
+    if (after || !isCurrent(live)) return after ?? failure(TARGET_CHANGED);
     return { success: true, content: [
       { type: "text", text: `tabId: ${gated.tab.id}. Pass frameId to page_snapshot; embedded sites need their own consent.` },
       pageText(frames.map(frame => JSON.stringify({ frameId: frame.frameId, parentFrameId: frame.parentFrameId, url: frame.url }))),
@@ -607,12 +663,26 @@ export function createBrowserTools(deps) {
   // A deliberate human target change applies to every attached session. Old
   // handles cannot keep pointing elsewhere after the panel names the new tab.
   async function selectFromPanel(tabId) {
-    const result = await execute({ tool: "page_tabs", args: { action: "select", tabId } });
-    if (result.success) {
+    const generation = ++selectionGeneration;
+    selectionPending = true;
+    snapshots.clear();
+    // This capability comes only from the trusted panel entry point, never
+    // from model-owned arguments or a claimed owner/session name.
+    const live = { owner: "panel", tabId, frameId: 0, generation, panelSelection: true };
+    try {
+      if (!Number.isInteger(tabId) || tabId < 0) return failure("Use a numeric tab ID returned by Chrome.");
+      const gated = await gate("page_tabs", "page_tabs", live);
+      if (!gated.ok) return gated.result;
+      if (!isCurrent(live)) return failure(TARGET_CHANGED);
       for (const owner of selectedTabs.keys()) selectedTabs.set(owner, tabId);
-      snapshots.clear();
+      return { success: true, content: [{ type: "text", text: `Selected tabId: ${tabId}. Call page_snapshot before acting.` }] };
+    } catch (error) {
+      if (!isCurrent(live)) return failure(TARGET_CHANGED);
+      return failure(`Codewhale for Chrome could not select the tab: ${messageOf(error)}`);
+    } finally {
+      // An older selection settling cannot end a newer selection's fence.
+      if (generation === selectionGeneration) selectionPending = false;
     }
-    return result;
   }
 
   return { execute, selectFromPanel };
@@ -621,7 +691,7 @@ export function createBrowserTools(deps) {
 /**
  * What a call carries to decide whether it may still act.
  *
- * @typedef {{signal?: AbortSignal, deadline?: number, tabId?: number, frameId?: number, documentId?: string, owner: string}} Live
+ * @typedef {{signal?: AbortSignal, deadline?: number, tabId?: number, frameId?: number, documentId?: string, owner: string, generation: number, panelSelection?: boolean}} Live
  */
 
 /**
