@@ -15,14 +15,21 @@ no better interface.
   `state_id`. The targeting tree.
 - `find_elements {state_id?, query?, role?}` — filter a cached observation.
 - `wait_for {query|role, state, timeout?}` — poll until UI appears/disappears.
-- `screenshot {app_ref?|region?|display?}` — raster for visual work.
-- `zoom {region}` — magnify the last raster.
+- `screenshot {app_ref?|region?|display?}` — raster geometry and `raster_id` for visual work.
+- `zoom {region, raster_id}` — crop that parent; returns a new child `raster_id`.
 - `get_value {target}` — read an element's value.
 - `cursor_position` — hardware pointer.
 - `list_sessions` — who is driving this machine: live sessions with bound targets, modes, and held pointers.
 - `clipboard {action:"read"}` — user clipboard text (ask before reading if unsure).
 
 ## Act
+
+For raster points use `target:{type:"coordinate",x,y,raster_id}` from the image
+you observed. OCR targets include the ID. A new capture, crop or app binding
+retires the previous raster; `raster_stale` / `no_raster` means observe again.
+Never remove the pin to retry. Absolute `space:"screen"` points cannot carry
+a raster ID. Browser viewport points use the browser's separate contract.
+
 - `click {target, button?, clicks?}` — left (1–3 clicks), right, or middle.
 - `type {text, target?, press_enter?}` — unicode-safe; verifies by read-back where possible.
 - `key {text, repeat?|duration?}` — chords like `cmd+s`; `duration` holds the key.

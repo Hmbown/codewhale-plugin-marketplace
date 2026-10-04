@@ -34,6 +34,7 @@ const targetSchema = {
         type: { const: "coordinate" },
         x: { type: "integer" },
         y: { type: "integer" },
+        raster_id: { type: "string", minLength: 1, maxLength: 128, description: "Identity from the screenshot, zoom or OCR raster used to choose this point. A newer capture invalidates it; stale or other-computer identities refuse before input. Omit only for legacy latest-raster behavior; cannot be used with space:screen." },
         space: { enum: ["raster", "screen"], description: "raster (default): pixels in the latest screenshot/OCR/zoom. screen: absolute screen points; do not convert them yourself." },
       },
       additionalProperties: false,
@@ -215,7 +216,7 @@ export const TOOLS = [
   },
   {
     name: "screenshot",
-    description: "Capture the screen (all or one display, optional region) as PNG/JPEG. The receipt carries raster geometry; later coordinate targets refer to this raster.",
+    description: "Capture the screen (all or one display, optional region) as PNG/JPEG. The receipt carries raster geometry and raster_id; repeat that identity in later coordinate targets so a newer screenshot cannot remap their pixels.",
     inputSchema: {
       type: "object",
       properties: {
@@ -235,6 +236,7 @@ export const TOOLS = [
       type: "object",
       required: ["region"],
       properties: {
+        raster_id: { type: "string", minLength: 1, maxLength: 128, description: "Identity of the parent screenshot being cropped. Refuses if a newer raster replaced it. The result returns a fresh raster_id for child-image coordinates." },
         region: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[x, y, w, h] in last-raster pixels" },
         path: { type: "string" },
         computer: computerParam,

@@ -193,10 +193,24 @@ class ServerError extends Error {
   constructor(code, message, extra = null) { super(message); this.code = code; if (extra) this.extra = extra; }
 }
 
-/** Map raster-pixel coordinates to screen points using the bound raster. */
-function rasterToPoints(computerId, x, y) {
+/** A supplied capture identity must still be the current raster on this route. */
+function currentRaster(computerId, rasterId) {
   const r = lastRasters.get(computerId);
   if (!r) throw new ServerError("no_raster", "no screenshot bound on this computer yet — call screenshot first so pixel targets have a frame");
+  if (rasterId !== undefined) {
+    if (typeof rasterId !== "string" || !rasterId || rasterId.length > 128) {
+      throw new ServerError("bad_target", "raster_id must be the string returned by screenshot, zoom or OCR");
+    }
+    if (rasterId !== r.raster_id) {
+      throw new ServerError("raster_stale", "raster_id is not the current capture on this computer — observe again before choosing coordinates");
+    }
+  }
+  return r;
+}
+
+/** Map raster-pixel coordinates to screen points using the bound raster. */
+function rasterToPoints(computerId, x, y, rasterId) {
+  const r = currentRaster(computerId, rasterId);
   if (r.pixels?.w != null && r.pixels?.h != null && (x < 0 || y < 0 || x >= r.pixels.w || y >= r.pixels.h)) {
     throw new ServerError("target_outside_raster", `target (${x},${y}) is outside the bound raster (${r.pixels.w}x${r.pixels.h} pixels) — take a fresh screenshot`);
   }
@@ -214,13 +228,15 @@ function rasterToPoints(computerId, x, y) {
 async function normalizeTarget(computer, target, kind, resolve, sink) {
   if (target?.type === "coordinate") {
     if (target.space === "screen") {
+      if (target.raster_id !== undefined) throw new ServerError("bad_target", "raster_id pins raster pixels, not absolute screen points");
       if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) {
         throw new ServerError("bad_target", "screen coordinates must be finite numbers");
       }
       return { x: Math.round(target.x), y: Math.round(target.y), strategy: "event", coordinate_space: "screen" };
     }
     if (target.x < 0 || target.y < 0) throw new ServerError("bad_target", "raster coordinates must be non-negative");
-    const pt = rasterToPoints(computer.id, target.x, target.y);
+    const pt = rasterToPoints(computer.id, target.x, target.y, target.raster_id);
+    if (sink) sink.rasterId = lastRasters.get(computer.id).raster_id;
     return { x: Math.round(pt.x), y: Math.round(pt.y), strategy: "event", coordinate_space: "raster" };
   }
   if (target?.type === "element") {
@@ -271,30 +287,33 @@ async function normalizeTarget(computer, target, kind, resolve, sink) {
   throw new ServerError("bad_target", "target must be {type:'coordinate',x,y} or {type:'element',index} (state_id optional to pin a specific observation)");
 }
 
-function bindRaster(computer, shot) {
-  lastRasters.set(computer.id, {
+function bindRaster(computer, shot, sourceFile = shot.file ?? shot.path) {
+  const raster = {
+    raster_id: crypto.randomUUID(),
     file: shot.file ?? shot.path,
+    sourceFile,
     scale: shot.scale ?? 1,
     origin: shot.points ?? { x: 0, y: 0 },
     pixels: shot.pixels ?? null,
     capturedAt: shot.capturedAt ?? new Date().toISOString(),
-  });
+  };
+  lastRasters.set(computer.id, raster);
+  return raster;
 }
 
 /** A zoom produces a child raster: origin shifted by the crop, parent scale. */
-function bindZoomRaster(computer, parent, region, file) {
+function bindZoomRaster(computer, parent, region, file, sourceFile = file) {
   const scale = parent.scale && parent.scale > 0 ? parent.scale : 1;
-  lastRasters.set(computer.id, {
+  return bindRaster(computer, {
     file,
     scale,
-    origin: {
+    points: {
       x: (parent.origin?.x ?? 0) + region[0] / scale,
       y: (parent.origin?.y ?? 0) + region[1] / scale,
     },
     pixels: { w: region[2], h: region[3] },
-    parent: parent.file,
     capturedAt: new Date().toISOString(),
-  });
+  }, sourceFile);
 }
 
 function rememberState(computer, app_ref, result) {
@@ -1063,8 +1082,7 @@ async function callTool(params) {
     // only the backend) so it can bind the child raster after success.
     let zoomParent = null;
     if (name === "zoom") {
-      zoomParent = lastRasters.get(computer.id);
-      if (!zoomParent) throw new ServerError("no_raster", "no screenshot bound on this computer yet — call screenshot first so zoom has a source raster");
+      zoomParent = currentRaster(computer.id, args.raster_id);
       if (!Array.isArray(args.region) || args.region.length !== 4) throw new ServerError("bad_args", "zoom needs region [x, y, w, h] in last-raster pixels");
     }
     const sink = { reacquired: false };
@@ -1116,15 +1134,15 @@ async function callTool(params) {
       }
       await assertCurrentRoute(computer, binding, true);
       if (Array.isArray(data)) data = { items: data };
-      if ((backendMethod === "screenshot" || backendMethod === "zoom") && data?.file) {
+      if (backendMethod === "screenshot" && data?.file) {
         if (ex.filesLocal) bindRaster(computer, data);
         else {
           // Raster lives on the remote machine; bind geometry for coordinate mapping.
-          bindRaster(computer, { ...data, file: null });
+          bindRaster(computer, { ...data, file: null, path: null }, data.file ?? data.path);
           data.note = "file lives on the remote computer; pull it with scp if you need the bytes locally";
         }
       }
-      if (backendMethod === "zoom") bindZoomRaster(computer, zoomParent, args.region, ex.filesLocal ? data?.file ?? data?.path : null);
+      if (backendMethod === "zoom") bindZoomRaster(computer, zoomParent, args.region, ex.filesLocal ? data?.file ?? data?.path : null, data?.file ?? data?.path);
       if (name === "get_app_state") {
         data = observeState(computer, wireArgs.app_ref, data, args);
       }
@@ -1173,10 +1191,17 @@ async function callTool(params) {
       }
     }
 
+    if (name === "screenshot" || name === "zoom") {
+      data.raster_id = lastRasters.get(computer.id)?.raster_id;
+      if (name === "zoom") data.parent_raster_id = zoomParent.raster_id;
+    }
+
     // Binding a different app retires this computer's element cache: a bare
     // index must never silently address the previous app's observation —
     // under a concurrent user that mistake clicks the wrong window.
     if (name === "open_application" && data?.resolved) {
+      // An app bind retires this server's earlier capture context.
+      lastRasters.delete(computer.id);
       boundApps.set(computer.id, data.resolved);
       // The decision that let this open through covers the resolved identity
       // under its other spellings too — a later bundle-id or name request for
@@ -1203,7 +1228,11 @@ async function callTool(params) {
       data.ocr ??= { status: "unavailable", reason: "Text recognition is not available on this backend", blocks: [] };
       if (data.ocr.raster) {
         const localFile = typeof ex?.remote !== "function" || ex.filesLocal;
-        bindRaster(computer, localFile ? data.ocr.raster : { ...data.ocr.raster, file: null, path: null });
+        const raster = bindRaster(computer, localFile ? data.ocr.raster : { ...data.ocr.raster, file: null, path: null }, data.ocr.raster.file ?? data.ocr.raster.path);
+        data.ocr.raster.raster_id = raster.raster_id;
+        for (const block of data.ocr.blocks ?? []) {
+          if (block.target?.type === "coordinate" && block.target.space !== "screen") block.target.raster_id = raster.raster_id;
+        }
       }
       data.ocr.note = "Recognized text may be imperfect. These coordinate targets belong to this captured image, not to accessibility elements; observe again after the UI changes. Prefer ocr_region or query over a second full-window OCR.";
     }
@@ -1234,7 +1263,7 @@ async function callTool(params) {
       const grant = grantReport();
       if (grant) data.grant = grant;
     }
-    const content = [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: name, switched, ...(sink.reacquired ? { target_reacquired: true } : {}), ...data })) }];
+    const content = [{ type: "text", text: JSON.stringify(receipt(computer, { ok: true, tool: name, switched, ...(sink.reacquired ? { target_reacquired: true } : {}), ...data, ...(sink.rasterId ? { target_raster_id: sink.rasterId } : {}) })) }];
     if (imageBlock) content.push(imageBlock);
     if ((name === "screenshot" && (data?.file || data?.path) && data?.pixels?.w > 0 && data?.pixels?.h > 0) ||
         (name === "browser_screenshot" && !!data?.file) ||
@@ -1245,7 +1274,10 @@ async function callTool(params) {
   } catch (err) {
     // A failed open_application cleared the backend's input binding before it
     // attempted anything — the tracked bound app must not claim otherwise.
-    if (name === "open_application") boundApps.delete(computer.id);
+    if (name === "open_application") {
+      boundApps.delete(computer.id);
+      lastRasters.delete(computer.id);
+    }
     let outcomeUnknown = !!err.requestDispatched;
     if (dispatched && !outcomeUnknown) {
       // A transport/backend can fail after delivering input. Reconcile its
@@ -1283,6 +1315,13 @@ async function prepareArgs(computer, name, args, resolve, sink) {
   const out = { ...args };
   delete out.computer;
   delete out.ephemeral; // server-internal: never reaches a backend
+  delete out.raster_id; // capture identity is checked here, not by older helpers
+  if (name === "zoom") {
+    // Every backend accepts a source, but some retain only the original shot.
+    // Crop our bound parent, never an arbitrary caller-supplied file.
+    out.source = currentRaster(computer.id, args.raster_id).sourceFile;
+    if (typeof out.source !== "string" || !out.source) throw new ServerError("no_raster", "the bound capture has no source file — take a fresh screenshot before zooming");
+  }
   // type/key join the semantic set: their element target addresses a window
   // for input routing (hosted panels), not a point for pointer delivery.
   const semantic = new Set(["set_value", "select_text", "perform_action", "focus", "get_value", "type", "key"]);
@@ -1299,6 +1338,7 @@ async function prepareArgs(computer, name, args, resolve, sink) {
     }
     const kind = key === "target" && semantic.has(name) ? "semantic" : "pointer";
     out[key] = { ...given, ...(await normalizeTarget(computer, given, kind, resolve, sink)) };
+    delete out[key].raster_id;
   }
   if (name === "get_app_state" || name === "find_elements") {
     if (out.detail != null && !["summary", "compact", "full"].includes(out.detail)) throw new ServerError("bad_args", "detail must be summary, compact or full");

@@ -66,8 +66,8 @@ export function create() {
         ? { file, points: { x: region[0], y: region[1], w: region[2], h: region[3] }, pixels: { w: region[2] * 2, h: region[3] * 2 }, scale: 2 }
         : { file, points: { x: 0, y: 0, w: 800, h: 600 }, pixels: { w: 1600, h: 1200 }, scale: 2 };
     },
-    async zoom({ region } = {}) {
-      record("zoom", { region });
+    async zoom({ region, source } = {}) {
+      record("zoom", { region, source });
       return { file: tmpPng("cu-fake-zoom-"), region };
     },
     async get_app_state({ app_ref, detail, include_ocr } = {}) {

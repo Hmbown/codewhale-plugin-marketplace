@@ -71,6 +71,15 @@ computer; a typing pause does not authorize foreground control.
 
 ## Reading a receipt
 
+- `raster_id` identifies a screenshot, zoom or OCR image on this server and
+  computer. Supply it with raster coordinates. `raster_stale` means another
+  capture replaced it; `no_raster` means the context was retired or no image
+  was observed. Both refuse before input: observe again instead of removing
+  the pin. `bad_target` refuses malformed IDs or IDs on absolute screen points.
+- `target_raster_id` on a successful coordinate receipt names the image used
+  for conversion; `parent_raster_id` on a zoom names the image actually cropped.
+  These are identity receipts, not proof of a current UI or completed task.
+
 - `action_sent` / `verified` mean dispatch (and, where available, read-back) —
   not task success. Verify the effect with a fresh observation.
 - `front_lease` / `front_restored` describe focus accounting for window-record
