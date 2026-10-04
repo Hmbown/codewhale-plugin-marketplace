@@ -51,6 +51,9 @@ export function create() {
     async open_application(args = {}) {
       record("open_application", args);
       boundApp = { name: args.name ?? "FakeApp", pid: args.pid ?? 4242, bundle_id: args.bundle_id ?? "com.fake.app" };
+      let ctrl = null;
+      try { ctrl = JSON.parse(fs.readFileSync(controlFile, "utf8")); } catch {}
+      if (ctrl?.open_without_resolved) return { launched: true, name: boundApp.name };
       return { launched: true, activate: !!args.activate, resolved: boundApp, keyboard_delivery: args.activate ? "foreground-guarded" : "process", input_scope: args.activate ? "shared-desktop" : "application", shared_pointer: !!args.activate };
     },
     async list_apps() {
@@ -66,8 +69,8 @@ export function create() {
         ? { file, points: { x: region[0], y: region[1], w: region[2], h: region[3] }, pixels: { w: region[2] * 2, h: region[3] * 2 }, scale: 2 }
         : { file, points: { x: 0, y: 0, w: 800, h: 600 }, pixels: { w: 1600, h: 1200 }, scale: 2 };
     },
-    async zoom({ region } = {}) {
-      record("zoom", { region });
+    async zoom({ region, source } = {}) {
+      record("zoom", { region, source });
       return { file: tmpPng("cu-fake-zoom-"), region };
     },
     async get_app_state({ app_ref, detail, include_ocr } = {}) {

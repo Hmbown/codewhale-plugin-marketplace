@@ -34,6 +34,7 @@ const targetSchema = {
         type: { const: "coordinate" },
         x: { type: "integer" },
         y: { type: "integer" },
+        raster_id: { type: "string", minLength: 1, maxLength: 128, description: "Identity from the screenshot, zoom or OCR raster used to choose this point. A newer capture invalidates it; stale or other-computer identities refuse before input. Omit only for legacy latest-raster behavior; cannot be used with space:screen." },
         space: { enum: ["raster", "screen"], description: "raster (default): pixels in the latest screenshot/OCR/zoom. screen: absolute screen points; do not convert them yourself." },
       },
       additionalProperties: false,
@@ -215,7 +216,7 @@ export const TOOLS = [
   },
   {
     name: "screenshot",
-    description: "Capture the screen (all or one display, optional region) as PNG/JPEG. The receipt carries raster geometry; later coordinate targets refer to this raster.",
+    description: "Capture the screen (all or one display, optional region) as PNG/JPEG. The receipt carries raster geometry and raster_id; repeat that identity in later coordinate targets so a newer screenshot cannot remap their pixels.",
     inputSchema: {
       type: "object",
       properties: {
@@ -235,6 +236,7 @@ export const TOOLS = [
       type: "object",
       required: ["region"],
       properties: {
+        raster_id: { type: "string", minLength: 1, maxLength: 128, description: "Identity of the parent screenshot being cropped. Refuses if a newer raster replaced it. The result returns a fresh raster_id for child-image coordinates." },
         region: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[x, y, w, h] in last-raster pixels" },
         path: { type: "string" },
         computer: computerParam,
@@ -313,7 +315,7 @@ export const TOOLS = [
   },
   {
     name: "trajectory",
-    description: "Record this session's tool calls to a local JSONL and replay them later. Actions: start | stop | status (file, turns, recent files) | replay {id?, dry_run?} — replay re-enters the normal tool pipeline, so permissions, grants and the kill switch still apply, and it stops at the first refusal. Off unless started; entered text (typed text, set values, clipboard writes) is redacted and those steps are not replayable; files are owner-only and stay in the recordings dir on this machine.",
+    description: "Record this session's tool calls to a local JSONL. Actions: start | stop | status (file, turns, recent files) | replay {id?, dry_run?} — replay re-enters the normal tool pipeline and stops at the first refusal. Review dry_run's not_replayable indices: saved capture pins, redacted text and consent decisions cannot replay. Permissions, grants and the kill switch still apply. Off unless started; entered text (typed text, set values, clipboard writes) is redacted. Files are owner-only and stay in this machine's recordings dir.",
     inputSchema: { type: "object", required: ["action"], properties: { action: { enum: ["start", "stop", "status", "replay"] }, id: { type: "string", description: "traj-*.jsonl name from status; defaults to the most recent" }, dry_run: { type: "boolean", description: "list what replay would do without executing anything" }, computer: computerParam }, additionalProperties: false },
   },
   {
@@ -333,7 +335,7 @@ export const TOOLS = [
   },
   {
     name: "trajectory_replay",
-    description: "Replay a recorded trajectory through the normal tool pipeline, stopping at the first refusal.",
+    description: "Review dry_run's not_replayable indices before replay. Saved capture pins, redacted text and consent decisions cannot replay. Other steps re-enter the normal pipeline and stop at the first refusal.",
     inputSchema: { type: "object", properties: { id: { type: "string" }, dry_run: { type: "boolean" }, computer: computerParam }, additionalProperties: false },
   },
   {

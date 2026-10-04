@@ -85,6 +85,14 @@ same guide plus detailed operations, refusal recovery and recording references.
 This supplies guidance; host-side delivery/logging and approvals remain the
 host's responsibility. Engine support is maintained separately.
 
+**Capture identity.** Current source returns `raster_id` on screenshot, zoom
+and OCR receipts. Repeat it in pixel targets and parent zooms; newer captures
+refuse older pins before input. Nested zooms crop the bound parent file. The
+packaged guide teaches this through the existing MCP instructions/resources.
+This does not establish that the UI stayed unchanged or that the current
+source shipped in the installed helper. [Cua comparison and remaining
+parity](docs/CUA_PARITY.md) records the upstream reference and proof gaps.
+
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
 notarized Mac app is published on this repository's
 [GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)

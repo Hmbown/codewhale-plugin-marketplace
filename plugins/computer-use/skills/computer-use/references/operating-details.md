@@ -179,7 +179,10 @@ Once the GUI is the right interface: observe once, act once, then verify.
    meaning from OCR or a screenshot file path.
    With vision, when accessibility cannot express the target: `screenshot`
    (optionally `zoom` for small targets) and act with a coordinate target.
-   Default coordinates are pixels **in the latest returned raster**. Pass
+   Default coordinates are pixels **in the returned raster**. Include its
+   `raster_id` in every raster coordinate target and in `zoom`'s parent arguments;
+   the crop returns its own ID. OCR blocks already contain pinned targets.
+   Pass
    `space:"screen"` to send absolute screen points from the AX tree and skip
    conversion. After a new screenshot, old raster pixels are stale.
    If the host reports an omitted or oversized image, capture a smaller app
@@ -210,8 +213,16 @@ Once the GUI is the right interface: observe once, act once, then verify.
   `target_reacquired: true`; if it no longer resolves (or changed role) the
   call fails `element_stale` — call `get_app_state` again. A `state_id` only
   works on the computer that issued it (`state_wrong_computer`).
-- Coordinate: `{"type":"coordinate","x":496,"y":331}` — pixels from the latest
-  raster only; submit `x`/`y` unchanged, never transform them yourself.
+- Coordinate: `{"type":"coordinate","x":496,"y":331,"raster_id":"<returned ID>"}`
+  — pixels from the observed raster; submit `x`/`y` unchanged, never transform
+  them yourself. Screenshot, zoom and OCR issue a unique session-local ID.
+  A replacement capture, crop, app rebind or route change retires the prior
+  context. `raster_stale` / `no_raster` means observe again. Never drop the ID
+  to retry; the optional unpinned shape exists for older clients only. An ID
+  cannot be transferred to another computer or mixed with `space:"screen"`.
+  It proves capture identity, not that the UI is unchanged, and is not an
+  authorization or a single-use action token. Re-observe after UI changes and
+  verify the effect after delivery.
   `{"type":"coordinate","x":100,"y":200,"space":"screen"}` is an absolute
   screen point (what AX `position` uses). `zoom` returns a bindable raster of
   its own: after zooming, raster coordinates are pixels in the zoomed image.
@@ -360,10 +371,14 @@ for the WebSocket transport; older runtimes refuse with `unsupported_runtime`.
 
 `trajectory` records every tool call this session makes into a local,
 owner-only JSONL (off until started). Entered text — typed text, set values,
-clipboard writes — is redacted and those steps are marked not replayable;
-other arguments are stored as sent, so still treat the file as sensitive. `replay` re-runs a recorded file through the same pipeline —
+clipboard writes — is redacted and those steps are marked not replayable.
+Other arguments are stored as sent, so still treat the file as sensitive.
+Saved capture pins also cannot replay: they belong to the original observation,
+including in nested action batches or files without a replayability marker.
+Never strip or remap a pin; observe and plan new actions instead.
+`replay` re-runs other recorded steps through the same pipeline —
 grants, permissions and the kill switch still apply — and stops at the first
-refusal; `dry_run` lists the plan first. A host may narrow the whole session
+refusal; `dry_run` lists the plan and `not_replayable` indices first. A host may narrow the whole session
 with `CODEWHALE_CU_GRANT` (read-only, or a tool list): tools outside it are
 never advertised and calls fail `not_granted`. Work inside that scope; do not
 look for a workaround. `set_window_frame` moves or resizes one window and

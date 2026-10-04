@@ -43,7 +43,7 @@ Never retry a refusal unchanged — re-observe, re-target, or change route.
 | `confirmation_required` | the click or press would activate a pay/buy/order/send/transfer/delete control | stop and show the user exactly what will happen; only on their approval, `consent {action:"allow", confirm:"<token>"}` and repeat the identical call |
 | `confirmation_unknown` | the confirmation token is unknown, used, or expired | repeat the original call for a fresh token and ask the user again |
 | `script_refused` | `app_script` would reach a shell, Cocoa, dynamic code, a terminal app, or an app it does not name with a literal | use the host's shell for shell work, or name the app literally; never rewrite the script to get past the check |
-| `not_replayable` | a trajectory step had its entered text redacted, so replay stops there | redo that step by hand |
+| `not_replayable` | a trajectory step contains saved capture pins, redacted text or a consent decision | replay stops there; observe and plan a new action, preserving the actual permission and confirmation gates; never strip or remap pins |
 | `foreground_denied` | the user denied shared-desktop (foreground) control | work background-only; do not retry `activate:true` |
 | `frame_refused` | the app refused both the position and the size write | the window is fullscreen, tiled or otherwise not movable by the app |
 | `trajectory_not_found` | no trajectory file matches the id (or none exist) | `trajectory {action:"status"}` lists recent files |
@@ -70,6 +70,15 @@ was refused before delivery. Use accessibility, browser control or a separate
 computer; a typing pause does not authorize foreground control.
 
 ## Reading a receipt
+
+- `raster_id` identifies a screenshot, zoom or OCR image on this server and
+  computer. Supply it with raster coordinates. `raster_stale` means another
+  capture replaced it; `no_raster` means the context was retired or no image
+  was observed. Both refuse before input: observe again instead of removing
+  the pin. `bad_target` refuses malformed IDs or IDs on absolute screen points.
+- `target_raster_id` on a successful coordinate receipt names the image used
+  for conversion; `parent_raster_id` on a zoom names the image actually cropped.
+  These are identity receipts, not proof of a current UI or completed task.
 
 - `action_sent` / `verified` mean dispatch (and, where available, read-back) —
   not task success. Verify the effect with a fresh observation.

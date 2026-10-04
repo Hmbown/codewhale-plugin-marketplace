@@ -44,6 +44,21 @@ test("invoke_menu and list_apps advertise their new surfaces", () => {
   assert.equal(apps.inputSchema.properties.all.type, "boolean");
 });
 
+test("pixel tools advertise capture pins and the packaged guide teaches refusal recovery", () => {
+  for (const name of ["click", "left_click", "scroll"]) {
+    const tool = TOOLS.find(t => t.name === name);
+    const coordinate = tool.inputSchema.properties.target.oneOf.find(t => t.properties.type.const === "coordinate");
+    assert.equal(coordinate.properties.raster_id.type, "string", name);
+    assert.equal(coordinate.properties.raster_id.maxLength, 128, name);
+  }
+  assert.equal(TOOLS.find(t => t.name === "zoom").inputSchema.properties.raster_id.type, "string");
+  const guide = fs.readFileSync(path.join(ROOT, "skills/computer-use/SKILL.md"), "utf8");
+  assert.match(guide, /raster_id/);
+  assert.match(guide, /raster_stale/);
+  assert.match(guide, /never drop the ID to retry/);
+  assert.match(guide, /not a changed UI/);
+});
+
 test("selectApps keeps regular apps by default, passes everything with all:true, and tolerates an old helper", () => {
   const apps = [
     { name: "Finder", activation_policy: "regular" },
@@ -136,6 +151,7 @@ test("resources/list names the pack; resources/read returns exact bytes with has
   assert.ok(uris.includes("skill://codewhale-cu/SKILL.md"));
   assert.ok(uris.includes("skill://codewhale-cu/references/quick-reference.md"));
   assert.ok(uris.includes("skill://codewhale-cu/references/refusal-codes.md"));
+  assert.ok(uris.includes("skill://codewhale-cu/recording/SKILL.md"));
 
   for (const uri of uris) {
     const read = await rpc("resources/read", { uri });
@@ -143,6 +159,12 @@ test("resources/list names the pack; resources/read returns exact bytes with has
     const rel = uri.replace("skill://codewhale-cu/", "");
     const onDisk = fs.readFileSync(path.join(ROOT, "skills", rel === "recording/SKILL.md" ? rel : `computer-use/${rel}`), "utf8");
     assert.equal(text, onDisk, `${uri} must serve exactly the file on disk`);
+    if (uri === "skill://codewhale-cu/recording/SKILL.md") {
+      assert.match(text, /raster_id/);
+      assert.match(text, /raster_stale/);
+      assert.match(text, /never drop the ID to retry/);
+      assert.match(text, /not a changed UI/);
+    }
   }
 });
 
