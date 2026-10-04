@@ -135,8 +135,8 @@
         {
           "path": "plugins/computer-use/src/trajectory.mjs",
           "root": "repo",
-          "sha256": "990c193c43fcfdb96abf33ffe853e047926093438bc6d296c122e7a7d5d874ec",
-          "bytes": 6832
+          "sha256": "c5e9fcd187c08d3ff98ec4a54f5b1e52980a05f91c520fd1e9e1e5039c612f91",
+          "bytes": 6881
         },
         {
           "path": "plugins/computer-use/skills/recording/SKILL.md",
@@ -145,7 +145,7 @@
           "bytes": 2167
         }
       ],
-      "sealed_at": "2026-10-04T17:28:27.863Z"
+      "sealed_at": "2026-10-04T17:45:30.044Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -258,5 +258,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-10-04T17:28:27.865Z"
+  "updated_at": "2026-10-04T17:45:30.047Z"
 }

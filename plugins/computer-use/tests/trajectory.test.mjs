@@ -132,6 +132,8 @@ test("E4: entered text is redacted, the file is 0600 in a 0700 dir, and redacted
 test("saved capture pins cannot replay, including legacy files and nested actions", async () => {
   assert.equal(containsRasterPin({ target: { type: "coordinate", raster_id: "saved" } }), true);
   assert.equal(containsRasterPin({ action: "zoom", raster_id: "saved" }), true);
+  assert.equal(containsRasterPin({ from_target: { type: "coordinate", raster_id: "saved" } }), true);
+  assert.equal(containsRasterPin({ to: { type: "coordinate", raster_id: "saved" } }), true);
   assert.equal(containsRasterPin({ steps: [{ tool: "click", arguments: { target: { raster_id: "saved" } } }] }), true);
   assert.equal(containsRasterPin({ target: { type: "coordinate", x: 1, y: 1 } }), false);
   assert.equal(containsRasterPin({ target: { type: "element", state_id: "s-1" } }), false);
@@ -157,6 +159,23 @@ test("saved capture pins cannot replay, including legacy files and nested action
   const replay = await tool("trajectory", { action: "replay", id: path.basename(stopped.file) });
   assert.deepEqual(replay.results, [{ tool: "screenshot", ok: true }, { tool: "left_click", ok: false, code: "not_replayable" }]);
   assert.equal(countClicks(), before, "a new replay screenshot cannot authorize the original pixel action");
+
+  for (const slot of ["from_target", "to"]) {
+    const batch = { type: "call", tool: "run_actions", args: { steps: [
+      { tool: "left_click", arguments: { target: { type: "coordinate", space: "screen", x: 1, y: 1 } } },
+      { tool: "left_click_drag", arguments: {
+        from_target: { type: "coordinate", space: "screen", x: 1, y: 1 },
+        to: { type: "coordinate", space: "screen", x: 2, y: 2 },
+        [slot]: { type: "coordinate", x: 1, y: 1, raster_id: shot.raster_id },
+      } },
+    ] } };
+    fs.writeFileSync(stopped.file, JSON.stringify(batch) + "\n");
+    const reviewed = await tool("trajectory", { action: "replay", id: path.basename(stopped.file), dry_run: true });
+    assert.deepEqual(reviewed.not_replayable, [0], `${slot} prevents the whole legacy batch from replaying`);
+    const refused = await tool("trajectory", { action: "replay", id: path.basename(stopped.file) });
+    assert.deepEqual(refused.results, [{ tool: "run_actions", ok: false, code: "not_replayable" }]);
+    assert.equal(countClicks(), before, "no earlier batch input is dispatched before the pinned drag refusal");
+  }
 });
 
 test("replay refuses escaping ids; the kill switch gates replay but not status", async () => {

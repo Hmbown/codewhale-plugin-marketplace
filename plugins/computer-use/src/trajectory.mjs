@@ -21,7 +21,8 @@ export const isTrajectoryTool = (name) => typeof name === "string" && (name === 
 /** A saved capture identity belongs to its original observation, never a replay. */
 export function containsRasterPin(args) {
   if (!args || typeof args !== "object") return false;
-  return args.raster_id !== undefined || args.target?.raster_id !== undefined
+  return args.raster_id !== undefined
+    || ["target", "from_target", "to"].some(slot => args[slot]?.raster_id !== undefined)
     || (Array.isArray(args.steps) && args.steps.some(step => containsRasterPin(step?.arguments)));
 }
 
