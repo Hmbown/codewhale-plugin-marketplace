@@ -28,6 +28,16 @@ Engine responsibility. `/computer setup` distinguishes local apps, signed-in
 Chrome and an isolated browser; `request_access` identifies the actual helper
 and permission owner. Bundled macOS builds do not require a second helper install.
 
+The current source returns a `raster_id` with screenshots, OCR rasters and zooms.
+Carry that ID in pixel targets and as the parent of a zoom; use the zoom's new
+ID for coordinates in the child image. OCR targets already include their pin.
+A replaced capture, app bind or computer route retires the earlier context;
+`raster_stale` requires another observation, never retrying without the ID.
+Pins remain reusable while current and optional for older clients. They detect
+capture replacement, not a changed UI or successful input. The
+[Cua comparison](../../plugins/computer-use/docs/CUA_PARITY.md) records these
+contract differences and the remaining native and cloud qualification gaps.
+
 The 0.11.3 patch answers `resources/templates/list` with an empty template
 list instead of `-32601`. The server publishes a fixed skill pack and never a
 parameterized URI space, so an empty list is the correct answer and a host that
@@ -180,5 +190,6 @@ handoff and inspect the current validation receipt before publication.
 
 The current macOS candidate refuses background actions that borrow keyboard focus, including raw pointer fallbacks and modified keys. Accessibility and browser control remain the preferred routes for concurrent use. Native sharing-picker integration and continuous keyboard coexistence qualification remain open.
 
-- `plugins/computer-use/mcp/server.mjs`, `plugins/computer-use/skills/computer-use/SKILL.md`: standard MCP guidance and setup routing.
+- `plugins/computer-use/mcp/server.mjs`, `plugins/computer-use/skills/computer-use/SKILL.md`: standard MCP guidance, setup routing and capture identity.
+- `plugins/computer-use/docs/CUA_PARITY.md`: upstream reference pins, capture contract differences and qualification boundaries.
 - `tests/browser/chromewhale.spec.mjs`: Chrome fixture coverage and harness limits.

@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "0af9fb78a843713fbb58b031ee62bac3c519caafd1621889cc505a3a9952441d",
+      "page_sha256": "7025015be051fd09dac224236e14c2ab8cfa2930795f271c33d343031fa4c960",
       "sources": [
         {
           "path": "marketplace.json",
@@ -99,14 +99,14 @@
         {
           "path": "plugins/computer-use/mcp/server.mjs",
           "root": "repo",
-          "sha256": "7c699d1e855d6e1f6a20d9fcfa3eea60ac51a65a3647803623bdcda994613a6e",
-          "bytes": 88401
+          "sha256": "56a29115948678e72b9a66433e6fb806f67564952f575eac64cafef60cacf5de",
+          "bytes": 90542
         },
         {
           "path": "plugins/computer-use/skills/computer-use/SKILL.md",
           "root": "repo",
-          "sha256": "9bce2b2daf6dd8abc2d5227c95bb89f1c56b41181fabaceab073026c37804fad",
-          "bytes": 5085
+          "sha256": "6d08d23ef475378c88af4635a8cfcc0ffb37b11a31002fd2711d32a3afea2bbe",
+          "bytes": 5348
         },
         {
           "path": "tests/browser/chromewhale.spec.mjs",
@@ -125,9 +125,15 @@
           "root": "repo",
           "sha256": "328636d3c33339deb5842f2ad98e141439b6049c60254c7eb66ae3fad2157207",
           "bytes": 41173
+        },
+        {
+          "path": "plugins/computer-use/docs/CUA_PARITY.md",
+          "root": "repo",
+          "sha256": "b9777c064a04b044be38b09f3915243b0706520b29c357702cec268e04aba320",
+          "bytes": 5834
         }
       ],
-      "sealed_at": "2026-10-03T10:11:17.470Z"
+      "sealed_at": "2026-10-04T17:16:35.706Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -240,5 +246,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-10-03T10:11:17.470Z"
+  "updated_at": "2026-10-04T17:16:35.710Z"
 }
