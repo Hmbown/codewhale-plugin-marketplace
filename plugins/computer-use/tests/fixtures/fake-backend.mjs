@@ -51,6 +51,9 @@ export function create() {
     async open_application(args = {}) {
       record("open_application", args);
       boundApp = { name: args.name ?? "FakeApp", pid: args.pid ?? 4242, bundle_id: args.bundle_id ?? "com.fake.app" };
+      let ctrl = null;
+      try { ctrl = JSON.parse(fs.readFileSync(controlFile, "utf8")); } catch {}
+      if (ctrl?.open_without_resolved) return { launched: true, name: boundApp.name };
       return { launched: true, activate: !!args.activate, resolved: boundApp, keyboard_delivery: args.activate ? "foreground-guarded" : "process", input_scope: args.activate ? "shared-desktop" : "application", shared_pointer: !!args.activate };
     },
     async list_apps() {

@@ -18,6 +18,13 @@ export const trajectoriesDir = () => path.join(process.env.CODEWHALE_CU_RECORDIN
 /** Tools about the recorder itself are never recorded and never replayed. */
 export const isTrajectoryTool = (name) => typeof name === "string" && (name === "trajectory" || name.startsWith("trajectory_"));
 
+/** A saved capture identity belongs to its original observation, never a replay. */
+export function containsRasterPin(args) {
+  if (!args || typeof args !== "object") return false;
+  return args.raster_id !== undefined || args.target?.raster_id !== undefined
+    || (Array.isArray(args.steps) && args.steps.some(step => containsRasterPin(step?.arguments)));
+}
+
 /** Argument fields that carry entered text, per tool. */
 const TEXT_FIELDS = {
   type: ["text"], set_value: ["value"], browser_type: ["text"],
@@ -73,12 +80,14 @@ export function createRecorder() {
       return { recording: false, file: stopped, turns: countCalls(stopped) };
     },
     status() {
-      return { recording: !!file, file, turns: file ? countCalls(file) : 0, dir: trajectoriesDir(), note: "Local JSONL on this machine (owner-only permissions). Entered text — typed text, set values, clipboard writes — is redacted and those steps are not replayable. Start it only when the person knows it runs." };
+      return { recording: !!file, file, turns: file ? countCalls(file) : 0, dir: trajectoriesDir(), note: "Local JSONL on this machine (owner-only permissions). Entered text — typed text, set values, clipboard writes — is redacted. Redacted text and saved capture pins cannot replay. Start it only when the person knows it runs." };
     },
     append(entry) {
       if (!file) return;
       const { args, redacted } = redactCall(entry.tool, entry.args);
-      const line = { type: "call", at: new Date().toISOString(), ...entry, args, ...(redacted ? { redacted: true, replayable: false } : {}) };
+      const line = { type: "call", at: new Date().toISOString(), ...entry, args,
+        ...(redacted ? { redacted: true } : {}),
+        ...(redacted || containsRasterPin(args) ? { replayable: false } : {}) };
       try { fs.appendFileSync(file, JSON.stringify(line) + "\n", { mode: 0o600 }); } catch { /* a full disk must not break tool calls */ }
     },
   };

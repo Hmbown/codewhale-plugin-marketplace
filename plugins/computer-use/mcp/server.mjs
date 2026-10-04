@@ -15,7 +15,7 @@ import { tryJson, withSignal, throwIfAborted, wait, currentSignal } from "../src
 import { inputRefusal, watchLease, HUMAN_DRIVING } from "../src/lease.mjs";
 import { APP_VERSION, helperStaleness } from "../src/app-socket.mjs";
 import { checkAppScript } from "../src/app-script-policy.mjs";
-import { createRecorder, readTrajectory, listTrajectories, resolveTrajectory, isTrajectoryTool } from "../src/trajectory.mjs";
+import { createRecorder, readTrajectory, listTrajectories, resolveTrajectory, isTrajectoryTool, containsRasterPin } from "../src/trajectory.mjs";
 
 const SERVER_NAME = "codewhale-cu";
 
@@ -825,6 +825,9 @@ async function callTool(params) {
       return { content: [{ type: "text", text: JSON.stringify(fail(null, "replay_too_large", `this trajectory has ${calls.length} calls; replay is limited to 200 at a time`)) }], isError: true };
     }
     const dryRun = args.dry_run === true;
+    // Old files may lack replayable:false; never strip or remap a saved pin.
+    const cannotReplay = call => call.replayable === false || call.redacted === true
+      || isConsentDecision(call.tool, call.args) || containsRasterPin(call.args);
     const results = [];
     if (!dryRun) {
       replaying = true;
@@ -833,7 +836,7 @@ async function callTool(params) {
           if (controlStopped && !READ_ONLY_TOOLS.has(call.tool)) { results.push({ tool: call.tool, ok: false, code: "control_stopped" }); break; }
           // A redacted step carries a placeholder, not what was entered —
           // replaying it would type "[redacted]" into the app.
-          if (call.replayable === false || call.redacted === true || isConsentDecision(call.tool, call.args)) { results.push({ tool: call.tool, ok: false, code: "not_replayable" }); break; }
+          if (cannotReplay(call)) { results.push({ tool: call.tool, ok: false, code: "not_replayable" }); break; }
           let body = null;
           try {
             const r = await callTool({ name: call.tool, arguments: call.args ?? {} });
@@ -849,7 +852,7 @@ async function callTool(params) {
       } finally { replaying = false; }
     }
     const failed = results.filter((r) => r.ok === false).length;
-    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_replay", trajectory: path.basename(file), dry_run: dryRun, turns_in_file: calls.length, replayed: results.length, failed, ...(dryRun ? { plan: calls.map((c) => c.tool), not_replayable: calls.flatMap((c, i) => (c.replayable === false || c.redacted === true || isConsentDecision(c.tool, c.args)) ? [i] : []) } : { results }), note: dryRun ? "Nothing was executed. Run again without dry_run:true to replay through the normal gates." : "Replay re-entered the normal pipeline; grants, permissions and the kill switch still apply." })) }] };
+    return { content: [{ type: "text", text: JSON.stringify(receipt(null, { ok: true, tool: "trajectory_replay", trajectory: path.basename(file), dry_run: dryRun, turns_in_file: calls.length, replayed: results.length, failed, ...(dryRun ? { plan: calls.map((c) => c.tool), not_replayable: calls.flatMap((c, i) => cannotReplay(c) ? [i] : []) } : { results }), note: dryRun ? "Nothing was executed. Review not_replayable: saved capture pins, entered text and consent decisions cannot replay. Other steps re-enter the normal gates." : "Replay re-entered the normal pipeline; grants, permissions and the kill switch still apply." })) }] };
   }
 
   if (name === "computer_list") {
@@ -1196,12 +1199,14 @@ async function callTool(params) {
       if (name === "zoom") data.parent_raster_id = zoomParent.raster_id;
     }
 
+    // Every successful launch retires captured pixels, including backends
+    // that report only launch status rather than a resolved app identity.
+    if (name === "open_application") lastRasters.delete(computer.id);
+
     // Binding a different app retires this computer's element cache: a bare
     // index must never silently address the previous app's observation —
     // under a concurrent user that mistake clicks the wrong window.
     if (name === "open_application" && data?.resolved) {
-      // An app bind retires this server's earlier capture context.
-      lastRasters.delete(computer.id);
       boundApps.set(computer.id, data.resolved);
       // The decision that let this open through covers the resolved identity
       // under its other spellings too — a later bundle-id or name request for

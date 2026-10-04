@@ -151,6 +151,7 @@ test("resources/list names the pack; resources/read returns exact bytes with has
   assert.ok(uris.includes("skill://codewhale-cu/SKILL.md"));
   assert.ok(uris.includes("skill://codewhale-cu/references/quick-reference.md"));
   assert.ok(uris.includes("skill://codewhale-cu/references/refusal-codes.md"));
+  assert.ok(uris.includes("skill://codewhale-cu/recording/SKILL.md"));
 
   for (const uri of uris) {
     const read = await rpc("resources/read", { uri });
@@ -158,6 +159,12 @@ test("resources/list names the pack; resources/read returns exact bytes with has
     const rel = uri.replace("skill://codewhale-cu/", "");
     const onDisk = fs.readFileSync(path.join(ROOT, "skills", rel === "recording/SKILL.md" ? rel : `computer-use/${rel}`), "utf8");
     assert.equal(text, onDisk, `${uri} must serve exactly the file on disk`);
+    if (uri === "skill://codewhale-cu/recording/SKILL.md") {
+      assert.match(text, /raster_id/);
+      assert.match(text, /raster_stale/);
+      assert.match(text, /never drop the ID to retry/);
+      assert.match(text, /not a changed UI/);
+    }
   }
 });
 

@@ -31,10 +31,13 @@ and permission owner. Bundled macOS builds do not require a second helper instal
 The current source returns a `raster_id` with screenshots, OCR rasters and zooms.
 Carry that ID in pixel targets and as the parent of a zoom; use the zoom's new
 ID for coordinates in the child image. OCR targets already include their pin.
-A replaced capture, app bind or computer route retires the earlier context;
+A replaced capture, successful app launch or computer route retires the context;
 `raster_stale` requires another observation, never retrying without the ID.
-Pins remain reusable while current and optional for older clients. They detect
-capture replacement, not a changed UI or successful input. The
+Pins remain reusable while current and optional for older clients. Saved
+capture-dependent trajectory steps cannot replay, including old files without
+that marker; never strip or remap a saved ID. The recording resource teaches
+the same contract. Pins detect capture replacement, not a changed UI or
+successful input. The
 [Cua comparison](../../plugins/computer-use/docs/CUA_PARITY.md) records these
 contract differences and the remaining native and cloud qualification gaps.
 

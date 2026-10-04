@@ -53,6 +53,9 @@ It teaches models to carry the observed raster ID, use child IDs after zoom,
 re-observe after replacement or UI changes, verify delivery and preserve all
 permission, human-control and consequential-action gates. An omitted image
 still cannot supply coordinates. OCR targets carry the same pin automatically.
+The recording resource teaches the same contract. Saved capture-dependent
+trajectory steps are marked non-replayable, including older files without that
+marker; review and replay never strip or remap a pin to authorize new input.
 
 `target_raster_id` records the conversion source; `parent_raster_id` records
 the zoom source. A changed computer route or app bind retires capture context.

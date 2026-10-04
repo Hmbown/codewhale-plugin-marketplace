@@ -4,7 +4,7 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "7025015be051fd09dac224236e14c2ab8cfa2930795f271c33d343031fa4c960",
+      "page_sha256": "bf0937e2cbd68ef4d6ee7732d2d600f6a80ebbf7dd979a4f38183b13233e4081",
       "sources": [
         {
           "path": "marketplace.json",
@@ -99,14 +99,14 @@
         {
           "path": "plugins/computer-use/mcp/server.mjs",
           "root": "repo",
-          "sha256": "56a29115948678e72b9a66433e6fb806f67564952f575eac64cafef60cacf5de",
-          "bytes": 90542
+          "sha256": "3682308c272a77e2ede458731ba62d75eeb453d8e63319f8acca68cd03eb051d",
+          "bytes": 90840
         },
         {
           "path": "plugins/computer-use/skills/computer-use/SKILL.md",
           "root": "repo",
-          "sha256": "6d08d23ef475378c88af4635a8cfcc0ffb37b11a31002fd2711d32a3afea2bbe",
-          "bytes": 5348
+          "sha256": "ac23e2c6f738589c25b6732a1bd2f93660fa4107d54c307ca84f19a2c43f507e",
+          "bytes": 5355
         },
         {
           "path": "tests/browser/chromewhale.spec.mjs",
@@ -129,11 +129,23 @@
         {
           "path": "plugins/computer-use/docs/CUA_PARITY.md",
           "root": "repo",
-          "sha256": "b9777c064a04b044be38b09f3915243b0706520b29c357702cec268e04aba320",
-          "bytes": 5834
+          "sha256": "6a59b89d2ba6349e1ee445e8fdc94cdb40899b8f8df3b619edf8fbbfee737d5d",
+          "bytes": 6064
+        },
+        {
+          "path": "plugins/computer-use/src/trajectory.mjs",
+          "root": "repo",
+          "sha256": "990c193c43fcfdb96abf33ffe853e047926093438bc6d296c122e7a7d5d874ec",
+          "bytes": 6832
+        },
+        {
+          "path": "plugins/computer-use/skills/recording/SKILL.md",
+          "root": "repo",
+          "sha256": "1e111a6eb6d8116fef983e9162bc289ee3a6c4ee3e16ce74f650f94ef78c5cb2",
+          "bytes": 2167
         }
       ],
-      "sealed_at": "2026-10-04T17:16:35.706Z"
+      "sealed_at": "2026-10-04T17:28:27.863Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -246,5 +258,5 @@
       "sealed_at": "2026-09-21T07:10:20.161Z"
     }
   },
-  "updated_at": "2026-10-04T17:16:35.710Z"
+  "updated_at": "2026-10-04T17:28:27.865Z"
 }

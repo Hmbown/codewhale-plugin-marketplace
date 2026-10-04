@@ -180,7 +180,7 @@ Once the GUI is the right interface: observe once, act once, then verify.
    With vision, when accessibility cannot express the target: `screenshot`
    (optionally `zoom` for small targets) and act with a coordinate target.
    Default coordinates are pixels **in the returned raster**. Include its
-   `raster_id` in every coordinate target and in `zoom`'s parent arguments;
+   `raster_id` in every raster coordinate target and in `zoom`'s parent arguments;
    the crop returns its own ID. OCR blocks already contain pinned targets.
    Pass
    `space:"screen"` to send absolute screen points from the AX tree and skip
@@ -371,10 +371,14 @@ for the WebSocket transport; older runtimes refuse with `unsupported_runtime`.
 
 `trajectory` records every tool call this session makes into a local,
 owner-only JSONL (off until started). Entered text — typed text, set values,
-clipboard writes — is redacted and those steps are marked not replayable;
-other arguments are stored as sent, so still treat the file as sensitive. `replay` re-runs a recorded file through the same pipeline —
+clipboard writes — is redacted and those steps are marked not replayable.
+Other arguments are stored as sent, so still treat the file as sensitive.
+Saved capture pins also cannot replay: they belong to the original observation,
+including in nested action batches or files without a replayability marker.
+Never strip or remap a pin; observe and plan new actions instead.
+`replay` re-runs other recorded steps through the same pipeline —
 grants, permissions and the kill switch still apply — and stops at the first
-refusal; `dry_run` lists the plan first. A host may narrow the whole session
+refusal; `dry_run` lists the plan and `not_replayable` indices first. A host may narrow the whole session
 with `CODEWHALE_CU_GRANT` (read-only, or a tool list): tools outside it are
 never advertised and calls fail `not_granted`. Work inside that scope; do not
 look for a workaround. `set_window_frame` moves or resizes one window and

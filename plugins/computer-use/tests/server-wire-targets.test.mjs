@@ -215,3 +215,25 @@ test("binding an app retires earlier captures before another coordinate action",
   assert.equal(stale.error.code, "no_raster");
   assert.equal(calls().filter(c => c.method === "left_click").length, before);
 });
+
+test("a successful launch without resolved app identity still retires capture pins", async () => {
+  const shot = await tool("screenshot");
+  fs.writeFileSync(callsFile + ".control.json", JSON.stringify({ open_without_resolved: true }));
+  try {
+    const opened = await tool("open_application", { name: "FakeApp", activate: false });
+    assert.equal(opened.ok, true, JSON.stringify(opened));
+    assert.equal(opened.launched, true);
+    assert.equal(opened.resolved, undefined, "Windows/Linux-style launch receipt has no resolved identity");
+    const before = calls().filter(c => c.method === "left_click").length;
+    const stale = await tool("left_click", { target: { type: "coordinate", x: 1, y: 1, raster_id: shot.raster_id } });
+    assert.equal(stale.error.code, "no_raster");
+    assert.equal(calls().filter(c => c.method === "left_click").length, before, "retired pin dispatches no input");
+    const fresh = await tool("screenshot");
+    const clicked = await tool("left_click", { target: { type: "coordinate", x: 1, y: 1, raster_id: fresh.raster_id } });
+    assert.equal(clicked.ok, true, JSON.stringify(clicked));
+    assert.equal(clicked.target_raster_id, fresh.raster_id);
+    assert.equal(calls().filter(c => c.method === "left_click").length, before + 1);
+  } finally {
+    fs.unlinkSync(callsFile + ".control.json");
+  }
+});

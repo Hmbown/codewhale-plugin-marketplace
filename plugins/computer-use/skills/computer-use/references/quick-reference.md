@@ -77,7 +77,7 @@ a raster ID. Browser viewport points use the browser's separate contract.
   of one exact pay/buy/send/transfer/delete call that refused
   `confirmation_required` — only after they approved it.
 - `list_sessions` — live sessions on this machine (content-free) and the user's control mode.
-- `trajectory {action:"start"|"stop"|"status"|"replay", id?, dry_run?}` — record this session's tool calls to a local, owner-only JSONL (entered text redacted; those steps do not replay); replay re-enters the normal pipeline and stops at the first refusal.
+- `trajectory {action:"start"|"stop"|"status"|"replay", id?, dry_run?}` — record to local, owner-only JSONL; entered text is redacted. Saved capture pins, redacted text and consent decisions do not replay. Review `not_replayable` first; other steps re-enter the normal pipeline and stop at the first refusal.
 - `stop_computer_control {reason?}` — kill switch; input for this session ends.
 - Capability grant (host config): `CODEWHALE_CU_GRANT="read-only"` or a tool list — the session can never see or call beyond it (`not_granted`).
 
@@ -97,6 +97,7 @@ Close a window without borrowing focus:
 1. Press the window's close-button element (`click` on the window's
    `AXButton`), or use an available `invoke_menu` close action. Modified keys
    refuse in background mode because they need keyboard focus.
+2. `list_windows` → window gone
 
 Fill and submit a web form (CDP, no pixels):
 1. `browser {action:"start", url:"https://…"}`
@@ -109,9 +110,11 @@ Record and re-verify a session:
 1. `trajectory {action:"start"}`
 2. …do the work…
 3. `trajectory {action:"stop"}` → file + turns
-4. `trajectory {action:"replay", id, dry_run:true}` to review, then replay
-   without `dry_run` to re-run through the same gates.
-2. `list_windows` → window gone
+4. `trajectory {action:"replay", id, dry_run:true}` to review the plan and
+   `not_replayable` steps. Saved capture pins, entered text and consent decisions
+   cannot replay; replay stops at the first such step. Observe and plan new
+   actions instead of stripping or remapping saved pins. Other steps re-enter
+   the normal gates when replayed without `dry_run`.
 
 > `invoke_menu` is exact for app-level commands (New, Save, Quit).
 > Window-targeted items like Close can validate against a key window that a
