@@ -1,0 +1,38 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "design-review",
+  "version": "0.1.0",
+  "description": "Review a user interface three ways: a severity-ranked design critique, a WCAG-based accessibility audit with a static scanner and contrast calculator, and a UX copy review.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "design-critique",
+    "wcag",
+    "contrast-ratio",
+    "ux-writing",
+    "microcopy"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Design Review",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  }
+}

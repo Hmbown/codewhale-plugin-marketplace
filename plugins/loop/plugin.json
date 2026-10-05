@@ -1,0 +1,38 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "loop",
+  "version": "0.1.0",
+  "description": "Run a task again and again until it is done: /loop <prompt> [--max N] [--until <phrase>] re-prompts the session after every reply, with a hard iteration cap, a completion phrase and /cancel-loop.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "iterate-until-done",
+    "ralph-loop",
+    "control-socket"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Loop",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "hooks": {
+        "path": "hooks"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux"
+        ]
+      }
+    }
+  }
+}

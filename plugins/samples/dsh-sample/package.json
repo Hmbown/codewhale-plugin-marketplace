@@ -1,0 +1,11 @@
+{
+  "name": "@codewhale-samples/dsh-sample",
+  "version": "0.1.0",
+  "description": "A tiny DeepSeek Harness bundle package: one skill and one local stdio MCP server. Used to show /plugin import dsh.",
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

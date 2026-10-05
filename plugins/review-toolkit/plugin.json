@@ -1,0 +1,41 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "review-toolkit",
+  "version": "0.1.0",
+  "description": "Six read-only specialist reviewers (silent failures, type design, test gaps, comment accuracy, simplification, general correctness) and a /review-pr command that fans them out over your diff and merges one ranked report.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "reviewer-agents",
+    "silent-failures",
+    "test-gaps"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Review Toolkit",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "agents": {
+        "path": "agents"
+      },
+      "when": {
+        "binaries": [
+          "git"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  }
+}

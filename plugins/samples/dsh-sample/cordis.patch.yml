@@ -1,0 +1,27 @@
+# DSH bundle patch. Codewhale's importer reads this as data and never runs it.
+- insert:
+    # Converts: a skills directory inside this package.
+    - id: sample-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        includeDefaultRoots: false
+        watch: false
+        customSkillDirs:
+          - skills
+    # Converts: a packaged Node MCP server, launched from its own directory.
+    - id: sample-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: sample
+        transport: stdio
+        command: node
+        args:
+          - server.mjs
+        cwd: mcp
+        toolCallTimeoutMs: 5000
+    # Does not convert: a DSH client UI row. It is reported as skipped in
+    # CONVERSION.md so you can see what an import leaves behind.
+    - id: sample-theme
+      name: '@deepseek-ai/dsh-client-ui-theme'
+      config:
+        hue: 180

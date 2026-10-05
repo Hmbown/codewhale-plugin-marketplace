@@ -1,0 +1,16 @@
+{
+  "source": "skills/<name>/SKILL.md in this repository (copied byte for byte)",
+  "repository": "https://github.com/Hmbown/Codewhale",
+  "commit": "f46dc252f1f785ad9fd122d6ca2725f3bcd46092",
+  "generation": "15",
+  "skills": {
+    "money": "7f0ad6eb9f3e1f602ff06baff2c8ff67b65cf592e833f24cc081dc98c404d4ac",
+    "shopping": "71e5ac124c765a3ecd8e67eca979e32a75dcec8e4bd4dad439e0948c7b4c45af",
+    "flights": "3c9cb372b86f0f3a65c67c29886846d5384bcb27cde6a5d175503022c3520a78",
+    "photos": "06875a37f8f444b0ee1d375329404fbb6fa93d5745d1fb60a30647abeb3aa1e7",
+    "spotify": "6fef0ca54efeb97aa80385dde62a9bb76d9b05a982d5ad08244b983ac7116c9c",
+    "tts": "7f97b6210efb21ae9f9f694c02dec2a4a01d0e3a50585ccd2e6aa2d9ea458e0b",
+    "podcast": "87eb0da2edd080c7ba7fc07af62b88d4eb2bce2bb20927cb325741682c0e281e",
+    "image-search": "f92ab5163309beca41462bbd5d11de36a0d6ee56c548952f52783de3382b60ac"
+  }
+}

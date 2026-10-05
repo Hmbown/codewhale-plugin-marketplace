@@ -1,0 +1,32 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "linear-workflow",
+  "version": "0.1.0",
+  "description": "Triage Linear issues, claim work with evidence and post status updates through Linear's official remote MCP server. Needs your own Linear API key.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "linear-mcp",
+    "linear-issues",
+    "linear-triage",
+    "sprint-status"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Linear",
+      "capabilities": {
+        "network_hosts": [
+          "mcp.linear.app"
+        ]
+      },
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

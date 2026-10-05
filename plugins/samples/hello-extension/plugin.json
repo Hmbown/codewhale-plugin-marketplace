@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "hello-extension",
+  "version": "0.1.0",
+  "description": "A small typed extension tool using the existing approval gate.",
+  "license": "MIT",
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Hello Extension (native TypeScript sample)",
+      "native": { "path": "hello.mts" }
+    }
+  }
+}

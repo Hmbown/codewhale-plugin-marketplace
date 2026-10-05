@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Account settings</title>
+  <style>
+    button:focus-visible { outline: 3px solid #0b6e69; outline-offset: 2px; }
+    input:focus:not(:focus-visible) { outline: none; }
+    a:focus { outline: none; box-shadow: 0 0 0 3px #0b6e69; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Account settings</h1>
+    <h2>Profile</h2>
+    <form>
+      <label for="name">Display name</label>
+      <input id="name" name="name" type="text">
+      <label>Email <input name="email" type="email"></label>
+      <label for="plan">Plan</label>
+      <select id="plan"><option>Free</option><option>Team</option></select>
+      <button type="submit">Save changes</button>
+      <button type="button" aria-label="Close dialog"><svg aria-hidden="true" width="12" height="12"></svg></button>
+    </form>
+    <img src="avatar.png" alt="Your profile photo">
+    <img src="divider.png" alt="">
+    <a href="/billing">Manage billing</a>
+    <table><tr><th>Item</th><th>Price</th></tr><tr><td>Team plan</td><td>$12</td></tr></table>
+  </main>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "skills-personal",
+  "version": "0.1.0",
+  "description": "Everyday workflows for bank balances, shopping, flights, local Photos, Spotify, speech, podcasts and image search. Each skill states its own setup.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "flights",
+    "shopping",
+    "plaid",
+    "spotify",
+    "podcast",
+    "photos"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Personal Skills",
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}
