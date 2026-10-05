@@ -6,7 +6,7 @@ usage: /vercel-preflight [project-dir]
 $ARGUMENTS
 
 Run the plugin's static checker on the project (default: the current workspace).
-Find the installed plugin root with `/plugin show vercel`, then:
+Find the installed plugin root with `/plugin show vercel-workflow`, then:
 
 ```
 node <plugin-root>/scripts/preflight.mjs <project-dir>

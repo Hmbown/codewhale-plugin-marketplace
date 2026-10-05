@@ -18,9 +18,19 @@ open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
 | Work in the Chrome tab you are looking at | [Codewhale for Chrome](plugins/chromewhale/README.md) | A side panel and `page_*` tools for selected tabs and frames in your own browser and sessions, gated per site. Load the bundled extension unpacked |
 | Operate a computer | [Computer Use](https://codewhale.net/computer-use) | App scripting, isolated Linux desktops and consent controls. Pair it with the [published Mac app (v0.12.0)](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.12.0) for one-grant control; without the app the tools use the host’s own grants. [Source and platform support](plugins/computer-use/README.md) |
 | Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
+| Build and deploy on Cloudflare | [Cloudflare](plugins/cloudflare/README.md) | Workers, KV, R2, D1, Durable Objects and Pages-to-Workers skills, an offline `/cloudflare-preflight` config check, and a deploy that waits for your approval. Pair with Cloudflare docs |
+| Deploy to Vercel | [Vercel workflow](plugins/vercel-workflow/README.md) | Deploy (preview or production) only after you approve, environment variables, logs, Next.js config and an offline `/vercel-preflight`. Uses your own Vercel CLI login; no MCP server |
 | Add workflows to an agent | [47 skills, organized by task](skills/README.md) | Coding, research, documents, email, calendar, travel, shopping, photos and audio; setup requirements shown |
+| Add only one kind of workflow | [Document skills](plugins/skills-docs/README.md), [Google skills](plugins/skills-google/README.md), [Personal skills](plugins/skills-personal/README.md), [Dev process skills](plugins/skills-dev-process/README.md) | The same reviewed skills as the 47-skill pack, split by domain so you install the one you need. Install either a domain plugin or the pack for a given skill, not both |
+| Review a diff, branch or PR | [Review toolkit](plugins/review-toolkit/README.md) | Six read-only specialist reviewers and `/review-pr`, which runs them in parallel and merges one ranked report |
+| Keep working until a task is done | [Loop](plugins/loop/README.md) | `/loop` re-prompts the session with a hard iteration cap, a completion phrase and `/cancel-loop`. macOS and Linux; needs `[control_socket] enabled = true` |
+| Review a user interface | [Design review](plugins/design-review/README.md) | Design critique, WCAG accessibility audit with a static scanner and contrast calculator, and UX copy review |
+| Build a single-page web artifact | [Web artifacts builder](plugins/web-artifacts-builder/README.md) | Scaffold, build to one self-contained HTML file, check it and preview it on loopback only |
+| Work with GitHub pull requests and issues | [GitHub workflow](plugins/github-workflow/README.md) | PR review and issue triage over GitHub's official remote MCP with your own token; never posts without your approval |
+| Work with Linear issues | [Linear workflow](plugins/linear-workflow/README.md) | Triage, evidence-based claim and status updates over Linear's official remote MCP with your own API key; shared writes need your approval |
+| See how each way of adding a plugin works | [Sample plugins](plugins/samples/README.md), [Hello extension](plugins/samples/hello-extension/README.md) | A native TypeScript extension (experimental host), a DSH package and a Claude-format bundle. Only Hello extension is in the catalog |
 | Understand an agent run | [Whalesong](plugins/whalesong/skills/whalesong-analyze/SKILL.md) | Trace analysis, comparisons and audio from a local Whalesong platform |
-| Connect Linear, GitHub or another service | [Connections](docs/CONNECTIONS.md) | Official endpoints and honest setup/qualification status; no empty connector plugins |
+| Connect Linear, GitHub or another service | [Connections](docs/CONNECTIONS.md) | Official endpoints and honest setup/qualification status. The GitHub and Linear workflow plugins add skills on top of a token you supply; a plugin never replaces the connection |
 | Use Telegram, WeChat, WeCom or Feishu | [Chat integrations](integrations/README.md) | Existing Core bridges, packaged here with source provenance |
 | Receive Slack mentions or Linear webhooks | [Webhook bridge](integrations/webhook-bridge/README.md) | Signed, allowlisted intake, durable queue and explicit runtime dispatch; reply delivery remains open |
 | Build a review bot | [Review bot guide](docs/REVIEW-BOT.md) | Review workflow, implementation boundaries and required host integration |
@@ -74,9 +84,15 @@ On macOS, browser checks use an installed Google Chrome when available. Set
 Tests never require live service credentials or model calls. Native tests skip
 platforms unavailable on the host; those skips are not platform acceptance.
 
+`npm test` runs each plugin's own tests, found by `scripts/test-plugins.mjs`
+(`npm run test:plugins`), so a new plugin's tests cannot be left out. Two suites are
+opt-in because they need a real Codewhale or the npm registry: `LOOP_E2E=1`
+(drives the installed TUI through tmux) and `WAB_E2E=1` (a real React build).
+
 `npm run skills -- email` searches the complete skill directory. After a reviewed
 Core skill commit, `npm run sync:skills` updates the active skills, all supporting
-resources, source hashes and directory together. Retired migration bodies are
+resources, source hashes and directory together, then refreshes the copies in the
+four `skills-*` domain plugins (`npm run check:skill-plugins` verifies them). Retired migration bodies are
 excluded. `npm run check -- --core ../codewhale` detects upstream drift as well
 as local packaging errors.
 

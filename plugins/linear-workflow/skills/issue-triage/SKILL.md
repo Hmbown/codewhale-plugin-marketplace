@@ -85,7 +85,7 @@ LIN-45  | Same as LIN-12       | duplicate | duplicateOf LIN-12           | iden
 ## Failure recovery
 
 - **No `linear` tools listed:** plugin not trusted or enabled
-  (`/plugin show linear`, `/plugin trust ...`, `/plugin enable linear`).
+  (`/plugin show linear-workflow`, `/plugin trust ...`, `/plugin enable linear-workflow`).
 - **401 / unauthorized:** `LINEAR_API_KEY` is missing or revoked. Create a
   personal API key in Linear (Settings, Security & access), set it in the
   environment Codewhale starts from, and restart. A restricted (read-only) key

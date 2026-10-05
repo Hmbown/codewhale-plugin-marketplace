@@ -90,7 +90,7 @@ Only if the user asks you to post:
 ## Failure recovery
 
 - **No `github` tools listed:** the plugin is installed but not trusted or
-  enabled (`/plugin show github`, `/plugin trust ...`, `/plugin enable github`).
+  enabled (`/plugin show github-workflow`, `/plugin trust ...`, `/plugin enable github-workflow`).
 - **401 / "bad credentials" / auth error on the first call:** the token is
   missing or lacks access. Tell the user to set `GITHUB_PERSONAL_ACCESS_TOKEN`
   (a fine-grained token scoped to the needed repositories) in the environment

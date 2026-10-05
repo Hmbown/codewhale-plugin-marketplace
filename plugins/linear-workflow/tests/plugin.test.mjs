@@ -52,6 +52,6 @@ test('claim workflow refuses to take another person\'s issue', () => {
 test('command has usage metadata and names both skills', () => {
   const body = text('commands/linear.md');
   assert.match(body, /^---\ndescription: .+\nusage: .+\n---\n/);
-  assert.match(body, /linear:issue-triage/);
-  assert.match(body, /linear:status-update/);
+  assert.match(body, /linear-workflow:issue-triage/);
+  assert.match(body, /linear-workflow:status-update/);
 });

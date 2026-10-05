@@ -14,7 +14,7 @@ Changes to Linear are stated before they are made.
 ## Set up
 
 1. Install, then review the bundle: `/plugin install <path-or-catalog>`,
-   `/plugin show linear`. The review shows one remote endpoint,
+   `/plugin show linear-workflow`. The review shows one remote endpoint,
    `https://mcp.linear.app/mcp`, and the network host `mcp.linear.app`.
 2. Create your own Linear API key (Settings, Security & access). A restricted
    read-only key works for `mine`, triage reads and status drafts; writes then
@@ -27,7 +27,7 @@ Changes to Linear are stated before they are made.
    codewhale
    ```
 
-4. `/plugin trust linear <token from show>` then `/plugin enable linear`.
+4. `/plugin trust linear-workflow <token from show>` then `/plugin enable linear-workflow`.
 
 Linear's server also supports OAuth, but plugin-contributed MCP servers cannot
 run Codewhale's interactive OAuth login today. For OAuth, configure Linear as a

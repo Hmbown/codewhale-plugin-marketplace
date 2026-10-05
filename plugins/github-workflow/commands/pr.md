@@ -5,7 +5,7 @@ usage: /pr <number | PR URL | owner/repo#number>
 
 Review this pull request: $ARGUMENTS
 
-Load the `github:pr-review` skill and follow it exactly. This command is
+Load the `github-workflow:pr-review` skill and follow it exactly. This command is
 read-only: gather the PR description, changed files, diff, checks and existing
 discussion with the GitHub MCP tools, then give the report in the skill's format.
 

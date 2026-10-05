@@ -71,6 +71,19 @@
       "author": "Codewhale"
     },
     {
+      "name": "hello-extension",
+      "source": "path:plugins/samples/hello-extension",
+      "version": "0.1.0",
+      "description": "A runnable sample of a native TypeScript extension: one greeting tool and /hello-greet. Install it to see the review flow; it only runs with the experimental extension host turned on.",
+      "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace/tree/main/plugins/samples/hello-extension",
+      "display_name": "Hello Extension (sample)",
+      "author": "Codewhale",
+      "platforms": [
+        "macos",
+        "linux"
+      ]
+    },
+    {
       "name": "linear-workflow",
       "source": "path:plugins/linear-workflow",
       "version": "0.1.0",
@@ -86,7 +99,11 @@
       "description": "Run a task again and again until it is done: /loop <prompt> [--max N] [--until <phrase>] re-prompts the session after every reply, with a hard iteration cap, a completion phrase and /cancel-loop.",
       "homepage": "https://github.com/Hmbown/codewhale-plugin-marketplace",
       "display_name": "Loop",
-      "author": "Codewhale"
+      "author": "Codewhale",
+      "platforms": [
+        "macos",
+        "linux"
+      ]
     },
     {
       "name": "review-toolkit",

@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "bf0937e2cbd68ef4d6ee7732d2d600f6a80ebbf7dd979a4f38183b13233e4081",
+      "page_sha256": "83815cfb6ae73d15cf0de4d33822800da3444d8396c1d91c19198d0a1f464299",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "8d8d44ec26bf83024c7dcf22c084f2d5217fce79798a46dc9c814fb9fe47e341",
-          "bytes": 5761
+          "sha256": "2a39a595794402ff50589c957f3e8257396419986652ef66feb28dedd132c04b",
+          "bytes": 11794
         },
         {
           "path": "CONTRIBUTING.md",
@@ -33,8 +33,8 @@
         {
           "path": "package.json",
           "root": "repo",
-          "sha256": "6270ac30bdfa5d28bcbafbb494cd3f67f2202a4704a4ce3d323a0e04bd5dda17",
-          "bytes": 1231
+          "sha256": "e9f75f8c99bfa52a8a72fd4c7d69f8202ff226839a1398dcadec0ca5882b0801",
+          "bytes": 1421
         },
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
@@ -75,13 +75,13 @@
         {
           "path": "skills/upstream.json",
           "root": "repo",
-          "sha256": "69259e7572ce5707e5925d77d112b2077dc2e13475150e696c1930b38d248555",
+          "sha256": "6d5f838a57ef19a2acd3c60cbd87f54cc42d3663e23f03400d6034c937f4bfee",
           "bytes": 5332
         },
         {
           "path": "skills/README.md",
           "root": "repo",
-          "sha256": "e9669cf7299edeaa9a4bb4946a793247f463e9f390c5165a3b3e03da23d00328",
+          "sha256": "7efa382853917e7d5aba8823f1f842e6fcb6d3ec961ea6577d1e5560285c8d34",
           "bytes": 10919
         },
         {
@@ -143,9 +143,27 @@
           "root": "repo",
           "sha256": "1e111a6eb6d8116fef983e9162bc289ee3a6c4ee3e16ce74f650f94ef78c5cb2",
           "bytes": 2167
+        },
+        {
+          "path": "scripts/test-plugins.mjs",
+          "root": "repo",
+          "sha256": "1bcb55e4026012168b11305f5116dc47be5e5d4cb65be9d6278dd01503288d42",
+          "bytes": 1967
+        },
+        {
+          "path": "scripts/sync-skill-plugins.mjs",
+          "root": "repo",
+          "sha256": "f03680f817bb17551028d5ba7f967597d9c6e89f410f158f4d323536713e14d4",
+          "bytes": 2894
+        },
+        {
+          "path": "tests/catalog-wiring.test.mjs",
+          "root": "repo",
+          "sha256": "439d3c365112496ed19ca596bc426a06005a21b936b1c0e66a5a98c2d711f3a4",
+          "bytes": 5108
         }
       ],
-      "sealed_at": "2026-10-04T17:45:30.044Z"
+      "sealed_at": "2026-10-05T09:40:54.253Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -180,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "9b25f620ad38af1d42b56995fc5edcf77201662553313334e82997c8d60d9c70",
+      "page_sha256": "ed49ddd807a24d11e9d337bbd85121ed1b201bb8fcf34559ac3bc262abdfa881",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -197,8 +215,8 @@
         {
           "path": "docs/CONNECTIONS.md",
           "root": "repo",
-          "sha256": "dd6ea0bb7e8856bc99792a3502164c3e82225bd42586018498496996c7ce263d",
-          "bytes": 5556
+          "sha256": "3722ae1302e96766111f6de3730910a6c7eb699157de3c9ad59c8360edfb8a0e",
+          "bytes": 6484
         },
         {
           "path": "integrations/upstream.json",
@@ -255,8 +273,8 @@
           "bytes": 15381
         }
       ],
-      "sealed_at": "2026-09-21T07:10:20.161Z"
+      "sealed_at": "2026-10-05T09:40:54.363Z"
     }
   },
-  "updated_at": "2026-10-04T17:45:30.047Z"
+  "updated_at": "2026-10-05T09:40:54.364Z"
 }

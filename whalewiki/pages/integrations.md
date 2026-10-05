@@ -16,6 +16,15 @@ keeps service setup outside installable URL wrappers. Slack and Vercel require
 further Codewhale client qualification, so their recipes offer no install
 command. A documented endpoint is not a verified login.
 
+`github-workflow`, `linear-workflow` and `vercel-workflow` are installable
+plugins that sit beside those recipes under different ids. They add reviewed
+skills and commands. The first two declare the service's remote MCP with a
+bearer token read from an environment variable, because plugin MCP cannot run
+OAuth; `vercel-workflow` ships no MCP and uses the Vercel CLI login. Both MCP
+endpoints answered 401 without a token when checked, and no authenticated call
+has been made, so tool names in those skills are unverified against a live
+account.
+
 BaizhiCloud Agent Toolkit is a documented bearer connection. The generated
 server entry keeps the token in the host environment through the native
 `bearer_token_env_var` field. It offers search/read setup guidance but does not

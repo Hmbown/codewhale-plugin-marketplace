@@ -69,7 +69,7 @@ Changes since last update: health onTrack -> atRisk (LIN-61)
 ## Failure recovery
 
 - **No `linear` tools listed:** plugin not trusted or enabled
-  (`/plugin show linear`, `/plugin trust ...`, `/plugin enable linear`).
+  (`/plugin show linear-workflow`, `/plugin trust ...`, `/plugin enable linear-workflow`).
 - **401 / unauthorized or writes rejected:** `LINEAR_API_KEY` is missing,
   revoked or read-only. Set a valid key in Codewhale's environment and restart;
   you can still deliver the draft in chat. Never ask for or print the key.

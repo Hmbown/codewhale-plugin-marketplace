@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/Hmbown/Codewhale",
-  "commit": "f46dc252f1f785ad9fd122d6ca2725f3bcd46092",
-  "generation": "15",
+  "commit": "21c8f86c4c774f0028247d566ce976d16bbd4fbc",
+  "generation": "17",
   "skills": [
     "batch",
     "best-of-n",
@@ -80,7 +80,7 @@
     "pdf/SKILL.md": "cc368bc8eda5e061d290b00a407ea25cd22d0b1c3c1ce773c434cd9b6e5bee5b",
     "photos/SKILL.md": "06875a37f8f444b0ee1d375329404fbb6fa93d5745d1fb60a30647abeb3aa1e7",
     "plan/SKILL.md": "eeeac11c375b17f188522e498e242fb16c77e14a27dc87d37e49c7b4462aa975",
-    "plugin-creator/SKILL.md": "32139a0bdcf5da00cc0ce49144feb90540496023dd7121b8abc2f7db0debfe1b",
+    "plugin-creator/SKILL.md": "c761d6774b751a985ffed2894f595d8f871430b0a05a8e94bb7245399d811de7",
     "podcast/SKILL.md": "87eb0da2edd080c7ba7fc07af62b88d4eb2bce2bb20927cb325741682c0e281e",
     "pptx/SKILL.md": "e9663d929e47533efff3b9388f6da62aad7f48b75f01e30ae310dd59b53f169a",
     "presentations/SKILL.md": "ecddd5663a93bc1afca20ef2a5bdac26258a98557aa1a743797c0a5fa720a247",

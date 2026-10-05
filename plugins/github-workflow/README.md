@@ -13,7 +13,7 @@ report to you; nothing is posted to GitHub without your approval of the exact te
 ## Set up
 
 1. Install, then review the bundle: `/plugin install <path-or-catalog>`,
-   `/plugin show github`. The review shows one remote endpoint,
+   `/plugin show github-workflow`. The review shows one remote endpoint,
    `https://api.githubcopilot.com/mcp/`, and the network host
    `api.githubcopilot.com`.
 2. Create a GitHub **fine-grained personal access token** limited to the
@@ -27,7 +27,7 @@ report to you; nothing is posted to GitHub without your approval of the exact te
    codewhale
    ```
 
-4. `/plugin trust github <token from show>` then `/plugin enable github`.
+4. `/plugin trust github-workflow <token from show>` then `/plugin enable github-workflow`.
 
 Plugin-contributed MCP servers cannot run an interactive OAuth login in
 Codewhale today, so the plugin declares token authentication through the

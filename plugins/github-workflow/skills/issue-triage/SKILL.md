@@ -75,7 +75,7 @@ tools. It needs `GITHUB_PERSONAL_ACCESS_TOKEN` in Codewhale's environment.
 ## Failure recovery
 
 - **No `github` tools listed:** plugin not trusted or enabled
-  (`/plugin show github`, `/plugin trust ...`, `/plugin enable github`).
+  (`/plugin show github-workflow`, `/plugin trust ...`, `/plugin enable github-workflow`).
 - **Auth error:** set `GITHUB_PERSONAL_ACCESS_TOKEN` (fine-grained, limited to
   the needed repositories; issues read/write only if you intend to file) in
   Codewhale's environment and restart. Never ask the user to paste the token.

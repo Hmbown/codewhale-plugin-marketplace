@@ -5,18 +5,20 @@
   "scripts": {
     "check": "node scripts/check-marketplace.mjs",
     "check:cu-sync": "node scripts/check-cu-sync.mjs",
+    "check:skill-plugins": "node scripts/sync-skill-plugins.mjs --check",
     "check:wiki": "node plugins/whalewiki/scripts/whalewiki.mjs status --exit-stale --short",
     "test:whalewiki": "node --test plugins/whalewiki/tests/*.test.mjs",
     "test:computer-use": "npm --prefix plugins/computer-use test",
     "test:chromewhale": "npm --prefix plugins/chromewhale test",
-    "test": "npm run test:whalewiki && npm run test:computer-use && npm run test:chromewhale && npm run test:integrations && node --test tests/*.test.mjs",
+    "test:plugins": "node scripts/test-plugins.mjs",
+    "test": "npm run test:whalewiki && npm run test:computer-use && npm run test:chromewhale && npm run test:plugins && npm run test:integrations && node --test tests/*.test.mjs",
     "test:integrations": "node scripts/test-integrations.mjs",
     "check:web": "playwright test",
     "package:plugin": "node scripts/package-plugin.mjs",
     "connections": "node scripts/connections.mjs",
     "integrations": "node scripts/integrations.mjs",
     "skills": "node scripts/skills.mjs",
-    "sync:skills": "node scripts/skills.mjs --write --core ../codewhale"
+    "sync:skills": "node scripts/skills.mjs --write --core ../codewhale && node scripts/sync-skill-plugins.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"
