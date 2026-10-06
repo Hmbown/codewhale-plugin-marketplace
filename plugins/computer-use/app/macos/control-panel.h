@@ -132,7 +132,7 @@ static NSView *cuSeparator(void) {
 - (void)pause:(id)sender { cuSend([self.state[@"mode"] isEqual:@"ready"]?@"pause":@"resume"); }
 - (void)stop:(id)sender { cuSend(@"stop"); }
 - (void)check:(id)sender { self.checkResult.stringValue=@"Checking the practice window…"; cuSend(@"check"); }
-- (void)help:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/Hmbown/codewhale-cu-plugin/blob/main/docs/TROUBLESHOOTING.md"]]; }
+- (void)help:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/codewhale-hq/codewhale-cu-plugin/blob/main/docs/TROUBLESHOOTING.md"]]; }
 - (void)updates:(id)sender {
   if([self.state[@"update"] isKindOfClass:NSDictionary.class] && [self.state[@"update"][@"available"] boolValue]) cuSend(@"install_update");
   else cuSend(@"updates");

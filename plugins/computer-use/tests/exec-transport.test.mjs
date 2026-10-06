@@ -7,7 +7,7 @@ import path from "node:path";
 import net from "node:net";
 import { run, runOk, runInputLease, ExecError, have, trim, withSignal } from "../src/exec.mjs";
 import { safeRemotePath, b64, localExec, hdcExec, executorFor } from "../src/transport.mjs";
-import { ensureApp, writeRegistration } from "../src/app-socket.mjs";
+import { appRequest, appSessionRequest, ensureApp, writeRegistration } from "../src/app-socket.mjs";
 
 test("a missing registered bundle gives a repair path without falling back to host input",async t=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),"cu-missing-app-"));
@@ -208,4 +208,31 @@ test("hdc pullFile rejects traversal and shell metacharacters before execution",
   for (const remote of ["/data/../secret", "/data/file;touch", "/data/$(touch)", "//data/file", null]) {
     await assert.rejects(ex.pullFile(remote, "/unused-fixture-output"), /refusing unsafe remote path/);
   }
+});
+
+test("a helper request that was written reports an unknown outcome when it times out or is cancelled", {skip:process.platform==="win32"}, async t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"cu-silent-helper-"));
+  const saved=process.env.CODEWHALE_CU_APP_SOCKET;
+  process.env.CODEWHALE_CU_APP_SOCKET=path.join(dir,"app.sock");
+  const received=[];
+  // Accepts and reads the request, then never answers (a wedged helper).
+  const server=net.createServer(socket=>socket.on("data",data=>received.push(String(data))));
+  await new Promise(resolve=>server.listen(process.env.CODEWHALE_CU_APP_SOCKET,resolve));
+  t.after(async()=>{
+    server.close();
+    if(saved===undefined) delete process.env.CODEWHALE_CU_APP_SOCKET; else process.env.CODEWHALE_CU_APP_SOCKET=saved;
+    fs.rmSync(dir,{recursive:true,force:true});
+  });
+  await assert.rejects(appRequest({tool:"left_click",args:{}},{timeoutMs:80,signal:null}),error=>error.code==="app_timeout"&&error.requestDispatched===true);
+  const controller=new AbortController();
+  const pending=appRequest({tool:"left_click",args:{}},{timeoutMs:5_000,signal:controller.signal});
+  while(received.length<2) await new Promise(resolve=>setTimeout(resolve,5));
+  controller.abort();
+  await assert.rejects(pending,error=>error.code==="cancelled"&&error.requestDispatched===true);
+  assert.equal(received.length,2,"each request reached the helper before its failure");
+  // Opening the session lease sends no input: its timeout is not outcome-unknown.
+  await assert.rejects(appSessionRequest({tool:"left_click",args:{},sessionId:"silent-lease"},{timeoutMs:80,signal:null}),error=>error.code==="app_timeout"&&error.requestDispatched===undefined);
+  // Nothing written: an unreachable helper is a plain failure, safe to retry.
+  process.env.CODEWHALE_CU_APP_SOCKET=path.join(dir,"absent.sock");
+  await assert.rejects(appRequest({tool:"left_click",args:{}},{timeoutMs:1_000,signal:null}),error=>error.code==="app_unavailable"&&error.requestDispatched===undefined);
 });

@@ -1,6 +1,7 @@
 // The human/agent control lease on a shared Codewhale Computer: input tools
 // refuse with computer_busy_human_driving while a person drives, observation
 // keeps working, and hand-back restores input without a restart.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -77,6 +78,7 @@ function startServer() {
   const env = { ...process.env, CODEWHALE_CU_LEASE_FILE: LEASE, CODEWHALE_CU_APP: "off", CODEWHALE_CU_APP_WARM: "off",
     CODEWHALE_CU_STATE_DIR: fs.mkdtempSync(path.join(dir, "state-")), CODEWHALE_CU_RECORDINGS_DIR: dir };
   const child = spawn(process.execPath, [path.join(ROOT, "mcp/server.mjs")], { env, stdio: ["pipe", "pipe", "ignore"] });
+  child.stdin.write(hostKeysLine());
   let buf = "";
   const pending = new Map();
   let nextId = 1;
@@ -92,7 +94,7 @@ function startServer() {
   const rpc = (method, params) => new Promise((resolve) => {
     const id = nextId++;
     pending.set(id, resolve);
-    child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+    child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) })}\n`);
   });
   const tool = async (name, args = {}) => JSON.parse((await rpc("tools/call", { name, arguments: args })).result.content[0].text);
   return { child, rpc, tool };

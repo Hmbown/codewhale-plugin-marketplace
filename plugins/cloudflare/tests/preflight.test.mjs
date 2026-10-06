@@ -187,3 +187,23 @@ test("safety: the checker has no process, network or write capability", () => {
     assert.ok(!banned.test(src), `preflight.mjs must not contain ${banned}`);
   }
 });
+
+
+test("typed cf config cannot be evaluated or replaced by a stale legacy success", () => {
+  const dir = tmp({
+    "cloudflare.config.ts": 'import fs from "node:fs"; fs.writeFileSync("must-not-run.txt", "executed"); throw new Error("executed");',
+    "wrangler.jsonc": JSON.stringify(good),
+    "src/index.ts": "",
+  });
+  for (const target of [dir, path.join(dir, "cloudflare.config.ts"), path.join(dir, "wrangler.jsonc")]) {
+    const result = runPreflight(target);
+    assert.equal(result.code, 2);
+    assert.equal(result.validated, false);
+    assert.match(result.error, /not validated.*cf deploy --dry-run/);
+    assert.equal(result.file, path.join(dir, "cloudflare.config.ts"));
+  }
+  const cli = spawnSync(process.execPath, [script, dir, "--json"], { cwd: dir, encoding: "utf8" });
+  assert.equal(cli.status, 2);
+  assert.equal(JSON.parse(cli.stdout).validated, false);
+  assert.equal(fs.existsSync(path.join(dir, "must-not-run.txt")), false);
+});

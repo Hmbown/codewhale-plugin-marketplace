@@ -9,8 +9,8 @@
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "2a39a595794402ff50589c957f3e8257396419986652ef66feb28dedd132c04b",
-          "bytes": 11794
+          "sha256": "03a5875d80a3d32b8c304de20896e8fd30ee7f4c6e7f49793f5c4b28f23351e4",
+          "bytes": 11896
         },
         {
           "path": "CONTRIBUTING.md",
@@ -69,20 +69,20 @@
         {
           "path": "scripts/skills.mjs",
           "root": "repo",
-          "sha256": "0d75298ba30111461e7ac6a03de065ccfc8463aeb7276ec4aaa2c509b66c1406",
-          "bytes": 10356
+          "sha256": "ededc4a44acc66b769a4ffb5a0a23c3700415016e5faab5cf9c39d14b0845e7c",
+          "bytes": 10345
         },
         {
           "path": "skills/upstream.json",
           "root": "repo",
-          "sha256": "6d5f838a57ef19a2acd3c60cbd87f54cc42d3663e23f03400d6034c937f4bfee",
-          "bytes": 5332
+          "sha256": "7dc014aeb7fa8939dea55ee38c16875fdc217d159c6b5dd69338af9bed698f65",
+          "bytes": 5338
         },
         {
           "path": "skills/README.md",
           "root": "repo",
-          "sha256": "7efa382853917e7d5aba8823f1f842e6fcb6d3ec961ea6577d1e5560285c8d34",
-          "bytes": 10919
+          "sha256": "3f423b0004acee7b51ccb12a7fac10dff00e3ae0525aa91f23dee3a52f05f4be",
+          "bytes": 10925
         },
         {
           "path": "plugins/chromewhale/README.md",
@@ -99,14 +99,14 @@
         {
           "path": "plugins/computer-use/mcp/server.mjs",
           "root": "repo",
-          "sha256": "3682308c272a77e2ede458731ba62d75eeb453d8e63319f8acca68cd03eb051d",
-          "bytes": 90840
+          "sha256": "4e5ed7132d36a558a141c175d0e69f26ac75f926db4618452d6fce066d8a8ffd",
+          "bytes": 98514
         },
         {
           "path": "plugins/computer-use/skills/computer-use/SKILL.md",
           "root": "repo",
-          "sha256": "ac23e2c6f738589c25b6732a1bd2f93660fa4107d54c307ca84f19a2c43f507e",
-          "bytes": 5355
+          "sha256": "4d0827676cd998204f15c7afdbb31f12e339ca7951535664644c62e100f16c22",
+          "bytes": 5682
         },
         {
           "path": "tests/browser/chromewhale.spec.mjs",
@@ -135,8 +135,8 @@
         {
           "path": "plugins/computer-use/src/trajectory.mjs",
           "root": "repo",
-          "sha256": "c5e9fcd187c08d3ff98ec4a54f5b1e52980a05f91c520fd1e9e1e5039c612f91",
-          "bytes": 6881
+          "sha256": "ca6f52ef2fdf751e2b343d62fe320aabb7b9917b685b0284e4c2625fd94c3aed",
+          "bytes": 6825
         },
         {
           "path": "plugins/computer-use/skills/recording/SKILL.md",
@@ -153,14 +153,14 @@
         {
           "path": "scripts/sync-skill-plugins.mjs",
           "root": "repo",
-          "sha256": "f03680f817bb17551028d5ba7f967597d9c6e89f410f158f4d323536713e14d4",
-          "bytes": 2894
+          "sha256": "5d51e251788e92502df7630fe590f25ff8df831840d506ad68acb61c2f19c166",
+          "bytes": 2970
         },
         {
           "path": "tests/catalog-wiring.test.mjs",
           "root": "repo",
-          "sha256": "439d3c365112496ed19ca596bc426a06005a21b936b1c0e66a5a98c2d711f3a4",
-          "bytes": 5108
+          "sha256": "34620d530f84487001ae0225c893666a99ba5b56bf8706e3161e3edafcab518d",
+          "bytes": 5554
         }
       ],
       "sealed_at": "2026-10-05T09:40:54.253Z"

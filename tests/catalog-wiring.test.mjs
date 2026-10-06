@@ -23,6 +23,12 @@ test('every catalog entry points at a bundle whose manifest name and version mat
     assert.equal(manifest.name, p.name, `${p.source}: manifest name`);
     assert.equal(manifest.version, p.version, `${p.name}: catalog version`);
     assert.ok(p.display_name && p.description, `${p.name}: display_name and description`);
+    const homepage = new URL(p.homepage);
+    if (homepage.hostname === 'github.com' && homepage.pathname.includes('/codewhale-plugin-marketplace')) {
+      assert.equal(homepage.pathname.split('/')[1], 'codewhale-hq', `${p.name}: canonical repository owner`);
+      const sourcePath = homepage.pathname.split('/tree/main/')[1];
+      if (sourcePath) assert.equal(sourcePath, p.source.slice(5), `${p.name}: homepage points at its source`);
+    }
   }
   assert.equal(new Set(entries.map((p) => p.name)).size, entries.length, 'duplicate catalog names');
 });

@@ -62,15 +62,17 @@ export function create() {
     },
     async left_mouse_down(args = {}) { record("left_mouse_down", args); return { action_sent: true, at: { x: args.target?.x, y: args.target?.y } }; },
     async left_mouse_up(args = {}) { record("left_mouse_up", args); return { action_sent: true }; },
-    async screenshot({ region } = {}) {
-      record("screenshot", { region });
+    async screenshot(args = {}) {
+      const { region } = args;
+      record("screenshot", args);
       const file = tmpPng("cu-fake-shot-");
       return region
         ? { file, points: { x: region[0], y: region[1], w: region[2], h: region[3] }, pixels: { w: region[2] * 2, h: region[3] * 2 }, scale: 2 }
         : { file, points: { x: 0, y: 0, w: 800, h: 600 }, pixels: { w: 1600, h: 1200 }, scale: 2 };
     },
-    async zoom({ region, source } = {}) {
-      record("zoom", { region, source });
+    async zoom(args = {}) {
+      const { region } = args;
+      record("zoom", args);
       return { file: tmpPng("cu-fake-zoom-"), region };
     },
     async get_app_state({ app_ref, detail, include_ocr } = {}) {

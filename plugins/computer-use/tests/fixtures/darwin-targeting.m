@@ -20,7 +20,12 @@
   CUFixtureApplication *target=[CUFixtureApplication new], *front=[CUFixtureApplication new];
   target.processIdentifier=123; target.localizedName=@"Fixture"; target.bundleIdentifier=@"test.fixture";
   front.processIdentifier=999; front.localizedName=@"Other"; front.bundleIdentifier=@"test.other";
-  return @[front,target];
+  // Two running instances sharing one name and bundle (a second browser
+  // profile, an `open -n` copy): only a pid may choose between them.
+  CUFixtureApplication *twinA=[CUFixtureApplication new], *twinB=[CUFixtureApplication new];
+  twinA.processIdentifier=200; twinA.localizedName=@"Twin"; twinA.bundleIdentifier=@"test.twin";
+  twinB.processIdentifier=201; twinB.localizedName=@"Twin"; twinB.bundleIdentifier=@"test.twin";
+  return @[front,target,twinA,twinB];
 }
 - (NSRunningApplication *)frontmostApplication { return (NSRunningApplication *)self.runningApplications[0]; }
 @end
@@ -50,7 +55,9 @@ int main(int argc, const char *argv[]) { @autoreleasepool {
     return 0;
   }
   if(![@[@"list_windows",@"get_app_state",@"resolve_element",@"window_info"] containsObject:request[@"tool"]]) return 2;
-  NSRunningApplication *app=resolve(request[@"args"][@"app_ref"]);
+  NSRunningApplication *app=nil;
+  @try { app=resolve(request[@"args"][@"app_ref"]); }
+  @catch(NSException *error) { fprintf(stderr,"%s\n",error.reason.UTF8String); return 1; }
   if(!app) { fputs("application not found\n",stderr); return 1; }
   NSDictionary *receipt=@{@"found":@YES,@"pid":@(app.processIdentifier),@"name":app.localizedName,@"bundle_id":app.bundleIdentifier,@"windows":@[],@"elements":@[]};
   NSData *json=[NSJSONSerialization dataWithJSONObject:receipt options:0 error:nil];

@@ -48,18 +48,18 @@ test("each skill has matching name, description, and a body", () => {
 test("the deploy skill states the approval rule and classifies commands", () => {
   const t = read("skills/cloudflare-deploy/SKILL.md");
   assert.match(t, /Never run a command from the "needs approval" list/);
-  for (const cmd of ["wrangler deploy", "versions upload", "versions deploy", "wrangler rollback", "secret put", "--remote", "wrangler login"]) {
+  for (const cmd of ["cf deploy", "cf workers versions create", "cf workers deployments create", "cf workers triggers deploy", "rollback", "cf workers secrets update", "cf workers secrets delete", "--local", "cf auth login"]) {
     const afterHeading = t.split("Needs approval")[1].split("## Workflow")[0];
     assert.ok(afterHeading.includes(cmd), `${cmd} must be in the needs-approval list`);
   }
   const safe = t.split("Safe without approval")[1].split("Needs approval")[0];
   assert.ok(safe.includes("--dry-run"));
-  assert.ok(!/wrangler deploy\b(?! --dry-run)/.test(safe.replace(/wrangler deploy --dry-run/g, "")), "safe list must not include a real deploy");
+  assert.ok(!/cf deploy\b(?! --dry-run)/.test(safe.replace(/cf deploy --dry-run/g, "")), "safe list must not include a real deploy");
   assert.match(t, /explicit yes/);
 });
 
-test("no skill instructs a mutating Wrangler command without a nearby approval cue", () => {
-  const mutating = /wrangler (deploy\b(?! --dry-run)|versions (upload|deploy)|rollback|secret (put|delete|bulk)|delete|kv namespace (create|delete)|d1 (create|delete)|r2 bucket (create|delete))|(migrations apply|execute)[^\n]*--remote|--remote\b/;
+test("no skill instructs a mutating cf command without a nearby approval cue", () => {
+  const mutating = /cf (deploy\b(?! --dry-run)|workers (versions create|deployments create|triggers deploy|secrets (update|delete)))|remote[^\n]*(write|delet|creat|migrat)/i;
   const cue = /approv|ask|yes|remote|dry-run|needs|explicit|cloudflare-deploy|user|never|prompts|account|not to deploy|do not|don't/i;
   for (const dir of skillDirs) {
     if (dir === "cloudflare-deploy") continue; // classified in full by the previous test

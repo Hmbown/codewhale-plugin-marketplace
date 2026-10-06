@@ -99,6 +99,18 @@ test("strings lists the visible UI text with its kind", () => {
   assert.ok(!items.some((i) => i.text.includes("outline")), "style text is not UI text");
 });
 
+test("visible text decodes each original HTML entity once", () => {
+  const html = '<p>&amp;lt; &amp;#60; &amp;#x3c; &#38;amp; &lt; &#60; &#x3c; &#x1f433;</p>';
+  assert.equal(extractStrings(html)[0].text, '&lt; &#60; &#x3c; &amp; < < < 🐳');
+  assert.deepEqual(scanHtml(html), []);
+});
+
+test("invalid numeric HTML entities cannot crash a static review", () => {
+  const html = '<p>&#0; &#x110000; &#xd800; &#xdfff; &#99999999999999999999999999999999999999999999;</p>';
+  assert.equal(extractStrings(html)[0].text, '\ufffd \ufffd \ufffd \ufffd \ufffd');
+  assert.deepEqual(scanHtml(html), []);
+});
+
 test("CLI: scan exits 0 on a clean page and 1 with errors, JSON is parseable, contrast gates on AA", () => {
   const run = (...a) => spawnSync(process.execPath, [CLI, ...a], { encoding: "utf8" });
   const good = run("scan", path.join(HERE, "fixtures/good.html"));

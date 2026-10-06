@@ -281,11 +281,11 @@ export function checkConfig(config, { dir = ".", today = new Date().toISOString(
 
   // Identity.
   if (typeof config.name !== "string" || !config.name) add("error", "CF-NO-NAME", "`name` is missing; the Worker would deploy under an unintended name");
-  add("info", "CF-ACCOUNT", config.account_id ? "`account_id` is set in the config; confirm it is the intended account" : "no `account_id` in the config: Wrangler uses the logged-in or CLOUDFLARE_ACCOUNT_ID account, so confirm with `wrangler whoami` before any deploy");
+  add("info", "CF-ACCOUNT", config.account_id ? "`account_id` is set in the config; confirm it is the intended account" : "no `account_id` in the config: Wrangler uses the logged-in or CLOUDFLARE_ACCOUNT_ID account, so review the cf migration and confirm with `cf auth whoami` before any deploy");
 
   // What gets deployed.
   const isPages = config.pages_build_output_dir !== undefined;
-  if (isPages) add("warn", "CF-PAGES-CONFIG", "`pages_build_output_dir` marks a Cloudflare Pages project; see the cloudflare-pages-to-workers skill before using `wrangler deploy`");
+  if (isPages) add("warn", "CF-PAGES-CONFIG", "`pages_build_output_dir` marks a Cloudflare Pages project; see the cloudflare-pages-to-workers skill before using `cf deploy`");
   else if (!config.main && !config.assets) add("error", "CF-NOTHING-TO-DEPLOY", "neither `main` nor `assets` is set, so there is nothing to deploy");
 
   // Compatibility date.
@@ -317,7 +317,7 @@ export function checkConfig(config, { dir = ".", today = new Date().toISOString(
       if (m.new_classes?.length) add("warn", "CF-DO-KV-BACKEND", `${prefix}migration ${JSON.stringify(m.tag)} uses \`new_classes\` (key-value storage); new Durable Object namespaces need SQLite (\`new_sqlite_classes\`)`);
     }
     for (const [name, v] of doExports) if (!v.state || v.state === "created") declared.add(name);
-    if (doExports.length) add("info", "CF-EXPORTS-WRANGLER", `${prefix}\`exports\` is a recent Wrangler feature; an older Wrangler warns 'Unexpected fields found in top-level field: "exports"' and ignores it, so check \`npx wrangler --version\` or use \`migrations\``);
+    if (doExports.length) add("info", "CF-EXPORTS-WRANGLER", `${prefix}\`exports\` is a recent Wrangler feature; an older Wrangler warns 'Unexpected fields found in top-level field: "exports"' and ignores it, so review the supported lifecycle mapping during cf migration or keep \`migrations\``);
     const tags = migrations.map((m) => m.tag);
     if (new Set(tags).size !== tags.length) add("error", "CF-DO-DUP-TAG", `${prefix}migration tags must be unique`);
     for (const b of bindings) if (b.class_name && !declared.has(b.class_name)) add("error", "CF-DO-NO-LIFECYCLE", `${prefix}Durable Object binding ${JSON.stringify(b.name)} uses class ${JSON.stringify(b.class_name)} which has no \`migrations\` or \`exports\` entry; deploy fails or the class has no storage`);
@@ -341,7 +341,7 @@ export function checkConfig(config, { dir = ".", today = new Date().toISOString(
     if (!isObj(scope?.vars)) continue;
     for (const [k, v] of Object.entries(scope.vars)) {
       if (typeof v !== "string" || !v || PLACEHOLDER.test(v)) continue;
-      if (SECRET_NAME.test(k)) add("warn", "CF-SECRET-VAR", `${prefix}vars.${k} has a secret-like name and a literal value; plain vars are visible in config and the dashboard, so use \`wrangler secret put\` (value not shown)`);
+      if (SECRET_NAME.test(k)) add("warn", "CF-SECRET-VAR", `${prefix}vars.${k} has a secret-like name and a literal value; plain vars are visible in config and the dashboard, so use the approved cf secret-update workflow (value not shown)`);
     }
   }
   for (const [p, v] of walkStrings(config)) {
@@ -366,6 +366,11 @@ export function runPreflight(target = ".", opts = {}) {
   const stat = fs.existsSync(target) ? fs.statSync(target) : null;
   if (!stat) return { code: 2, findings: [], error: `not found: ${target}` };
   const dir = stat.isDirectory() ? path.resolve(target) : path.dirname(path.resolve(target));
+  const typed = path.join(dir, "cloudflare.config.ts");
+  if (fs.existsSync(typed)) return {
+    code: 2, file: typed, validated: false, findings: [],
+    error: "cloudflare.config.ts is executable TypeScript and is not validated by this offline checker. Read it, run project tests, then cf build and cf deploy --dry-run; no legacy config was accepted instead.",
+  };
   const files = stat.isDirectory() ? findConfigs(dir) : [path.resolve(target)];
   if (!files.length) return { code: 2, findings: [], error: `no wrangler.jsonc, wrangler.json or wrangler.toml in ${dir}` };
   let config;

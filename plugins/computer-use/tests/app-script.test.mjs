@@ -2,6 +2,7 @@
 // dictionary. Local-computer only — a remote channel must never become a
 // shell, so ssh/hdc computers refuse before dispatch and the remote agent
 // refuses again at its own handler boundary.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -20,6 +21,7 @@ async function boot(t, env = {}) {
     env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: recDir, CODEWHALE_CU_APP: "off", ...env },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  child.stdin.write(hostKeysLine());
   t.after(() => { try { child.stdin.end(); } catch {} child.kill("SIGTERM"); fs.rmSync(stateDir, { recursive: true, force: true }); fs.rmSync(recDir, { recursive: true, force: true }); });
   let buf = "";
   const pending = new Map();
@@ -40,7 +42,7 @@ async function boot(t, env = {}) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, 20_000);
       pending.set(id, (msg) => { clearTimeout(timer); resolve(msg); });
-      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
     });
   };
   const tool = async (name, args = {}) => JSON.parse((await rpc("tools/call", { name, arguments: args })).result.content[0].text);
@@ -58,6 +60,10 @@ test("tools/list advertises app_script with a required script", async (t) => {
 
 test("app_script runs AppleScript and JXA on the local computer", { skip: process.platform !== "darwin" }, async (t) => {
   const s = await boot(t);
+  // A script that names no app runs as osascript and needs that consent.
+  const unconsented = await s.tool("app_script", { script: 'return "whole computer"' });
+  assert.equal(unconsented.error?.code, "consent_required");
+  assert.equal((await s.tool("consent", { action: "allow", bundle_id: "com.apple.osascript" })).ok, true);
   const as = await s.tool("app_script", { script: 'return "whole computer"' });
   assert.equal(as.ok, true);
   assert.equal(as.result, "whole computer");
@@ -69,6 +75,7 @@ test("app_script runs AppleScript and JXA on the local computer", { skip: proces
 
 test("app_script failures are typed, never opaque", { skip: process.platform !== "darwin" }, async (t) => {
   const s = await boot(t);
+  assert.equal((await s.tool("consent", { action: "allow", bundle_id: "com.apple.osascript" })).ok, true);
   const bad = await s.tool("app_script", { script: "this is not applescript at all" });
   assert.equal(bad.ok, false);
   assert.equal(bad.error.code, "script_error");
@@ -115,9 +122,10 @@ test("a read-only grant never advertises or calls app_script", async (t) => {
 });
 
 test("a named grant admits app_script exactly", { skip: process.platform !== "darwin" }, async (t) => {
-  const s = await boot(t, { CODEWHALE_CU_GRANT: "app_script" });
+  const s = await boot(t, { CODEWHALE_CU_GRANT: "app_script,consent" });
   const names = (await s.rpc("tools/list", {})).result.tools.map((x) => x.name);
   assert.ok(names.includes("app_script"));
+  assert.equal((await s.tool("consent", { action: "allow", bundle_id: "com.apple.osascript" })).ok, true);
   assert.equal((await s.tool("app_script", { script: "return 42" })).result, "42");
 });
 
@@ -127,4 +135,13 @@ test("the kill switch stops scripting too", async (t) => {
   const r = await s.tool("app_script", { script: "return 1" });
   assert.equal(r.ok, false);
   assert.equal(r.error.code, "control_stopped");
+});
+
+test("unrestricted mode still honors a deny for a named target", async (t) => {
+  const s = await boot(t, { CODEWHALE_CU_APP_SCRIPT: "unrestricted" });
+  assert.equal((await s.tool("consent", { action: "deny", app: "Mail" })).ok, true);
+  const r = await s.tool("app_script", { script: 'tell application "Mail" to do shell script "id"' });
+  assert.equal(r.error?.code, "app_denied");
+  const bare = await s.tool("app_script", { script: "return 1" });
+  assert.equal(bare.error?.code, "consent_required", "a no-app script needs osascript consent in every mode");
 });

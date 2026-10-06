@@ -333,7 +333,8 @@ const strip = (s) => s.trim().replace(/^[`*_>\s]+|[`*_\s]+$/g, '');
 
 export function hasPhrase(reply, phrase) {
   const want = phrase.trim();
-  return reply.split(/\r?\n/).some((line) => line.trim() === want || strip(line) === want);
+  const last = reply.trimEnd().split(/\r?\n/).at(-1) ?? '';
+  return last.trim() === want || strip(last) === want;
 }
 
 async function waitForReply(sessionFile, marker, env) {

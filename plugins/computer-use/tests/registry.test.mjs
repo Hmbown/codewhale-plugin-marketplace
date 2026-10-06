@@ -56,3 +56,32 @@ test("remove falls back to local when removing the active computer", () => {
   assert.throws(() => registry.remove("local"), (e) => e.code === "reserved_id");
   assert.throws(() => registry.remove("pad"), (e) => e.code === "unknown_computer");
 });
+
+test("ssh hosts or users that read as options are refused at registration and ignored on load", async () => {
+  const fsMod = await import("node:fs");
+  const os = await import("node:os");
+  const pathMod = await import("node:path");
+  const dir = fsMod.mkdtempSync(pathMod.join(os.tmpdir(), "cu-registry-"));
+  const previous = process.env.CODEWHALE_CU_STATE_DIR;
+  process.env.CODEWHALE_CU_STATE_DIR = dir;
+  try {
+    const registry = await import("../src/registry.mjs");
+    assert.throws(() => registry.register({ id: "bad", transport: "ssh", host: "-Fx" }), { code: "invalid_host" });
+    assert.throws(() => registry.register({ id: "bad2", transport: "ssh", host: "ok.example", user: "-oProxyCommand=x" }), { code: "invalid_user" });
+    fsMod.writeFileSync(pathMod.join(dir, "computers.json"), JSON.stringify({
+      version: 1,
+      active: "planted",
+      computers: {
+        planted: { id: "planted", transport: "ssh", host: "-Fx" },
+        fine: { id: "fine", transport: "ssh", host: "ok.example" },
+      },
+    }));
+    const listed = registry.list();
+    assert.equal(listed.computers.planted, undefined);
+    assert.ok(listed.computers.fine);
+    assert.equal(listed.active, "local");
+  } finally {
+    if (previous === undefined) delete process.env.CODEWHALE_CU_STATE_DIR;
+    else process.env.CODEWHALE_CU_STATE_DIR = previous;
+  }
+});

@@ -67,6 +67,17 @@ const AS_DENY = [
   // tools, which carry the per-app gates.
   [/\b(keystroke|key\s+code)\b/i, "System Events keystrokes go to the frontmost app, not the named one — use the type or key tool"],
   [/\bclick\s+at\b/i, "coordinate clicks through System Events go to whatever is on screen — use the click tool"],
+  // StandardAdditions run in osascript itself, whatever app a script names:
+  // file I/O, opening URLs, mounting volumes and reading the environment are
+  // not app scripting.
+  [/\bopen\s+for\s+access\b/i, "StandardAdditions file access (`open for access`) is not app scripting"],
+  [/\b(read|write)\b[^\n]*\b(POSIX\s+file|file|alias)\b/i, "StandardAdditions file reads and writes are not app scripting"],
+  [/\bopen\s+location\b/i, "`open location` opens a URL outside any consented app"],
+  [/\bmount\s+volume\b/i, "`mount volume` is not app scripting"],
+  [/\bsystem\s+attribute\b/i, "`system attribute` reads the environment"],
+  // A consented app must not become a launcher for another app or a
+  // runnable file (Finder, `launch`, `reopen`).
+  [/\b(open|launch|reopen)\b[^\n]*\b(POSIX\s+file|file|alias|application\s+file|disk\s+item)\b/i, "opening files or applications through another app is refused — use open_application, which asks for consent"],
 ];
 
 function checkAppleScript(script) {
@@ -123,6 +134,9 @@ const JXA_DENY = [
   [/\b(eval|Function|Library|Ref|require|importScripts|constructor|prototype|__proto__|Reflect|Proxy)\b/, "dynamic code loading, evaluation and reflection are refused"],
   [/\bObject\s*\.\s*(getOwnProperty\w*|defineProperty|defineProperties|entries|values|assign|getPrototypeOf|setPrototypeOf)\b/, "reflection over objects is refused"],
   [/\bosascript\b/i, "nested osascript is refused"],
+  [/\.\s*(open|launch|reopen)\s*\(/, "opening files or applications through another app is refused — use open_application, which asks for consent"],
+  [/\bPath\s*\(/, "file paths (Path(…)) are not app scripting"],
+  [/\.\s*(openLocation|mountVolume|systemAttribute|openForAccess|read|write)\s*\(/, "StandardAdditions calls are not app scripting"],
 ];
 
 function checkJxa(script) {
@@ -177,10 +191,16 @@ const shellHost = (ref) => SHELL_HOSTS.has(String(ref.bundle_id ?? ref.name ?? "
  * Check one app_script call. Returns {refused: string|null, targets: ref[]}
  * where each ref is {name} or {bundle_id} for the consent ledger.
  */
+/** The consent identity of a script that names no application: osascript itself. */
+export const OSASCRIPT_TARGET = Object.freeze({ bundle_id: "com.apple.osascript" });
+
 export function checkAppScript(script, language = "applescript", env = process.env) {
   const mode = appScriptMode(env);
   if (mode === "off") return refuse("app_script is turned off on this computer (CODEWHALE_CU_APP_SCRIPT=off)");
   const checked = language === "javascript" ? checkJxa(String(script)) : checkAppleScript(String(script));
+  // A script that names no app still runs, as osascript: it is consented to
+  // under that identity, in every mode.
+  if (!checked.targets.length) checked.targets.push({ ...OSASCRIPT_TARGET });
   if (mode === "unrestricted") return { refused: null, targets: checked.targets };
   if (checked.refused) return checked;
   const host = checked.targets.find(shellHost);

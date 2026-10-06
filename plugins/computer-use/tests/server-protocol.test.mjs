@@ -1,6 +1,7 @@
 // Server protocol tests: real MCP server process over stdio, isolated state.
 // The ssh/scp shims stand in for a remote machine, proving the full remote
 // agent loop (install -> platform probe -> tool dispatch) without real ssh.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -46,7 +47,7 @@ function rpc(method, params, timeoutMs = 90_000) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, timeoutMs);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 
@@ -69,6 +70,7 @@ before(async () => {
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`));
   server.stdout.setEncoding("utf8");
   server.stdout.on("data", (d) => {

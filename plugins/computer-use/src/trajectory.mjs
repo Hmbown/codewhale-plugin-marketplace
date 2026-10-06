@@ -11,9 +11,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { stateDir } from "./registry.mjs";
+import { recordingsDir } from "./recordings.mjs";
 
-export const trajectoriesDir = () => path.join(process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(stateDir(), "recordings"), "trajectories");
+export const trajectoriesDir = () => path.join(recordingsDir(), "trajectories");
 
 /** Tools about the recorder itself are never recorded and never replayed. */
 export const isTrajectoryTool = (name) => typeof name === "string" && (name === "trajectory" || name.startsWith("trajectory_"));

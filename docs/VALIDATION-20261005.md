@@ -1,3 +1,45 @@
+# Current source qualification — October 6, 2026
+
+This addendum supersedes the October 5 Computer Use drift report below. Root
+reviewed the existing local-only wave commit `4e27243` and qualified the
+reconciliation on `feat/marketplace-wave-1005`; Engine remains frozen at
+`ed5e3f10dac5` while its final Mac gate finishes.
+
+- `npm test`: **932 passed, 0 failed, 26 skipped** across the reported groups.
+- `npm run check:web`: **13 passed, 0 failed, 9 skipped**. Mobile extension cases
+  remain intentionally skipped; this does not prove mobile extension support.
+- Marketplace contract, all four skill provenance manifests and all three wiki
+  pages passed; **19 catalog bundles** packaged locally.
+- Computer Use is an exact mirror of canonical Main `a656f674`. The upstream
+  local checkout `b47efff5` has the same tree. The exact owning Core lane matches
+  its runtime subset, with three declared Core variants. A check accidentally
+  targeting the older sibling Core checkout failed; the corrected owning-lane
+  check passed. No canonical source was forked to hide drift.
+- Cloudflare commands use `cf`. Typed config is executable, so the offline
+  preflight returns unvalidated and does not evaluate it or silently accept a
+  stale legacy config. The focused Cloudflare gate passed **24/0**.
+- Loop completion now requires the final nonblank reply line; an earlier marker
+  followed by unfinished work continues. **Seven installed native TUI checks
+  passed**, using the actual `ed5e3f10dac5` binary and a scripted localhost model,
+  with no live provider call. They cover cap/wrap-up, completion, cancellation,
+  ordinary messages, missing socket, and changed bundle trust.
+- The design checker decodes original HTML entities once and handles invalid
+  numeric scalars without crashing. This repairs the original PR's CodeQL
+  double-unescape report; fresh hosted security analysis is still required.
+- Catalog and Core provenance URLs use `codewhale-hq`. The hello-extension
+  homepage follows its real `plugins/samples/hello-extension` source. Skill
+  commit, generation 17, bodies and resource hashes are preserved.
+
+Node: **26.10.0**. The implementation was unchanged throughout the final local
+gates; this evidence addendum was written afterward. Raw gate logs, source hashes,
+package inventories and failed attempts are retained in the workspace takeover
+artifact directory. Hosted three-OS CI, fresh security analysis, authenticated
+plugin services and publication are separate proofs. No deployment occurred.
+
+---
+
+## Historical October 5 qualification account
+
 # Wave 1005 validation — October 5, 2026
 
 Local source, package and installed-host evidence for the thirteen plugins added

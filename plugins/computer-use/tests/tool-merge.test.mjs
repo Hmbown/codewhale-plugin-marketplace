@@ -1,6 +1,7 @@
 // Slice D: the advertised surface is merged; the wire names stay callable as
 // aliases. Unit tests pin the expansion rules; a spawned server proves the
 // advertised list and that both merged and alias calls route identically.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -132,7 +133,7 @@ function rpc(method, params) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, 20_000);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 
@@ -146,6 +147,7 @@ before(() => {
     env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: path.join(stateDir, "rec") },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stdout.on("data", (c) => {
     buf += c.toString();
     let i;

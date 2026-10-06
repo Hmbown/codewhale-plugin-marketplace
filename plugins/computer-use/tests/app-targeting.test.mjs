@@ -71,6 +71,17 @@ test('real handler/backend/native resolver never redirects an explicit app refer
         assert.equal(reply.ok,false,`${tool} must reject ${JSON.stringify(app_ref)}`);
         assert.match(reply.error.message,/application not found/);
       }
+      // A shared name or bundle must never pick whichever process is listed first.
+      for(const app_ref of [{name:'Twin'},{bundle_id:'test.twin'},{name:'twin',bundle_id:'test.twin'}]) {
+        const reply=await call(tool,{app_ref});
+        assert.equal(reply.ok,false,`${tool} must refuse ambiguous ${JSON.stringify(app_ref)}`);
+        assert.equal(reply.error.code,'ambiguous_application',JSON.stringify(reply));
+        assert.match(reply.error.message,/Twin \(pid 200\), Twin \(pid 201\)/);
+      }
+    }
+    for(const pid of [200,201]) {
+      const reply=await call('list_windows',{app_ref:{pid,name:'Twin'}});
+      assert.equal(reply.ok,true,JSON.stringify(reply));assert.equal(reply.data.pid,pid);
     }
   } finally { delete process.env.CU_TARGETING_NATIVE; }
 });

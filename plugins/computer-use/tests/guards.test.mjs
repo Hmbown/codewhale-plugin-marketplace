@@ -4,6 +4,7 @@
 //     consent ledger (System Events and its processes included);
 //   - irreversible-action confirmation: pay/buy/order/send/transfer/delete
 //     controls need a per-call user confirmation that no app grant covers.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -38,7 +39,7 @@ function rpc(method, params) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, 30_000);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 async function tool(name, args = {}) {
@@ -66,6 +67,7 @@ before(async () => {
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stdout.setEncoding("utf8");
   server.stdout.on("data", (d) => {
     buf += d;
@@ -115,7 +117,7 @@ test("app_script policy refuses shell escapes in AppleScript and JXA", () => {
 });
 
 test("app_script policy names every target app and refuses targets it cannot read", () => {
-  assert.deepEqual(checkAppScript('return "whole computer"').targets, []);
+  assert.deepEqual(checkAppScript('return "whole computer"').targets, [{ bundle_id: "com.apple.osascript" }]);
   assert.deepEqual(checkAppScript('tell application "Finder" to get name of every window').targets, [{ name: "Finder" }]);
   assert.deepEqual(checkAppScript('tell application id "com.apple.Safari" to get URL of front document').targets, [{ bundle_id: "com.apple.Safari" }]);
   const se = checkAppScript('tell application "System Events" to tell process "Safari" to click button 1 of window 1');
@@ -133,6 +135,29 @@ test("app_script policy names every target app and refuses targets it cannot rea
     ['var n = "Fin" + "der"; Application(n).activate()', "javascript"],
     ['Application("System Events").processes.whose({frontmost: true})[0].name()', "javascript"],
   ]) assert.ok(checkAppScript(script, language).refused, `must refuse: ${script}`);
+});
+
+test("app_script with no named app is refused or needs osascript consent", () => {
+  assert.ok(checkAppScript('read POSIX file "/etc/hosts"').refused);
+  for (const script of ['set f to open for access POSIX file "/tmp/x" with write permission', 'write "x" to file "Macintosh HD:tmp:x"', 'open location "https://example.com"', 'mount volume "smb://host/share"', 'system attribute "HOME"']) {
+    assert.ok(checkAppScript(script).refused, script);
+  }
+  const bare = checkAppScript("return (current date) as string");
+  assert.equal(bare.refused, null);
+  assert.deepEqual(bare.targets, [{ bundle_id: "com.apple.osascript" }]);
+  assert.deepEqual(checkAppScript('"ok".toUpperCase()', "javascript").targets, [{ bundle_id: "com.apple.osascript" }]);
+});
+
+test("Finder open of a denied app is refused", () => {
+  for (const [script, language] of [
+    ['tell application "Finder" to open POSIX file "/Applications/Terminal.app"', "applescript"],
+    ['tell application "Finder" to open file "run.command" of desktop', "applescript"],
+    ['tell application "Finder" to open application file "Terminal.app" of folder "Applications" of startup disk', "applescript"],
+    ['Application("Finder").open(Path("/Applications/Terminal.app"))', "javascript"],
+    ['Application("Finder").launch()', "javascript"],
+  ]) {
+    assert.match(checkAppScript(script, language).refused ?? "", /opening files or applications|file paths/, script);
+  }
 });
 
 test("app_script policy modes: off refuses everything, unknown fails closed, unrestricted keeps targets", () => {

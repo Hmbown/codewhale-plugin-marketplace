@@ -1,93 +1,88 @@
 ---
 name: cloudflare-deploy
-description: Deploy or change a Cloudflare Worker with Wrangler safely. Preflight, dry-run, show the plan, wait for the user's explicit approval, deploy, verify, roll back. Use for wrangler deploy, versions, secrets, rollbacks and environments.
+description: Deploy or change a Cloudflare Worker with cf. Review config, preflight, build and dry-run; show the target and change, obtain explicit approval, deploy and verify. Covers versions, secrets, rollback and named modes.
 ---
 
 # Cloudflare: deploy with approval
 
-**Hard rule.** Never run a command from the "needs approval" list until the user
-has, in this conversation, said yes to that specific action after you showed
-them the command, the Worker name, the account, and what it will change. An
-earlier yes does not cover a later, different command. Pushing to a branch that
-a Cloudflare Workers Build deploys from is a deploy: treat it the same way.
+**Hard rule.** Never run a command from the "needs approval" list unless the
+user has approved that account, target and change after seeing a concrete plan.
+Respect approval already granted for that same scope; a different target,
+data change or traffic change needs its own approval. A push to a branch that
+Workers Builds deploys is a deploy too.
 
 ## Commands by risk
 
 Safe without approval (local or read-only):
 
-- `npx wrangler --version`, `npx wrangler whoami`, `npx wrangler types`
-- `npx wrangler dev` (local), `npx wrangler deploy --dry-run`
-- `npx wrangler d1 migrations list <db> --local`, `... apply <db> --local`
-- reading deployments: `npx wrangler deployments list`, `npx wrangler versions list`
-- the `/cloudflare-preflight` check
+- `cf --version`, `cf auth whoami`
+- `cf dev`, `cf build`, `cf deploy --dry-run`, `cf migrate --dry-run`
+- reading deployments: `cf workers deployments list`
+- listing secret names: `cf workers secrets list` (never secret values)
+- supported resource simulations with explicit `--local`
+- `/cloudflare-preflight` (legacy JSON/TOML; typed config is not evaluated)
 
-Needs approval (changes the account, costs money, or is hard to undo):
+Needs approval (changes the account, data, money or traffic):
 
-- `wrangler deploy`, `wrangler versions upload`, `wrangler versions deploy`,
-  `wrangler rollback`, `wrangler delete`
-- `wrangler secret put|delete|bulk`, `wrangler versions secret ...`
-- any `--remote` command: `d1 execute|migrations apply --remote`,
-  `kv key put|delete --remote`, `r2 object put|delete`
-- creating or deleting resources: `kv namespace create|delete`,
-  `d1 create|delete`, `r2 bucket create|delete`, `queues create`
-- `wrangler login` and anything that opens a browser OAuth flow: the user does
-  this themselves
-- `wrangler tail` against production (it reads live traffic; say what it will
-  show, and bound it with a timeout)
+- `cf deploy`, `cf workers versions create` (upload),
+  `cf workers deployments create`, `cf workers triggers deploy`, rollback,
+  or deletion of a Worker/version/deployment
+- `cf workers secrets update` or `cf workers secrets delete`
+- remote D1 queries or migrations that write, KV/R2 writes or deletes, and
+  creating/deleting resources; cf API commands are remote unless their
+  documented `--local` mode was explicitly selected
+- `cf auth login`: the user completes the authentication flow
+- reading production traffic/logs: explain the scope and bound its duration
 
-Never ask the user to paste an API token into the chat and never print one. If
-authentication is missing, tell the user to run `wrangler login` or to export
-`CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`) in their own shell.
+Use anonymous `cf cli search "<action and resource type>"` queries to discover
+resource commands, then inspect the returned command with `--help` and its
+`cf schema` entry. Never put names, domains, IDs, email addresses or credentials
+in command-search queries. Search can return an upload command for a local
+build request: that is still a mutation, not a substitute for `cf build`.
+
+Never ask for an API token in chat or print one. Authentication stays in the
+user's terminal through `cf auth login` or their environment. Secret updates
+must use a documented input mechanism that keeps values out of command
+arguments, logs and transcripts; if unavailable, let the user enter them
+outside the agent session. Never invent a `cf secret put` compatibility alias.
 
 ## Workflow
 
-1. **Preflight.** Run `/cloudflare-preflight`. Fix errors; explain warnings.
-2. **Identify the target.** Run `npx wrangler whoami` and read `name`,
-   `account_id`, `routes` and `env` from the config. If several accounts are
-   listed and the config has no `account_id`, stop and ask which one.
-3. **Build and test** the project the way its `package.json` defines.
-4. **Dry run.** `npx wrangler deploy --dry-run [--env <name>]`. Report bundle
-   size, bindings, and anything created automatically. Recent Wrangler versions
-   can provision a resource for a binding that has no ID; call that out.
-5. **Ask.** Present a short plan:
-   - exact command, Worker name, environment, account
-   - what changes: new version, routes/domains, bindings, migrations
-   - how you will verify, and how to roll back
-   Then stop and wait for an explicit yes.
-6. **Deploy** only the command the user approved.
-7. **Verify.** Request the deployed URL (`curl -sS -o /dev/null -w "%{http_code}\n"`),
-   check the path that changed, and read `npx wrangler deployments list`. If
-   observability is on, point the user to the Workers Logs view rather than
-   tailing production.
-8. **Report** the version ID and URL from the command output. If it failed, show
-   the error text and the state check (`deployments list`) before suggesting a fix.
+1. Read `cloudflare.config.ts` and source before executing it. For a legacy
+   project, preview `cf migrate --dry-run`, review the local conversion, and
+   preserve existing resource IDs, domains, schedules and storage.
+2. Run `/cloudflare-preflight` if applicable. Typed TypeScript is executable;
+   the static checker reports it as unvalidated and never imports it.
+3. Identify the exact Worker, account and named mode. Read `cf auth whoami`
+   and configuration; `CLOUDFLARE_ACCOUNT_ID` can override `accountId`.
+   Resolve an ambiguous account before any mutation. Pass `--mode <name>`
+   consistently when configuration depends on it.
+4. Run project tests, `cf build`, then `cf deploy --dry-run [--mode <name>]`.
+   Inspect the actual entry, assets, bindings, lifecycle changes and warnings.
+   A dry run uploads nothing; it does not prove production will work.
+5. Present the exact deployment command, account/Worker/mode, code and traffic
+   changes, any new resources or migrations, verification and rollback plan.
+   Obtain explicit yes for any scope not already approved.
+6. Run only the approved deployment. Request the changed routes and inspect
+   `cf workers deployments list`; record version/deployment IDs and URL.
+   If it fails, retain the error and actual state before planning a retry.
 
-## Gradual rollouts and rollback
+## Versions, rollback, secrets and data
 
-- `wrangler versions upload` creates a version that serves no traffic.
-  `wrangler versions deploy` then splits traffic (interactive percentages). Use
-  this for risky changes; ask before each step.
-- `wrangler rollback [version-id]` immediately creates a new deployment of an
-  older version across all routes. It does not restore data. Offer it, but run
-  it only on approval.
-- Durable Object class changes (create, rename, delete, transfer) cannot be
-  uploaded as a version and cannot be rolled back past; they go through a plain
-  `wrangler deploy` on their own, separate from other code changes. See
-  cloudflare-durable-objects.
+Uploading a version (`cf workers versions create`) and assigning traffic
+(`cf workers deployments create`) are separate mutations. Discover exact flags
+and schema for the installed cf version; do not translate Wrangler flags by
+renaming the executable. A rollback assigns an older version to traffic and
+never restores storage. It needs approval and a state check.
 
-## Secrets and environments
+Durable Object creation/rename/delete/transfer can be irreversible. Review the
+lifecycle diff and deploy it separately with approval; do not assume a gradual
+rollout or rollback can undo it. See `cloudflare-durable-objects`.
 
-- Production secrets: `npx wrangler secret put NAME` prompts for the value in
-  the user's terminal. You do not see or relay it. List names only with
-  `wrangler secret list`.
-- Declare required secret names in the config (`"secrets": {"required": [...]}`)
-  so deploy fails clearly when one is missing.
-- Use named environments (`--env staging`) or a separate Worker for staging;
-  never test a risky change by deploying it over production.
-- Containers: deploying a Worker with a container config can roll running
-  container instances; do not deploy a feature branch over a production Worker.
+Use named `--mode` values or a separate staging Worker. Do not test by deploying
+over production. Container config can roll running instances. Keep required
+secret names declared with the project's current typed configuration API;
+values never belong in source or chat. Remote database migrations require
+reviewed SQL, backup/restore planning and approval.
 
-## If the user did not approve
-
-Say what was done (preflight, dry run), what was not, and the exact command they
-can run or approve. Do not deploy "to check".
+References: [cf sign-in/account selection](https://developers.cloudflare.com/cf/get-started/), [migration reference](https://developers.cloudflare.com/cf/wrangler/reference/), [projects and deployment](https://developers.cloudflare.com/cf/projects/).

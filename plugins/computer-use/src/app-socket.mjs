@@ -64,9 +64,21 @@ export function runInfoPath() { return path.join(stateDir(), "app-run.json"); }
 export function readRegistration() {
   try {
     const reg = JSON.parse(fs.readFileSync(registrationPath(), "utf8"));
-    if (!Array.isArray(reg?.launch) || reg.launch.length === 0 || typeof reg.launch[0] !== "string") return null;
+    if (!launchArgv(reg)) return null;
     return reg;
   } catch { return null; }
+}
+
+/**
+ * The argv that starts the registered app: always the bundle's own launcher,
+ * derived from its path. app.json is a file any process of this user can
+ * write, so a `launch` argv stored there is never run.
+ */
+export function launchArgv(reg, platform = process.platform) {
+  const bundle = reg?.path;
+  if (typeof bundle !== "string" || !path.isAbsolute(bundle) || bundle.includes("\0")) return null;
+  if (platform === "darwin" && !/\.app\/?$/i.test(bundle)) return null;
+  return defaultLaunch(bundle, platform);
 }
 
 export function writeRegistration(reg) {
@@ -74,27 +86,37 @@ export function writeRegistration(reg) {
   fs.writeFileSync(registrationPath(), JSON.stringify({ ...reg, registeredAt: new Date().toISOString() }, null, 2) + "\n");
 }
 
-/** Send one request to the app and await its single-line reply. */
+/**
+ * Send one request to the app and await its single-line reply.
+ *
+ * Once the request line is written the helper may already have acted on it,
+ * so every failure after that point (timeout, cancel, a dropped connection, a
+ * malformed reply) carries `requestDispatched: true`. The MCP server turns
+ * that into `outcome_unknown` instead of a plain cancel that invites a blind
+ * retry of an input action that may have landed.
+ */
 function requestConnection(request, { timeoutMs = 30_000, signal = currentSignal(), keepOpen = false } = {}) {
   throwIfAborted(signal);
   return new Promise((resolve, reject) => {
     const sock = net.connect(socketPath());
     let buf = "";
     let settled = false;
+    let written = false;
+    const failure = (message, code) => Object.assign(new ExecError(message), { code }, written ? { requestDispatched: true } : {});
     const done = (fn, v) => { if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener("abort", abort); if (!keepOpen || fn === reject) sock.destroy(); fn(v); };
-    const abort = () => done(reject, Object.assign(new ExecError("computer request cancelled"), { code: "cancelled" }));
-    const timer = setTimeout(() => done(reject, Object.assign(new ExecError(`${APP_NAME}: request timed out after ${timeoutMs}ms`), { code: "app_timeout" })), timeoutMs);
+    const abort = () => done(reject, failure("computer request cancelled", "cancelled"));
+    const timer = setTimeout(() => done(reject, failure(`${APP_NAME}: request timed out after ${timeoutMs}ms`, "app_timeout")), timeoutMs);
     signal?.addEventListener("abort", abort, { once: true });
-    sock.on("error", (err) => done(reject, Object.assign(new ExecError(`${APP_NAME} is not reachable at ${socketPath()}: ${err.code ?? err.message}`), { code: "app_unavailable" })));
-    sock.on("connect", () => sock.write(JSON.stringify(request) + "\n"));
+    sock.on("error", (err) => done(reject, failure(`${APP_NAME} is not reachable at ${socketPath()}: ${err.code ?? err.message}`, "app_unavailable")));
+    sock.on("connect", () => { written = true; sock.write(JSON.stringify(request) + "\n"); });
     sock.on("data", (d) => {
       buf += d.toString("utf8");
       const nl = buf.indexOf("\n");
       if (nl === -1) return;
       try { const reply = JSON.parse(buf.slice(0, nl)); done(resolve, keepOpen ? { reply, socket: sock } : reply); }
-      catch { done(reject, Object.assign(new ExecError(`${APP_NAME}: malformed reply`), { code: "app_bad_reply" })); }
+      catch { done(reject, failure(`${APP_NAME}: malformed reply`, "app_bad_reply")); }
     });
-    sock.on("close", () => done(reject, Object.assign(new ExecError(`${APP_NAME}: connection closed before a reply`), { code: "app_unavailable" })));
+    sock.on("close", () => done(reject, failure(`${APP_NAME}: connection closed before a reply`, "app_unavailable")));
   });
 }
 
@@ -128,6 +150,11 @@ export function openAppSession(sessionId) {
       // Library clients need not keep Node alive solely for an idle lease.
       socket.unref();
       return lease;
+    }, (error) => {
+      // Opening a lease sends no input, so its failure is never
+      // outcome-unknown for the action that was waiting on it.
+      if (error && typeof error === "object") delete error.requestDispatched;
+      throw error;
     });
     // A refused or unreachable open is retried on the next request, not cached.
     pending.catch(() => { if (sessionLeases.get(sessionId) === pending) sessionLeases.delete(sessionId); });
@@ -167,7 +194,9 @@ export function defaultLaunch(bundlePath, platform = process.platform) {
 
 /** Start the registered app detached (LaunchServices on macOS so TCC attributes it to the app). */
 export function launchApp(reg) {
-  const [cmd, ...args] = reg.launch;
+  const argv = launchArgv(reg);
+  if (!argv) return null;
+  const [cmd, ...args] = argv;
   const child = spawn(cmd, args, { detached: true, stdio: "ignore", windowsHide: true });
   child.on("error", () => {});
   child.unref();

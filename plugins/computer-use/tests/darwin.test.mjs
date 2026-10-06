@@ -962,6 +962,9 @@ test('macOS screenshot rejects a display id used as an index instead of mislabel
   const displays = [{ index: 1, id: 3, main: true, points: { x: 0, y: 0, w: 2880, h: 1620 }, scale: 2 }];
   const { backend, captures } = displayBackend(t, { displays });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-display-shot-'));
+  // Caller-chosen capture paths must sit in the recordings directory.
+  const oldRec = process.env.CODEWHALE_CU_RECORDINGS_DIR; process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  t.after(() => { if (oldRec === undefined) delete process.env.CODEWHALE_CU_RECORDINGS_DIR; else process.env.CODEWHALE_CU_RECORDINGS_DIR = oldRec; });
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   await assert.rejects(
@@ -1016,6 +1019,9 @@ function crc32(buf) {
 // This integration test exercises the real macOS sips resizer.
 test('macOS screenshot shrinks an over-budget raster and keeps its geometry exact', { skip: process.platform !== 'darwin' }, async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-budget-shot-'));
+  // Caller-chosen capture paths must sit in the recordings directory.
+  const oldRec = process.env.CODEWHALE_CU_RECORDINGS_DIR; process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  t.after(() => { if (oldRec === undefined) delete process.env.CODEWHALE_CU_RECORDINGS_DIR; else process.env.CODEWHALE_CU_RECORDINGS_DIR = oldRec; });
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const big = path.join(dir, 'big.png');
   fs.writeFileSync(big, noisePng(1600, 900));
@@ -1063,6 +1069,9 @@ test('macOS screenshot captures JPEG by default and honours an explicit .png pat
   const displays = [{ index: 1, id: 3, main: true, points: { x: 0, y: 0, w: 2880, h: 1620 }, scale: 2 }];
   const { backend, captures } = displayBackend(t, { displays });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-format-'));
+  // Caller-chosen capture paths must sit in the recordings directory.
+  const oldRec = process.env.CODEWHALE_CU_RECORDINGS_DIR; process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  t.after(() => { if (oldRec === undefined) delete process.env.CODEWHALE_CU_RECORDINGS_DIR; else process.env.CODEWHALE_CU_RECORDINGS_DIR = oldRec; });
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const dflt = await backend.screenshot({ display: 1 });
@@ -1086,6 +1095,9 @@ test('macOS screenshot captures JPEG by default and honours an explicit .png pat
 // mis-scale every coordinate target derived from the capture.
 test('macOS raster dimensions are read from both PNG and JPEG headers', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-dims-'));
+  // Caller-chosen capture paths must sit in the recordings directory.
+  const oldRec = process.env.CODEWHALE_CU_RECORDINGS_DIR; process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  t.after(() => { if (oldRec === undefined) delete process.env.CODEWHALE_CU_RECORDINGS_DIR; else process.env.CODEWHALE_CU_RECORDINGS_DIR = oldRec; });
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const png = path.join(dir, 'a.png');
   fs.writeFileSync(png, noisePng(321, 123));

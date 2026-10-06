@@ -29,16 +29,13 @@ import net from "node:net";
 import { spawn } from "node:child_process";
 import { ExecError, currentSignal } from "./exec.mjs";
 import { stateDir } from "./registry.mjs";
+import { recordingsDir as defaultRecordingsDir } from "./recordings.mjs";
 
 const APPLICATIONS = ["Google Chrome", "Chromium", "Brave Browser", "Microsoft Edge"];
 const LINUX_BINARIES = ["google-chrome", "chromium", "chromium-browser", "brave-browser", "microsoft-edge"];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const badArgs = (message) => Object.assign(new ExecError(message), { code: "bad_args" });
-
-function defaultRecordingsDir() {
-  return process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(stateDir(), "recordings");
-}
 
 /** Only http(s) and about:blank can be navigated to; everything else is refused. */
 export function checkBrowserUrl(url) {
@@ -48,7 +45,12 @@ export function checkBrowserUrl(url) {
   let parsed;
   try { parsed = new URL(trimmed); } catch { throw badArgs(`"${trimmed}" is not a URL`); }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw badArgs(`only http(s):// and about:blank URLs can be opened (got "${parsed.protocol}//")`);
+    // A person asking to "open" a local file wants to see it, not to have
+    // this self-owned browser read the disk: point at the route that shows it.
+    const hint = parsed.protocol === "file:"
+      ? "; to show a workspace file to the person use open_in_app when the Codewhale app offers it, or serve it over http://127.0.0.1"
+      : "";
+    throw badArgs(`only http(s):// and about:blank URLs can be opened (got "${parsed.protocol}//")${hint}`);
   }
   return parsed.href;
 }
@@ -189,6 +191,12 @@ function defaultConnect(url, { timeoutMs = 8_000 } = {}) {
   });
 }
 
+/** Per-command CDP reply deadline; teardown uses its own shorter bound. */
+const commandTimeoutMs = () => Number(process.env.CODEWHALE_CU_BROWSER_COMMAND_TIMEOUT_MS) || 30_000;
+// Teardown ignores the (possibly already cancelled) request signal and gives
+// an unanswered peer at most three seconds per command.
+const teardown = () => ({ timeoutMs: Math.min(3_000, commandTimeoutMs()), signal: null });
+
 /** id-matched JSON-RPC over the WebSocket, plus CDP event fan-out. */
 function makeChannel(ws) {
   let nextId = 0;
@@ -197,7 +205,7 @@ function makeChannel(ws) {
   let closed = false;
   const failAll = (reason) => {
     closed = true;
-    for (const [, entry] of pending) entry.reject(Object.assign(new ExecError(reason), { code: "browser_not_running" }));
+    for (const entry of [...pending.values()]) entry.reject(Object.assign(new ExecError(reason), { code: "browser_not_running" }));
     pending.clear();
   };
   ws.addEventListener("message", (event) => {
@@ -216,11 +224,29 @@ function makeChannel(ws) {
   ws.addEventListener("error", () => {});
   return {
     get alive() { return !closed; },
-    send(method, params = {}, sessionId) {
+    /**
+     * One CDP command. Bounded: a peer that keeps the socket open but never
+     * answers must not hang the request (or a stop/teardown awaiting it)
+     * forever. After the command is written its effect is unknown, so a
+     * timeout or cancel carries requestDispatched; a late reply is dropped.
+     */
+    send(method, params = {}, sessionId, { timeoutMs = commandTimeoutMs(), signal = currentSignal() } = {}) {
       if (closed) return Promise.reject(Object.assign(new ExecError("the browser is no longer reachable (CDP connection closed)"), { code: "browser_not_running" }));
+      if (signal?.aborted) return Promise.reject(Object.assign(new ExecError("computer request cancelled"), { code: "cancelled" }));
       return new Promise((resolve, reject) => {
         const id = ++nextId;
-        pending.set(id, { resolve, reject });
+        let timer = null;
+        const finish = () => { clearTimeout(timer); signal?.removeEventListener("abort", onAbort); pending.delete(id); };
+        const onAbort = () => { finish(); reject(Object.assign(new ExecError("computer request cancelled"), { code: "cancelled", requestDispatched: true })); };
+        pending.set(id, {
+          resolve: (value) => { finish(); resolve(value); },
+          reject: (error) => { finish(); reject(error); },
+        });
+        timer = setTimeout(() => {
+          finish();
+          reject(Object.assign(new ExecError(`CDP ${method} got no reply within ${timeoutMs}ms`), { code: "timeout", requestDispatched: true }));
+        }, timeoutMs);
+        signal?.addEventListener("abort", onAbort, { once: true });
         ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
       });
     },
@@ -278,8 +304,8 @@ export function createBrowser({
     const { targetInfo: info } = await state.channel.send("Target.getTargetInfo", { targetId });
     return { url: info?.url ?? "", title: info?.title ?? "" };
   }
-  async function listTabs() {
-    const { targetInfos } = await state.channel.send("Target.getTargets", {});
+  async function listTabs(options) {
+    const { targetInfos } = await state.channel.send("Target.getTargets", {}, undefined, options);
     return (targetInfos ?? []).filter((t) => t.type === "page");
   }
   async function ensureDom() {
@@ -568,17 +594,17 @@ export function createBrowser({
       if (!state.channel) return { running: false, note: "no browser session for this computer session" };
       if (state.attached) {
         // The person's browser: never close a tab or the browser, only detach.
-        if (state.sessionId) await state.channel.send("Target.detachFromTarget", { sessionId: state.sessionId }).catch(() => {});
+        if (state.sessionId) await state.channel.send("Target.detachFromTarget", { sessionId: state.sessionId }, undefined, teardown()).catch(() => {});
         state.channel.close();
         state.channel = null; state.targetId = null; state.sessionId = null; state.pageEnabled = false; state.domEnabled = false; state.attached = false;
         return { running: false, detached: true, browser_closed: false, note: "detached from the shared browser; its window and tabs stay as they are" };
       }
-      try { await state.channel.send("Target.closeTarget", { targetId: state.targetId }); } catch { /* the tab may already be gone */ }
+      try { await state.channel.send("Target.closeTarget", { targetId: state.targetId }, undefined, teardown()); } catch { /* the tab may already be gone */ }
       let remaining = null;
-      try { remaining = (await listTabs()).length; } catch { remaining = null; }
+      try { remaining = (await listTabs(teardown())).length; } catch { remaining = null; }
       let browserClosed = false;
       if (remaining === 0) {
-        try { await state.channel.send("Browser.close"); browserClosed = true; } catch {}
+        try { await state.channel.send("Browser.close", {}, undefined, teardown()); browserClosed = true; } catch {}
         await sleep(200);
       }
       state.channel.close();

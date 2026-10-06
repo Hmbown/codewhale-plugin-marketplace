@@ -51,7 +51,7 @@ function directory(pin){
   const classified=Object.values(groups).flatMap(s=>s.split(' '));
   const extras=pin.skills.filter(n=>!classified.includes(n));
   if(extras.length)md+='## Additional skills\n\n'+extras.map(n=>`- [${n}](${n}/SKILL.md): ${metadata(n).description}`).join('\n')+'\n\n';
-  return md+'## Source and maintenance\n\nGenerated from [Core](https://github.com/Hmbown/Codewhale/tree/'+pin.commit+'/'+SOURCE+') by `scripts/skills.mjs`. `upstream.json` pins the exact revision and hashes\nof every mirrored file. `npm run check` validates the inventory and this directory;\n`npm run check -- --core ../codewhale` also compares the active Core catalog.\n\n`feedback` and `contributor-onboarding` are repository-local; `feishu` is optional\nand `v4-best-practices` is retired. Retained migration bodies are deliberately\nexcluded, so installing this pack does not resurrect retired workflows.\n';
+  return md+'## Source and maintenance\n\nGenerated from [Core]('+pin.repository+'/tree/'+pin.commit+'/'+SOURCE+') by `scripts/skills.mjs`. `upstream.json` pins the exact revision and hashes\nof every mirrored file. `npm run check` validates the inventory and this directory;\n`npm run check -- --core ../codewhale` also compares the active Core catalog.\n\n`feedback` and `contributor-onboarding` are repository-local; `feishu` is optional\nand `v4-best-practices` is retired. Retained migration bodies are deliberately\nexcluded, so installing this pack does not resurrect retired workflows.\n';
 }
 try {
   let pin;
@@ -79,7 +79,7 @@ try {
         const upstream=files(path.join(core,SOURCE,name),'',true);
         if(Object.keys(old).some(p=>!upstream[p]?.equals(old[p])))throw new Error(`Preserve modified non-bundled skill: ${name}`);
       }
-      pin={repository:'https://github.com/Hmbown/Codewhale',commit:execFileSync('git',['rev-parse','HEAD'],{cwd:core,encoding:'utf8'}).trim(),generation:matrix.generation,skills:names,files:Object.fromEntries(Object.entries(sourceFiles).map(([p,b])=>[p,hash(b)]))};
+      pin={repository:'https://github.com/codewhale-hq/Codewhale',commit:execFileSync('git',['rev-parse','HEAD'],{cwd:core,encoding:'utf8'}).trim(),generation:matrix.generation,skills:names,files:Object.fromEntries(Object.entries(sourceFiles).map(([p,b])=>[p,hash(b)]))};
       for(const name of currentDirs)fs.rmSync(path.join(DEST,name),{recursive:true});
       for(const [rel,body] of Object.entries(sourceFiles)){const target=path.join(DEST,rel);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,body);}
       fs.writeFileSync(path.join(DEST,'upstream.json'),JSON.stringify(pin,null,2)+'\n');

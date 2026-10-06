@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { run, runOk, ExecError, tryJson, have, currentSignal, throwIfAborted } from "../exec.mjs";
+import { recordingsDir, recordingsOutputPath } from "../recordings.mjs";
 
 const DEVICE_TMP = "/data/local/tmp/cu";
 
@@ -104,12 +105,22 @@ export function create({ exec }) {
     return { action_sent: true, strategy: "event", backend: "uitest" };
   }
 
+  /**
+   * Re-find an observed element in a fresh dump. uitest indexes are
+   * positional and shift whenever a sibling appears, so the index alone can
+   * name a different control; the element is addressed by its observed tree
+   * path and must still carry the observed role and label, or nothing is sent.
+   */
   async function centerOf(target) {
     rejectAppSelectors(target);
+    const stale = (why) => Object.assign(new ExecError(`element_stale — ${why}; re-run get_app_state (uitest indexes change with the UI)`), { code: "element_stale" });
+    if (!Array.isArray(target?.path)) throw stale("the element target carries no observed tree path");
     const tree = await dumpLayout();
-    const els = flatten(tree);
-    const el = els[target.index];
-    if (!el || !el.bounds) throw new ExecError("element_stale — re-run get_app_state; uitest indexes change with the UI");
+    const key = JSON.stringify(target.path);
+    const el = flatten(tree).find((candidate) => JSON.stringify(candidate.path) === key);
+    if (!el || !el.bounds) throw stale("the observed element is gone");
+    if (target.role !== undefined && el.role !== target.role) throw stale(`role changed (${target.role} → ${el.role})`);
+    if (target.label !== undefined && el.label !== target.label) throw stale(`label changed (${target.label} → ${el.label})`);
     return el.bounds;
   }
 
@@ -203,10 +214,10 @@ export function create({ exec }) {
     },
     screenshot: async (args = {}) => {
       rejectAppSelectors(args);
-      const { path: outPath } = args;
-      const dir = process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings");
+      const outPath = recordingsOutputPath(args.path);
+      const dir = recordingsDir();
       fs.mkdirSync(dir, { recursive: true });
-      const file = outPath || path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.jpeg`);
+      const file = outPath ?? path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.jpeg`);
       await snapshot(file);
       const buf = fs.readFileSync(file);
       displayPixels = jpegSize(buf) ?? displayPixels;
@@ -305,7 +316,7 @@ export function create({ exec }) {
     recordingStop: async ({ id }) => {
       if (!recording || recording.id !== id) throw new ExecError(`unknown recording "${id}"`);
       const { dir, seq, startedAt, intervalMs } = await stopFrames();
-      const dirOut = process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings");
+      const dirOut = recordingsDir();
       fs.mkdirSync(dirOut, { recursive: true });
       const out = path.join(dirOut, `rec-${id}.mp4`);
       const fps = Math.max(1, Math.min(15, Math.round(1000 / Math.max(150, intervalMs))));
@@ -319,7 +330,7 @@ export function create({ exec }) {
       ? { id, running: true, mode: "snapshot-series", frames: recording.seq, startedAt: recording.startedAt }
       : { id, running: false },
     recordingList: async () => {
-      const dir = process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings");
+      const dir = recordingsDir();
       const out = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.(mp4|mov|jpeg|png)$/i.test(f)).map((f) => {
         const st = fs.statSync(path.join(dir, f));
         return { file: path.join(dir, f), bytes: st.size, modifiedAt: st.mtime.toISOString() };

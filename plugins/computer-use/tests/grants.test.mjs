@@ -1,6 +1,7 @@
 // Capability grants: CODEWHALE_CU_GRANT narrows the advertised and callable
 // surface for the whole server process, fixed at launch; the daemon enforces
 // the same set independently (covered in session-lifecycle.test.mjs).
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -18,6 +19,7 @@ async function boot(t, grant) {
     env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: recDir, CODEWHALE_CU_APP: "off", CODEWHALE_CU_GRANT: grant },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  child.stdin.write(hostKeysLine());
   t.after(() => { try { child.stdin.end(); } catch {} child.kill("SIGTERM"); fs.rmSync(stateDir, { recursive: true, force: true }); fs.rmSync(recDir, { recursive: true, force: true }); });
   let buf = "";
   const pending = new Map();
@@ -38,7 +40,7 @@ async function boot(t, grant) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, 20_000);
       pending.set(id, (msg) => { clearTimeout(timer); resolve(msg); });
-      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
     });
   };
   const tool = async (name, args = {}) => JSON.parse((await rpc("tools/call", { name, arguments: args })).result.content[0].text);

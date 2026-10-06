@@ -2,6 +2,7 @@
 // computer. Unit tests pin the ledger; server tests prove the gate refuses
 // before backend dispatch, cannot be sidestepped by re-spelling the app, and
 // that foreground control is a separate consent from app access.
+import { hostKeysLine, attest, attestParams, TEST_LEDGER_KEY, ledgerMac } from "./fixtures/host-decision.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -22,6 +23,9 @@ function freshDir() {
   process.env.CODEWHALE_CU_STATE_DIR = dir;
   return dir;
 }
+// The unit tests run as the host would configure the plugin: remembered
+// allows are signed with the ledger key.
+consent.setLedgerKey(Buffer.from(TEST_LEDGER_KEY, "hex"));
 // Every test gets a clean store and a clean session map key space.
 let cidSeq = 0;
 const cid = () => `c${cidSeq++}`;
@@ -132,13 +136,14 @@ test("status merges persisted and session entries and labels their source", () =
 
 // ---------- wire: the gate, over the real server ----------
 
-async function boot(t, env = {}) {
+async function boot(t, env = {}, { hostKeys = true, attested = true, elicitation = null } = {}) {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-consent-srv-"));
   const recDir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-consent-rec-"));
   const child = spawn("node", [path.join(ROOT, "mcp", "server.mjs")], {
     env: { ...process.env, CODEWHALE_CU_STATE_DIR: stateDir, CODEWHALE_CU_RECORDINGS_DIR: recDir, CODEWHALE_CU_APP: "off", CODEWHALE_CU_TEST_BACKEND: path.join(ROOT, "tests", "fixtures", "fake-backend.mjs"), ...env },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  if (hostKeys) child.stdin.write(hostKeysLine());
   t.after(() => { try { child.stdin.end(); } catch {} child.kill("SIGTERM"); fs.rmSync(stateDir, { recursive: true, force: true }); fs.rmSync(recDir, { recursive: true, force: true }); });
   let buf = "";
   const pending = new Map();
@@ -151,6 +156,11 @@ async function boot(t, env = {}) {
       buf = buf.slice(i + 1);
       if (!line) continue;
       const msg = JSON.parse(line);
+      if (msg.method === "elicitation/create" && elicitation) {
+        if (typeof elicitation === "function") elicitation(msg);
+        else child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { action: elicitation } }) + "\n");
+        continue;
+      }
       if (msg.id != null && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
     }
   });
@@ -159,11 +169,13 @@ async function boot(t, env = {}) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, timeoutMs);
       pending.set(id, (msg) => { clearTimeout(timer); resolve(msg); });
-      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attested ? attestParams(method, params) : params }) + "\n");
     });
   };
   const tool = async (name, args = {}, timeoutMs) => JSON.parse((await rpc("tools/call", { name, arguments: args }, timeoutMs)).result.content[0].text);
-  return { rpc, tool, stateDir };
+  const send = (params) => rpc("tools/call", params).then((r) => JSON.parse(r.result.content[0].text));
+  const sendWire = message => child.stdin.write(JSON.stringify(message) + "\n");
+  return { rpc, tool, send, sendWire, stateDir };
 }
 
 test("first app contact refuses consent_required before any backend work", async (t) => {
@@ -258,4 +270,107 @@ test("spawned computers are task-owned — the app ledger never gates them", { s
   assert.notEqual(r.error?.code, "consent_required", "an owned computer must never consult the user's app ledger");
   const st = await s.tool("consent", { action: "status", computer: id });
   assert.equal(st.ok, true);
+});
+
+// ---------- the user's own decision ----------
+
+test("consent allow without a host decision is refused", async (t) => {
+  const s = await boot(t, {}, { attested: false });
+  const r = await s.tool("consent", { action: "allow", app: "FakeApp" });
+  assert.equal(r.ok, false);
+  assert.equal(r.error.code, "consent_needs_user");
+  for (const [name, args] of [["consent_allow", { app: "FakeApp" }], ["consent", { action: "revoke", app: "FakeApp" }], ["app_script", { script: "return 1" }], ["computer_register", { computer: "box", transport: "local" }]]) {
+    const refused = await s.tool(name, args);
+    assert.equal(refused.error?.code, "consent_needs_user", name);
+  }
+  // Narrowing needs no decision.
+  assert.equal((await s.tool("consent", { action: "deny", app: "OtherApp" })).ok, true);
+  const opened = await s.tool("open_application", { name: "FakeApp" });
+  assert.equal(opened.error?.code, "consent_required");
+});
+
+test("consent allow with a valid decision MAC succeeds; replayed nonce is refused", async (t) => {
+  const s = await boot(t, {}, { attested: false });
+  const params = attest({ name: "consent", arguments: { action: "allow", app: "FakeApp" } });
+  assert.equal((await s.send(params)).ok, true);
+  const replayed = await s.send(params);
+  assert.equal(replayed.error?.code, "consent_needs_user");
+  // A MAC for other arguments does not cover these.
+  const forged = attest({ name: "consent", arguments: { action: "allow", app: "OtherApp" } });
+  forged.arguments = { action: "allow", app: "Terminal" };
+  assert.equal((await s.send(forged)).error?.code, "consent_needs_user");
+  // A MAC under another key does not verify.
+  const wrongKey = attest({ name: "consent", arguments: { action: "allow", app: "Terminal" } }, "33".repeat(32));
+  assert.equal((await s.send(wrongKey)).error?.code, "consent_needs_user");
+});
+
+test("a decision is refused when the host sent no key, and keys are read only from the first message", async (t) => {
+  const s = await boot(t, {}, { hostKeys: false });
+  // Keys arriving after the first message are ignored.
+  await s.rpc("ping", {});
+  const late = await s.rpc("codewhale/host_keys", { decision_key: "11".repeat(32) }, 300).catch(() => null);
+  void late;
+  const r = await s.tool("consent", { action: "allow", app: "FakeApp" });
+  assert.equal(r.error?.code, "consent_needs_user");
+});
+
+test("a client with elicitation decides for other hosts", async (t) => {
+  for (const [answer, ok] of [["accept", true], ["decline", false]]) {
+    const s = await boot(t, {}, { hostKeys: false, attested: false, elicitation: answer });
+    await s.rpc("initialize", { protocolVersion: "2025-06-18", capabilities: { elicitation: {} } });
+    const r = await s.tool("consent", { action: "allow", app: "FakeApp" });
+    assert.equal(r.ok, ok, `${answer}: ${JSON.stringify(r)}`);
+    if (!ok) assert.equal(r.error.code, "consent_declined");
+  }
+});
+
+test("planted consent.json allow entry without MAC is ignored; deny is honored", () => {
+  const dir = freshDir();
+  const id = cid();
+  const at = new Date().toISOString();
+  const good = { decision: "allow", at };
+  fs.writeFileSync(path.join(dir, "consent.json"), JSON.stringify({ version: 1, computers: { [id]: {
+    apps: {
+      "name:planted": { decision: "allow", at },
+      "name:forged": { decision: "allow", at, mac: "00".repeat(32) },
+      "name:signed": { ...good, mac: ledgerMac(id, "name:signed", good) },
+      "name:blocked": { decision: "deny", at },
+    },
+    foreground: { decision: "allow", at },
+  } } }));
+  assert.equal(consent.decisionFor(id, ["name:planted"]).state, "undecided");
+  assert.equal(consent.decisionFor(id, ["name:forged"]).state, "undecided");
+  assert.equal(consent.decisionFor(id, ["name:signed"]).state, "allowed");
+  assert.equal(consent.decisionFor(id, ["name:blocked"]).state, "denied");
+  assert.equal(consent.foregroundDecision(id).state, "undecided");
+});
+
+test("confirm token requires a host decision", async (t) => {
+  const s = await boot(t, {}, { attested: false });
+  const r = await s.tool("consent", { action: "allow", confirm: "confirm-000000000000000000" });
+  assert.equal(r.error?.code, "consent_needs_user");
+});
+
+test("run_actions app_script step needs a host decision", async (t) => {
+  const s = await boot(t);
+  const r = await s.tool("run_actions", { steps: [{ tool: "app_script", arguments: { script: "return 1" } }] });
+  assert.equal(r.ok, false);
+  assert.equal(r.error.code, "consent_needs_user");
+});
+
+
+test("cancelled user elicitation releases dispatch and cannot grant consent later", async (t) => {
+  let sawPrompt;
+  const prompt = new Promise(resolve => { sawPrompt = resolve; });
+  const s = await boot(t, {}, { hostKeys: false, attested: false, elicitation: sawPrompt });
+  await s.rpc("initialize", { protocolVersion: "2025-06-18", capabilities: { elicitation: {} } });
+  s.sendWire({ jsonrpc: "2.0", id: "cancelled-consent", method: "tools/call", params: { name: "consent", arguments: { action: "allow", app: "FakeApp" } } });
+  const request = await Promise.race([prompt, new Promise((_, reject) => setTimeout(() => reject(new Error("elicitation was not shown")), 2_000))]);
+  s.sendWire({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: "cancelled-consent" } });
+  // The unanswered card no longer holds the serialized tool queue.
+  const before = await s.tool("consent", { action: "status" }, 1_000);
+  assert.deepEqual(before.apps, {});
+  s.sendWire({ jsonrpc: "2.0", id: request.id, result: { action: "accept" } });
+  const after = await s.tool("consent", { action: "status" }, 1_000);
+  assert.deepEqual(after.apps, {}, "a late accept cannot grant the cancelled request");
 });

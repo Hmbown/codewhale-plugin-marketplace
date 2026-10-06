@@ -18,7 +18,31 @@
 // actually enforce on this surface.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { stateDir } from "./registry.mjs";
+
+// Persisted allows are signed. consent.json is a file any process of this
+// user can write, so an allow counts only when it carries a MAC under the
+// ledger key the host keeps in its secret store (sent over the host channel,
+// see server.mjs). Denies need no signature: they only narrow. Without a
+// ledger key, allows live for the session only.
+let ledgerKey = null;
+export function setLedgerKey(key) { ledgerKey = Buffer.isBuffer(key) && key.length >= 32 ? key : null; }
+function entryMac(computerId, key, entry) {
+  return crypto.createHmac("sha256", ledgerKey).update(`${computerId}\0${key}\0${entry.decision}\0${entry.at ?? ""}`).digest("hex");
+}
+function signed(computerId, key, entry) {
+  return entry.decision === "allow" && ledgerKey ? { ...entry, mac: entryMac(computerId, key, entry) } : entry;
+}
+/** A persisted entry that may be honored: any deny, or an allow whose MAC verifies. */
+function honored(computerId, key, entry) {
+  if (!entry || typeof entry !== "object") return false;
+  if (entry.decision === "deny") return true;
+  if (entry.decision !== "allow" || !ledgerKey || typeof entry.mac !== "string") return false;
+  const expected = Buffer.from(entryMac(computerId, key, entry), "hex");
+  const given = /^[0-9a-f]+$/i.test(entry.mac) ? Buffer.from(entry.mac, "hex") : Buffer.alloc(0);
+  return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+}
 
 const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 const consentPath = () => path.join(stateDir(), "consent.json");
@@ -86,7 +110,8 @@ export function parseAppArg({ app, name, bundle_id, pid } = {}) {
 }
 
 function persistedEntries(computerId) {
-  return load().computers[computerId]?.apps ?? {};
+  const apps = load().computers[computerId]?.apps ?? {};
+  return Object.fromEntries(Object.entries(apps).filter(([key, entry]) => honored(computerId, key, entry)));
 }
 
 /**
@@ -120,18 +145,20 @@ export function record(computerId, keys, decision, { remember = false, name = nu
   if (decision !== "allow" && decision !== "deny") throw Object.assign(new Error(`decision must be "allow" or "deny"`), { code: "bad_args" });
   const at = new Date().toISOString();
   const entry = { decision, at, ...(name ? { name } : {}) };
-  // pid keys never persist — see appKeys.
+  // pid keys never persist — see appKeys. An allow persists only when it
+  // can be signed.
   const persistable = keys.filter((k) => !k.startsWith("pid:"));
-  if (remember && persistable.length) {
+  const persist = remember && persistable.length > 0 && (decision === "deny" || ledgerKey != null);
+  if (persist) {
     const data = load();
     const apps = (data.computers[computerId] ??= { apps: {} }).apps ??= {};
-    for (const key of persistable) apps[key] = { ...entry };
+    for (const key of persistable) apps[key] = signed(computerId, key, { ...entry });
     save(data);
   }
   const sm = sessionMap(computerId);
-  const backed = new Set(remember ? persistable : []);
+  const backed = new Set(persist ? persistable : []);
   for (const key of keys) sm.set(key, { ...entry, ...(backed.has(key) ? { persisted: true } : {}) });
-  return { keys, decision, persisted: remember && persistable.length > 0 };
+  return { keys, decision, persisted: persist };
 }
 
 /**
@@ -146,14 +173,16 @@ export function alias(computerId, keys, { persisted = false, name = null } = {})
   const sm = sessionMap(computerId);
   const entry = { decision: "allow", at, ...(name ? { name } : {}) };
   let durableKeys = new Set();
-  if (persisted) {
+  if (persisted && ledgerKey) {
     const data = load();
     const apps = (data.computers[computerId] ??= { apps: {} }).apps ??= {};
-    for (const key of keys.filter((k) => !k.startsWith("pid:"))) apps[key] ??= { ...entry };
+    for (const key of keys.filter((k) => !k.startsWith("pid:"))) {
+      if (!honored(computerId, key, apps[key])) apps[key] = signed(computerId, key, { ...entry });
+    }
     save(data);
     // A key already persisted as deny stays deny on disk — the marker only
     // goes on keys whose disk entry is actually this allow.
-    durableKeys = new Set(keys.filter((k) => apps[k]?.decision === "allow"));
+    durableKeys = new Set(keys.filter((k) => apps[k]?.decision === "allow" && honored(computerId, k, apps[k])));
   }
   for (const key of keys) sm.set(key, { ...entry, ...(durableKeys.has(key) ? { persisted: true } : {}) });
 }
@@ -174,7 +203,8 @@ export function revoke(computerId, keys) {
 
 export function foregroundDecision(computerId) {
   const s = session.get(computerId)?.get("scope:foreground");
-  const p = load().computers[computerId]?.foreground;
+  const stored = load().computers[computerId]?.foreground;
+  const p = honored(computerId, "scope:foreground", stored) ? stored : null;
   const pick = [s && { ...s, persisted: s.persisted === true }, p && { ...p, persisted: true }]
     .filter(Boolean)
     .sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
@@ -184,13 +214,14 @@ export function foregroundDecision(computerId) {
 
 export function recordForeground(computerId, decision, { remember = false } = {}) {
   const at = new Date().toISOString();
-  sessionMap(computerId).set("scope:foreground", { decision, at, ...(remember ? { persisted: true } : {}) });
-  if (remember) {
+  const persist = remember && (decision === "deny" || ledgerKey != null);
+  sessionMap(computerId).set("scope:foreground", { decision, at, ...(persist ? { persisted: true } : {}) });
+  if (persist) {
     const data = load();
-    (data.computers[computerId] ??= {}).foreground = { decision, at };
+    (data.computers[computerId] ??= {}).foreground = signed(computerId, "scope:foreground", { decision, at });
     save(data);
   }
-  return { scope: "foreground", decision, persisted: remember };
+  return { scope: "foreground", decision, persisted: persist };
 }
 
 export function revokeForeground(computerId) {

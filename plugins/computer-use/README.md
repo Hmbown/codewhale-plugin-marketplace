@@ -7,7 +7,7 @@
 
 **By Codewhale · macOS beta (notarized app and source) · Windows experimental unsigned preview · Linux experimental source/Docker**
 
-The [0.12.0 release](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.12.0)
+The [0.12.0 release](https://github.com/codewhale-hq/codewhale-cu-plugin/releases/tag/v0.12.0)
 provides the notarized universal Mac app and an **unsigned Windows x64 preview**.
 The Windows ZIP bundles Node and includes setup instructions; it is intended
 for testing, with physical-device, mixed-DPI and signing acceptance still open.
@@ -44,7 +44,7 @@ menu-bar app.
 Three doors, same destination — pick one:
 
 1. **Mac app (easiest).** Download the disk image from the latest stable
-   [GitHub release](https://github.com/Hmbown/codewhale-cu-plugin/releases),
+   [GitHub release](https://github.com/codewhale-hq/codewhale-cu-plugin/releases),
    drag it to Applications, and open it. Open **Computer Use…** from the
    whale menu-bar icon, grant what it asks (Accessibility, then Screen
    Recording), and run the background check. No terminal, no Node, no
@@ -56,7 +56,7 @@ Three doors, same destination — pick one:
    An installed Computer Use app remains the control owner when present.
 3. **From source.** Clone, test, install:
    ```bash
-   git clone https://github.com/Hmbown/codewhale-cu-plugin
+   git clone https://github.com/codewhale-hq/codewhale-cu-plugin
    cd codewhale-cu-plugin
    npm test                # unit + protocol, no GUI input performed
    npm run build:app       # dist/{macos,linux,windows}
@@ -95,7 +95,7 @@ parity](docs/CUA_PARITY.md) records the upstream reference and proof gaps.
 
 **Status.** Release status is recorded in [CHANGELOG.md](CHANGELOG.md). The
 notarized Mac app is published on this repository's
-[GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases)
+[GitHub releases](https://github.com/codewhale-hq/codewhale-cu-plugin/releases)
 (stable release: v0.12.0; this checkout prepares 0.12.1); remaining
 gates are tracked in [the release checklist](docs/RELEASE_CHECKLIST.md). The
 [setup page](https://codewhale.net/computer-use) offers the notarized disk
@@ -125,7 +125,7 @@ existing Engine authority before the model can use it.
 
 The notarized universal app ships as a drag-to-Applications disk image on
 this repository's
-[GitHub releases](https://github.com/Hmbown/codewhale-cu-plugin/releases),
+[GitHub releases](https://github.com/codewhale-hq/codewhale-cu-plugin/releases),
 only from a published stable release whose `release.json` receipt qualifies;
 the ZIP archive on the same release is what the in-app updater installs.
 The plugin marketplace links there, and the
@@ -643,7 +643,7 @@ binary.
 
 ## Support and contributing
 
-Use [GitHub issues](https://github.com/Hmbown/codewhale-cu-plugin/issues) for
+Use [GitHub issues](https://github.com/codewhale-hq/codewhale-cu-plugin/issues) for
 bugs and questions. Include the plugin version, macOS version, the failed
 action and the error text, with private app contents and credentials removed
 from any log excerpt. [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

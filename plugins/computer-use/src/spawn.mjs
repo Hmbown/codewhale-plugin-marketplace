@@ -116,19 +116,23 @@ export async function spawnDockerComputer({ id, image = DEFAULT_IMAGE } = {}) {
 }
 
 /**
- * Destroy a spawned container — but only one this plugin created. A docker
- * computer whose container lacks our spawn label is left running and reported
- * not_spawned; removing its registry entry is still the caller's choice.
+ * Destroy a spawned container — but only one this MCP process created. A
+ * docker computer whose container lacks our spawn label is left running and
+ * reported not_spawned; one spawned by another session (the registry is
+ * shared between MCP processes) is left running and reported other_session,
+ * so one task cannot tear down a desktop another task is driving.
  */
-export async function destroyDockerComputer(computer) {
+export async function destroyDockerComputer(computer, command = docker) {
   const container = computer?.container;
   if (!container || !CONTAINER_RE.test(container)) {
     throw new SpawnError("invalid_container", "docker computer has no valid container name");
   }
-  const insp = await docker(["container", "inspect", "--format", `{{index .Config.Labels "${SPAWN_LABEL}"}}`, container], { timeoutMs: 10_000, signal: null });
+  const insp = await command(["container", "inspect", "--format", `{{index .Config.Labels "${SPAWN_LABEL}"}}|{{index .Config.Labels "${SESSION_LABEL}"}}`, container], { timeoutMs: 10_000, signal: null });
   if (insp.code !== 0) return { destroyed: false, reason: "container_gone" };
-  if (insp.stdout.trim() !== "1") return { destroyed: false, reason: "not_spawned" };
-  const r = await docker(["rm", "-f", container], { timeoutMs: 20_000, signal: null });
+  const [spawned, session] = insp.stdout.trim().split("|");
+  if (spawned !== "1") return { destroyed: false, reason: "not_spawned" };
+  if (session !== SESSION_ID) return { destroyed: false, reason: "other_session" };
+  const r = await command(["rm", "-f", container], { timeoutMs: 20_000, signal: null });
   if (r.code !== 0) throw new SpawnError("cleanup_failed", `docker rm -f ${container} failed: ${trim(r.stderr)}`, r);
   return { destroyed: true };
 }

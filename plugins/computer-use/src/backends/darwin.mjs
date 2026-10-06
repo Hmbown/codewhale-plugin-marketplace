@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import { run, runOk, ExecError, tryJson, have, withSignal, wait, throwIfAborted, currentSignal } from "../exec.mjs";
 import { stateDir } from "../registry.mjs";
 import { createBrowser } from "../browser-cdp.mjs";
+import { recordingsDir, recordingsOutputPath } from "../recordings.mjs";
 
 /** Base64 expands 3 bytes to 4, padded to a multiple of 4. */
 const encodedSize = (bytes) => Math.ceil(bytes / 3) * 4;
@@ -454,10 +455,6 @@ export function create({ exec }) {
   async function displayInfo() { return native("displays"); }
 
   // ---------- screenshots ----------
-  function recordingsDir() {
-    return process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings");
-  }
-
   async function screenshot({ display, region, app_ref, window_id, path: outPath } = {}) {
     // Once an app is selected, ordinary observations follow it behind the
     // user's work. An explicit display/region remains a deliberate desktop capture.
@@ -469,8 +466,7 @@ export function create({ exec }) {
     // 5760x3240 frame is 21.8MB as PNG and 2.1MB as JPEG, at full resolution
     // and with terminal text still crisp. PNG stays available by asking for a
     // `.png` path, which is what a pixel-exact comparison wants.
-    const file = outPath || path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.jpg`);
-    if (!/\.(png|jpe?g)$/i.test(file)) throw new ExecError("screenshot path must end in .png, .jpg or .jpeg");
+    const file = recordingsOutputPath(outPath) ?? path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.jpg`);
     const args = ["-x", "-t", /\.png$/i.test(file) ? "png" : "jpg"];
     const disp = display ?? state.activeDisplay;
     // An explicit app reference resolves first and alone: nothing may run
@@ -522,14 +518,18 @@ export function create({ exec }) {
     return { ...state.lastRaster, path: file };
   }
 
-  async function zoom({ source, region, path: outPath }) {
-    if (!source && !state.lastRaster) throw new ExecError("no screenshot taken yet on this computer — call screenshot first");
+  // Always crops the last raster this backend captured; a caller-named
+  // source file is not accepted.
+  async function zoom({ region, path: outPath }) {
+    // Validate the caller's output path before anything else runs.
+    const explicitOut = recordingsOutputPath(outPath);
+    if (!state.lastRaster) throw new ExecError("no screenshot taken yet on this computer — call screenshot first");
     const [x, y, w, h] = region;
     if (![x, y, w, h].every((n) => Number.isInteger(n) && n >= 0) || !w || !h || x + w > state.lastRaster.pixels.w || y + h > state.lastRaster.pixels.h) throw new ExecError("region must be [x, y, w, h] in last-raster pixels");
-    const src = source ?? state.lastRaster.file;
+    const src = state.lastRaster.file;
     const dir = recordingsDir();
     fs.mkdirSync(dir, { recursive: true });
-    const out = outPath || path.join(dir, `zoom-${crypto.randomBytes(4).toString("hex")}.png`);
+    const out = explicitOut ?? path.join(dir, `zoom-${crypto.randomBytes(4).toString("hex")}.png`);
     await runOk("sips", ["-s", "format", "png", "-c", String(Math.round(h)), String(Math.round(w)), "--cropOffset", String(Math.round(y)), String(Math.round(x)), src, "--out", out], { timeoutMs: 15_000 });
     const parent = state.lastRaster;
     state.lastRaster = { file: out, bytes: fs.statSync(out).size, source: src, region,

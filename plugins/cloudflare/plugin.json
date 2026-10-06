@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/plugin.json",
   "name": "cloudflare",
   "version": "0.1.0",
-  "description": "Cloudflare Workers workflows for Codewhale: build and test Workers, deploy with Wrangler only after you approve, use KV, R2, D1 and Durable Objects, and move Pages projects to Workers.",
+  "description": "Cloudflare Workers workflows for Codewhale: build and test Workers, deploy with cf only after you approve, use KV, R2, D1 and Durable Objects, and move Pages projects to Workers.",
   "author": {
     "name": "Codewhale"
   },
@@ -10,7 +10,7 @@
   "keywords": [
     "cloudflare",
     "workers",
-    "wrangler",
+    "cloudflare-cli",
     "durable-objects",
     "d1",
     "r2"

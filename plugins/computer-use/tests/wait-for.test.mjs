@@ -1,6 +1,7 @@
 // wait_for polling, element-targeted type/key, and the persistent agent
 // channel: real MCP server over stdio with the injected fake backend, plus
 // the remote agent's --serve mode driven as a local child process.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -29,7 +30,7 @@ function rpc(method, params, timeoutMs = 30_000) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, timeoutMs);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 
@@ -62,6 +63,7 @@ before(async () => {
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`));
   server.stdout.setEncoding("utf8");
   server.stdout.on("data", (d) => {

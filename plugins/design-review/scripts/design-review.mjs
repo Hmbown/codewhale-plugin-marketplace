@@ -17,17 +17,16 @@ import { fileURLToPath } from "node:url";
 
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
 const RAW = new Set(["script", "style"]);
+const ENTITIES = {nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'"};
 
 function decode(text) {
-  return text
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+  return text.replace(/&(nbsp|amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, (_, entity) => {
+    const value = entity.toLowerCase();
+    if (value[0] !== "#") return ENTITIES[value];
+    const point = value.startsWith("#x") ? parseInt(value.slice(2), 16) : Number(value.slice(1));
+    return Number.isInteger(point) && point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+      ? String.fromCodePoint(point) : "\ufffd";
+  });
 }
 
 function parseAttrs(src) {

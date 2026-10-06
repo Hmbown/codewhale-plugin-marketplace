@@ -5,6 +5,8 @@
 import url from "node:url";
 import { exec } from "./remote-runtime.mjs";
 import { withSignal, throwIfAborted } from "./exec.mjs";
+import { checkAppScript } from "./app-script-policy.mjs";
+import * as consent from "./consent.mjs";
 
 export const ALLOWED = new Set([
   "preview", "platform", "probe", "list_displays", "switch_display", "list_apps", "list_sessions", "list_windows",
@@ -151,6 +153,37 @@ export function summarizeSessions() {
   };
 }
 
+/** App identities a request names directly, for the consent ledger. */
+function namedApps(tool, args) {
+  if (tool !== "open_application" && tool !== "kill_app") return [];
+  const ref = {};
+  if (typeof args.bundle_id === "string" && args.bundle_id.trim()) ref.bundle_id = args.bundle_id.trim();
+  if (typeof args.name === "string" && args.name.trim()) ref.name = args.name.trim();
+  if (Number.isInteger(args.pid) && args.pid > 0) ref.pid = args.pid;
+  return Object.keys(ref).length ? [ref] : [];
+}
+
+/**
+ * The runner's own policy, applied whoever sent the request: the MCP server,
+ * or any other process that reaches this socket. A script must pass the
+ * app_script policy, and no request may touch an app the user denied.
+ * (Allows are the MCP server's to check; a deny needs no signature.)
+ */
+function policyRefusal(tool, args, computerId) {
+  let targets = namedApps(tool, args);
+  if (tool === "app_script") {
+    const policy = checkAppScript(args.script, args.language);
+    if (policy.refused) return { code: "script_refused", message: `app_script refused: ${policy.refused}` };
+    targets = policy.targets;
+  }
+  for (const ref of targets) {
+    if (consent.decisionFor(computerId, consent.appKeys(ref)).state === "denied") {
+      return { code: "app_denied", message: `the user denied access to ${ref.name ?? ref.bundle_id ?? `pid ${ref.pid}`} on this computer` };
+    }
+  }
+  return null;
+}
+
 /**
  * Execute one {tool, args} request on this machine's backend. Never throws:
  * every outcome is a receipt object with `ok`.
@@ -164,6 +197,8 @@ export async function handle(req, { computerId = "local", sessionId = "direct", 
     return { ok: false, error: { code: "unsupported_on_transport", message: `"${tool}" runs on the local computer only — a remote agent stays a computer-use channel, never a shell` } };
   }
   if (tool === "platform") return { ok: true, platform: process.platform };
+  const refusal = policyRefusal(tool, req.args ?? {}, computerId);
+  if (refusal) return { ok: false, platform: process.platform, tool, error: refusal };
   if (controlMode !== "ready") return { ok: false, error: { code: `control_${controlMode}`, message: `Computer Use is ${controlMode} by the user. Wait for them to resume it in the menu bar.` } };
   const generation = controlGeneration;
   const key = `${computerId}:${sessionId}`;
@@ -226,7 +261,7 @@ export async function handle(req, { computerId = "local", sessionId = "direct", 
       return { ok: true, platform: process.platform, tool, data };
     }));
   } catch (err) {
-    return { ok: false, platform: process.platform, tool, error: { code: err?.code ?? "tool_error", message: String(err?.message ?? err) } };
+    return { ok: false, platform: process.platform, tool, error: { code: err?.code ?? "tool_error", message: String(err?.message ?? err), ...(err?.inputMayHaveBeenSent || err?.requestDispatched ? { request_dispatched: true } : {}) } };
   } finally {
     signal?.removeEventListener("abort", abort);
     session.requests.delete(controller);

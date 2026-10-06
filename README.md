@@ -16,7 +16,7 @@ open `whalewiki/whalewiki.html`. Run `npm run check:wiki` to check its evidence.
 | --- | --- | --- |
 | Understand a repo and find where to change it | [WhaleWiki](plugins/whalewiki/README.md) | Cited explanations, documentation impact lookup, six read tools and an offline reader |
 | Work in the Chrome tab you are looking at | [Codewhale for Chrome](plugins/chromewhale/README.md) | A side panel and `page_*` tools for selected tabs and frames in your own browser and sessions, gated per site. Load the bundled extension unpacked |
-| Operate a computer | [Computer Use](https://codewhale.net/computer-use) | App scripting, isolated Linux desktops and consent controls. Pair it with the [published Mac app (v0.12.0)](https://github.com/Hmbown/codewhale-cu-plugin/releases/tag/v0.12.0) for one-grant control; without the app the tools use the host’s own grants. [Source and platform support](plugins/computer-use/README.md) |
+| Operate a computer | [Computer Use](https://codewhale.net/computer-use) | App scripting, isolated Linux desktops and consent controls. Pair it with the [published Mac app (v0.12.0)](https://github.com/codewhale-hq/codewhale-cu-plugin/releases/tag/v0.12.0) for one-grant control; without the app the tools use the host’s own grants. [Source and platform support](plugins/computer-use/README.md) |
 | Look up Cloudflare documentation | [Cloudflare docs](plugins/cloudflare-docs/skills/cloudflare-docs/SKILL.md) | Official remote MCP; no credential required |
 | Build and deploy on Cloudflare | [Cloudflare](plugins/cloudflare/README.md) | Workers, KV, R2, D1, Durable Objects and Pages-to-Workers skills, an offline `/cloudflare-preflight` config check, and a deploy that waits for your approval. Pair with Cloudflare docs |
 | Deploy to Vercel | [Vercel workflow](plugins/vercel-workflow/README.md) | Deploy (preview or production) only after you approve, environment variables, logs, Next.js config and an offline `/vercel-preflight`. Uses your own Vercel CLI login; no MCP server |
@@ -105,7 +105,7 @@ through its existing reviewed installer. After a catalog or bundle update,
 commit the marketplace change and run `python3 scripts/sync-marketplace.py`
 from the sibling Core checkout. Core's `Marketplace connection` workflow checks
 the pinned catalog on changes and checks current upstream mirrors weekly.
-See Core's [marketplace maintenance guide](https://github.com/Hmbown/codewhale/blob/main/docs/PLUGIN_MARKETPLACE.md)
+See Core's [marketplace maintenance guide](https://github.com/codewhale-hq/Codewhale/blob/main/docs/PLUGIN_MARKETPLACE.md)
 for source ownership, update commands, and the publication order. Catalog
 membership never grants trust or enablement to an installed plugin.
 

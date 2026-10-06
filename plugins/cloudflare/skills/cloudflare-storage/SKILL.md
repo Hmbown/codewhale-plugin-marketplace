@@ -1,14 +1,17 @@
 ---
 name: cloudflare-storage
-description: Use Cloudflare KV, R2 and D1 from a Worker. Binding config, Worker code, wrangler commands, local vs remote data, D1 migrations. Use when adding or changing storage bindings or schemas.
+description: Use Cloudflare KV, R2 and D1 from a Worker. Binding config, Worker code, cf commands, local vs remote data, D1 migrations. Use when adding or changing storage bindings or schemas.
 ---
 
 # Cloudflare KV, R2 and D1 basics
 
-Local first: `wrangler dev` and the `--local` flag use simulated storage in
-`.wrangler/state`. Remote commands touch the user's real data and need approval
-(see `cloudflare-deploy`). Always pass `--local` or `--remote` explicitly; do not
-rely on a default, which differs between commands and versions.
+Local first: `cf dev` simulates the project's bindings through its adapter.
+Resource commands are remote unless a supported `--local` mode is explicitly
+selected. Consult `cf cli search` with an anonymous action/resource query and
+inspect the discovered command's help/schema; beta command names and flags
+are not interchangeable with Wrangler's. Remote writes require approval
+(`cloudflare-deploy`). Vite development data and cf local API data are separate
+stores; check the actual persistence directory before comparing results.
 
 Pick the store by access pattern:
 
@@ -21,9 +24,9 @@ Pick the store by access pattern:
 
 ## KV
 
-```jsonc
-{ "kv_namespaces": [{ "binding": "CACHE", "id": "<namespace-id>" }] }
-```
+Declare `CACHE` in `worker.env` with the current `bindings.kv` helper from
+`cf/config`, preserving the existing namespace ID. Validate typed options
+against the cf configuration reference and inspect dry-run bindings.
 
 ```ts
 await env.CACHE.put("user:1", JSON.stringify(user), { expirationTtl: 3600 });
@@ -34,14 +37,14 @@ const page = await env.CACHE.list({ prefix: "user:", limit: 100 });
 - Writes can take a while (60 seconds or more) to be visible in other
   locations; do not use KV where staleness is a bug.
 - `expirationTtl` has a documented minimum of 60 seconds.
-- CLI: `npx wrangler kv namespace create CACHE` (remote, approval),
-  `npx wrangler kv key put --binding=CACHE "k" "v" --local` (local).
+- Use `cf cli search "create a key value namespace"` or an equivalent
+  anonymous query, then inspect the returned help/schema. Namespace creation
+  is remote and needs approval; local KV writes require explicit `--local`.
 
 ## R2
 
-```jsonc
-{ "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }] }
-```
+Declare `FILES` with the current `bindings.r2` helper in `worker.env`;
+retain the existing bucket identity and check generated bindings.
 
 ```ts
 await env.FILES.put(key, request.body, { httpMetadata: { contentType: "image/png" } });
@@ -53,17 +56,14 @@ return new Response(obj.body, { headers: { etag: obj.httpEtag } });
 
 - Stream `request.body` into `put`; do not buffer large uploads in memory.
 - Validate keys from user input (no path tricks, enforce a prefix per user).
-- CLI: `npx wrangler r2 bucket create my-files` (remote, approval).
+- Discover cf R2 bucket/object commands through anonymous command search;
+  creating a bucket or writing/deleting an object remotely requires approval.
 
 ## D1
 
-```jsonc
-{
-  "d1_databases": [
-    { "binding": "DB", "database_name": "app-db", "database_id": "<uuid>", "migrations_dir": "migrations" }
-  ]
-}
-```
+Declare `DB` using the current `bindings.d1` helper in `worker.env`, keeping
+the existing database ID and generated environment types. Verify the helper's
+schema before adding migration options; do not copy legacy snake_case keys.
 
 ```ts
 const { results } = await env.DB.prepare("SELECT id, email FROM users WHERE org = ?1 LIMIT ?2")
@@ -77,22 +77,24 @@ await env.DB.batch([
 ```
 
 - Always `bind()` user input; never concatenate it into SQL.
-- Schema changes are migration files:
-  `npx wrangler d1 migrations create app-db add_users` creates a numbered SQL
-  file. Review it, then apply locally with
-  `npx wrangler d1 migrations apply app-db --local` and test.
-- Applying to production (`--remote`) is a data change: show the SQL, say which
-  database and account, wait for approval. Prefer additive migrations (add
-  column, add table). A `DROP`, `DELETE` without `WHERE`, or table rebuild needs
-  a second explicit confirmation and a restore plan (check the D1 Time Travel
-  docs for the current retention and `wrangler d1 time-travel` commands).
-- With ORMs that write nested migration folders, set `migrations_pattern`
-  (and `migrations_dir`) to match their layout.
+- Schema changes stay in reviewed, numbered SQL migration files. Keep the
+  framework's migration tool if it already owns ordering and receipts; inspect
+  its generated SQL, apply it only to the local test store and run the tests.
+- Discover cf D1 query/migration commands and exact input shape with anonymous
+  command search and help/schema. Never assume a Wrangler migration command
+  exists in cf under the same name.
+- Production application is a data change: show SQL, database and account,
+  get approval, and keep a restore plan. Prefer additive migrations. A DROP,
+  table rebuild or unrestricted DELETE requires explicit data-loss approval.
+  Check current D1 recovery/Time Travel availability rather than promising a
+  retention window from memory. Always bind user values, even in CLI queries.
 
 ## Checklist
 
 - [ ] binding names are valid JS identifiers and match `Env`
-- [ ] `npx wrangler types` re-run
+- [ ] generated binding types and project type check current
 - [ ] code handles `null` / missing results
 - [ ] local test ran against simulated storage
 - [ ] no remote write happened without a yes
+
+References: [cf local resources](https://developers.cloudflare.com/cf/projects/), [typed bindings](https://developers.cloudflare.com/cf/projects/cloudflare-config/).

@@ -124,13 +124,15 @@ test('parseLoopArgs: rejects what could weaken the cap or the phrase', () => {
   assert.equal(parseLoopArgs(`x --max ${HARD_MAX}`).max, HARD_MAX);
 });
 
-test('hasPhrase: whole line only, tolerant of emphasis, never a substring', () => {
+test('hasPhrase: final nonblank line only, tolerant of emphasis, never a substring', () => {
   assert.equal(hasPhrase('did it\nALL_GREEN', 'ALL_GREEN'), true);
   assert.equal(hasPhrase('done\n**ALL_GREEN**\n', 'ALL_GREEN'), true);
   assert.equal(hasPhrase('done\r\nALL_GREEN  \r\n', 'ALL_GREEN'), true);
   assert.equal(hasPhrase('I will print ALL_GREEN when finished', 'ALL_GREEN'), false);
   assert.equal(hasPhrase('"ALL_GREEN" is the phrase I must not write yet', 'ALL_GREEN'), false);
   assert.equal(hasPhrase('NOT_ALL_GREEN', 'ALL_GREEN'), false);
+  assert.equal(hasPhrase('ALL_GREEN\nThere is still a failing test.', 'ALL_GREEN'), false);
+  assert.equal(hasPhrase('**ALL_GREEN**\r\nThe task is unfinished.\r\n', 'ALL_GREEN'), false);
 });
 
 // ---------------------------------------------------------------------- gate
@@ -479,6 +481,18 @@ test('turn-end: the completion phrase on its own line stops the loop', async () 
     assert.equal(readState(box.ws).status, 'completed');
     assert.deepEqual(sock.received, []);
     assert.equal(state.iteration, 1);
+  } finally { await sock.close(); box.cleanup(); }
+});
+
+test('turn-end: a whole-line phrase followed by unfinished work continues the same loop', async () => {
+  const box = sandbox();
+  const sock = await fakeSocket(box);
+  try {
+    const {state, prompt} = await started(box);
+    transcript(box, UUID_A, box.ws, [[prompt, 'ALL_GREEN\nOne test still fails.']]);
+    assert.equal(await turnEnd(ended(box), box.env), 'continued');
+    assert.equal(readState(box.ws).status, 'active');
+    assert.deepEqual(sock.received, [`<<loop-next:${state.id}:2>>`]);
   } finally { await sock.close(); box.cleanup(); }
 });
 

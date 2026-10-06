@@ -30,8 +30,8 @@ for (const name of plugins) {
   const dir = path.join(ROOT, 'plugins', name);
   const file = path.join(dir, 'provenance.json');
   const prov = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const next = {...prov, commit: upstream.commit, generation: upstream.generation, skills: {}};
-  let dirty = prov.commit !== upstream.commit || prov.generation !== upstream.generation;
+  const next = {...prov, repository: upstream.repository, commit: upstream.commit, generation: upstream.generation, skills: {}};
+  let dirty = prov.repository !== upstream.repository || prov.commit !== upstream.commit || prov.generation !== upstream.generation;
   for (const skill of Object.keys(prov.skills)) {
     if (!upstream.skills.includes(skill)) { problems.push(`${name}: ${skill} is no longer an active mirrored skill`); continue; }
     const body = fs.readFileSync(path.join(ROOT, 'skills', skill, 'SKILL.md'));

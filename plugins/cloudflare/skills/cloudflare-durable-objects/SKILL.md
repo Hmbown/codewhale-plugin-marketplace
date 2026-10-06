@@ -43,43 +43,36 @@ export default {
 } satisfies ExportedHandler<Env>;
 ```
 
-Binding:
+Binding and SQLite lifecycle are declared together in typed config:
 
-```jsonc
-{ "durable_objects": { "bindings": [{ "name": "COUNTER", "class_name": "Counter" }] } }
+```ts
+import { bindings, defineConfig, exports } from "cf/config";
+export default defineConfig({
+  worker: {
+    name: "counter", entrypoint: "src/index.ts", compatibilityDate: "2026-10-01",
+    env: { COUNTER: bindings.durableObject({ worker: "counter", exportName: "Counter" }) },
+    exports: { Counter: exports.durableObject({ storage: "sqlite" }) },
+  },
+});
 ```
 
-The class must also be declared with a lifecycle entry, or the deploy fails or
-the class has no storage. Two styles exist and they are mutually exclusive in
-one config:
-
-```jsonc
-// Newer, declarative (preferred for new Workers when your Wrangler supports it)
-{ "exports": { "Counter": { "type": "durable-object", "storage": "sqlite" } } }
-
-// Older, imperative; still supported and required if the project already uses it
-{ "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Counter"] }] }
-```
-
-- Keep whichever style the project already uses. Do not mix them.
-- Use SQLite storage (`storage: "sqlite"` / `new_sqlite_classes`). New
-  key-value-backed namespaces (`new_classes`) are no longer available to many
-  accounts, and a deployed class cannot be switched to SQLite later.
-- An older Wrangler does not know `exports`: Wrangler 4.94.0 prints
-  `Unexpected fields found in top-level field: "exports"`, ignores it, and still
-  passes `--dry-run`, so the class would be deployed with no lifecycle entry.
-  Check `npx wrangler --version`; if it is too old, upgrade it (show the
-  dependency edit) or use `migrations`. Never rely on a dry run to validate the
-  lifecycle block.
+Review `cf migrate --dry-run` for legacy configurations and preserve the
+existing class identity, storage and imperative migration history. Never mix
+an existing migrations lifecycle with a new exports lifecycle. Use SQLite for
+new namespaces; do not claim a deployed key-value class can be switched to it.
+Check current cf/config helpers and generated lifecycle output against the
+[configuration reference](https://developers.cloudflare.com/cf/projects/cloudflare-config/).
+Do not infer correctness solely from a successful dry run: an ignored lifecycle
+entry can pass packaging and still deploy the wrong storage.
 
 ## Lifecycle changes are dangerous
 
-Creating a class is safe. Renaming, deleting or transferring a class is a
+Defining a class locally is safe. Renaming, deleting or transferring a class is a
 data-affecting operation:
 
 - It is atomic: it cannot be uploaded as a version or deployed gradually, and
   you cannot roll back past it. After approval, deploy it alone with
-  `wrangler deploy`.
+  `cf deploy`.
 - Deleting a class deletes its stored data. Renaming without a rename entry
   orphans data.
 - Always show the diff of the `exports` / `migrations` block to the user, name
@@ -128,7 +121,7 @@ expensive.
 - Derive the object name from something stable (`getByName(userId)`), and
   validate it; a user-supplied name creates an object.
 - Test with `@cloudflare/vitest-pool-workers`: call RPC methods on a stub and
-  trigger alarms with `runDurableObjectAlarm(stub)`. Run `wrangler dev` to try
+  trigger alarms with `runDurableObjectAlarm(stub)`. Run `cf dev` to try
   it locally; state is simulated.
 
 ## Checklist
