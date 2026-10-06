@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {spawn, execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
@@ -20,13 +21,14 @@ const PLUGIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENGINE = path.join(PLUGIN, 'scripts', 'loop.mjs');
 const UUID_A = '11111111-1111-4111-8111-111111111111';
 const UUID_B = '22222222-2222-4222-8222-222222222222';
+const UNIX_ONLY = {skip: process.platform === 'win32' && 'Loop declares macOS/Linux: Unix control sockets and shell hooks'};
 
 // ------------------------------------------------------------------ fixtures
 
 // Unix socket paths are limited to ~104 bytes, so fixtures live under /tmp.
-function sandbox() {
-  const root = fs.mkdtempSync('/tmp/cwlt-');
-  const home = path.join(root, 'h');
+function sandbox(homeName = 'h') {
+  const root = fs.mkdtempSync(path.join(process.platform === 'win32' ? os.tmpdir() : '/tmp', 'cwlt-'));
+  const home = path.join(root, homeName);
   const ws = path.join(root, 'ws');
   fs.mkdirSync(path.join(home, 'sessions'), {recursive: true});
   fs.mkdirSync(ws);
@@ -148,7 +150,7 @@ test('gate: ordinary messages pass through without touching disk', async () => {
   } finally { box.cleanup(); }
 });
 
-test('gate: /loop writes state, keeps it out of git, and rewrites the message into the iteration prompt', async () => {
+test('gate: /loop writes state, keeps it out of git, and rewrites the message into the iteration prompt', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -167,7 +169,7 @@ test('gate: /loop writes state, keeps it out of git, and rewrites the message in
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: /loop without --until says so in the prompt', async () => {
+test('gate: /loop without --until says so in the prompt', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -187,7 +189,7 @@ test('gate: /loop refuses to start without a control socket, and says how to fix
   } finally { box.cleanup(); }
 });
 
-test('gate: /loop refuses while a native /goal is active, allows it when paused', async () => {
+test('gate: /loop refuses while a native /goal is active, allows it when paused', UNIX_ONLY, async () => {
   const box = sandbox();
   const busy = await fakeSocket(box, UUID_A, {goal: {objective: 'ship it', status: 'active', paused: false}});
   try {
@@ -203,7 +205,7 @@ test('gate: /loop refuses while a native /goal is active, allows it when paused'
   } finally { await paused.close(); box.cleanup(); }
 });
 
-test('gate: a second /loop is refused while one is active, but replaces a stale or finished one', async () => {
+test('gate: a second /loop is refused while one is active, but replaces a stale or finished one', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -227,7 +229,7 @@ test('gate: a second /loop is refused while one is active, but replaces a stale 
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: /cancel-loop cancels, and a continuation already in flight is then dropped', async () => {
+test('gate: /cancel-loop cancels, and a continuation already in flight is then dropped', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -244,7 +246,7 @@ test('gate: /cancel-loop cancels, and a continuation already in flight is then d
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: /loop-status relays the state in a short notice', async () => {
+test('gate: /loop-status relays the state in a short notice', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -256,7 +258,7 @@ test('gate: /loop-status relays the state in a short notice', async () => {
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: continuation counts exactly once, in order, for the owning session only', async () => {
+test('gate: continuation counts exactly once, in order, for the owning session only', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -275,7 +277,7 @@ test('gate: continuation counts exactly once, in order, for the owning session o
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: the cap holds at the gate even if the driver misbehaves', async () => {
+test('gate: the cap holds at the gate even if the driver misbehaves', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -293,7 +295,7 @@ test('gate: the cap holds at the gate even if the driver misbehaves', async () =
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: the time limit stops a loop regardless of iteration count', async () => {
+test('gate: the time limit stops a loop regardless of iteration count', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -307,7 +309,7 @@ test('gate: the time limit stops a loop regardless of iteration count', async ()
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('gate: a state file planted by a repository is ignored and cannot be continued', async () => {
+test('gate: a state file planted by a repository is ignored and cannot be continued', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -337,7 +339,7 @@ function expandCommand(file, args) {
   return raw.replace(/^---\n[\s\S]*?\n---\n/, '').replace('$ARGUMENTS', args);
 }
 
-test('the shipped command files expand into messages the gate recognizes', async () => {
+test('the shipped command files expand into messages the gate recognizes', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -363,7 +365,7 @@ test('the shipped command files expand into messages the gate recognizes', async
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('describe: an active loop with no turn in flight for minutes is called out as stalled', async () => {
+test('describe: an active loop with no turn in flight for minutes is called out as stalled', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -376,7 +378,7 @@ test('describe: an active loop with no turn in flight for minutes is called out 
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('state directory: a symlinked .codewhale/loop planted by a repository is refused', async () => {
+test('state directory: a symlinked .codewhale/loop planted by a repository is refused', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -393,7 +395,7 @@ test('state directory: a symlinked .codewhale/loop planted by a repository is re
 
 // ------------------------------------------------------------------ turn end
 
-test('turn-end: asks for the next iteration over the control socket', async () => {
+test('turn-end: asks for the next iteration over the control socket', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -404,7 +406,7 @@ test('turn-end: asks for the next iteration over the control socket', async () =
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: ignores other sessions, no loop, finished loops and non-model turns', async () => {
+test('turn-end: ignores other sessions, no loop, finished loops and non-model turns', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -418,7 +420,7 @@ test('turn-end: ignores other sessions, no loop, finished loops and non-model tu
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: only a turn the loop started counts, and a duplicate event sends nothing twice', async () => {
+test('turn-end: only a turn the loop started counts, and a duplicate event sends nothing twice', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -441,7 +443,7 @@ test('turn-end: only a turn the loop started counts, and a duplicate event sends
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: a continuation that lost a race with /cancel-loop is not sent', async () => {
+test('turn-end: a continuation that lost a race with /cancel-loop is not sent', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -456,7 +458,7 @@ test('turn-end: a continuation that lost a race with /cancel-loop is not sent', 
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: a failed or interrupted turn ends the loop (Esc cancels it)', async () => {
+test('turn-end: a failed or interrupted turn ends the loop (Esc cancels it)', UNIX_ONLY, async () => {
   for (const status of ['failed', 'interrupted']) {
     const box = sandbox();
     const sock = await fakeSocket(box);
@@ -471,7 +473,7 @@ test('turn-end: a failed or interrupted turn ends the loop (Esc cancels it)', as
   }
 });
 
-test('turn-end: the completion phrase on its own line stops the loop', async () => {
+test('turn-end: the completion phrase on its own line stops the loop', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -484,7 +486,7 @@ test('turn-end: the completion phrase on its own line stops the loop', async () 
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: a whole-line phrase followed by unfinished work continues the same loop', async () => {
+test('turn-end: a whole-line phrase followed by unfinished work continues the same loop', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -496,7 +498,7 @@ test('turn-end: a whole-line phrase followed by unfinished work continues the sa
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: the phrase quoted in passing, or in an earlier iteration, does not stop the loop', async () => {
+test('turn-end: the phrase quoted in passing, or in an earlier iteration, does not stop the loop', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -514,7 +516,7 @@ test('turn-end: the phrase quoted in passing, or in an earlier iteration, does n
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: with --until, an unreadable transcript fails closed instead of looping blind', async () => {
+test('turn-end: with --until, an unreadable transcript fails closed instead of looping blind', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -527,7 +529,7 @@ test('turn-end: with --until, an unreadable transcript fails closed instead of l
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: without --until the transcript is not needed', async () => {
+test('turn-end: without --until the transcript is not needed', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -536,7 +538,7 @@ test('turn-end: without --until the transcript is not needed', async () => {
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('turn-end: a missing control socket or a refused message stops the loop with a reason', async () => {
+test('turn-end: a missing control socket or a refused message stops the loop with a reason', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   await started(box, 'x --max 3');
@@ -558,7 +560,7 @@ test('turn-end: a missing control socket or a refused message stops the loop wit
 
 // ---------------------------------------------- whole loop, hook by hook, capped
 
-test('a whole loop: runs exactly --max iterations, wraps up once, then every later event is inert', async () => {
+test('a whole loop: runs exactly --max iterations, wraps up once, then every later event is inert', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -597,7 +599,7 @@ test('a whole loop: runs exactly --max iterations, wraps up once, then every lat
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('a whole loop: stops early on the phrase before the cap', async () => {
+test('a whole loop: stops early on the phrase before the cap', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -614,7 +616,7 @@ test('a whole loop: stops early on the phrase before the cap', async () => {
 
 // ------------------------------------------------------- hook process contract
 
-test('cli gate: exit codes and stdout follow the message_submit contract', async () => {
+test('cli gate: exit codes and stdout follow the message_submit contract', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -632,7 +634,7 @@ test('cli gate: exit codes and stdout follow the message_submit contract', async
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('cli: concurrent hook processes cannot advance the same iteration twice', async () => {
+test('cli: concurrent hook processes cannot advance the same iteration twice', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -646,7 +648,7 @@ test('cli: concurrent hook processes cannot advance the same iteration twice', a
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('cli turn-end: runs from a symlinked install path', async () => {
+test('cli turn-end: runs from a symlinked install path', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
   try {
@@ -665,9 +667,12 @@ test('cli turn-end: runs from a symlinked install path', async () => {
   } finally { await sock.close(); box.cleanup(); }
 });
 
-test('socket choice: the session whose socket my parent process owns wins an otherwise ambiguous workspace', async (t) => {
-  try { execFileSync('lsof', ['-v'], {stdio: 'ignore'}); } catch { try { execFileSync('lsof', ['-h'], {stdio: 'ignore'}); } catch { return t.skip('lsof is not installed'); } }
-  const box = sandbox();
+for (const homeName of ['h', 'h with spaces']) {
+test(`socket choice: the ancestor-owned session wins an ambiguous workspace (${homeName})`, UNIX_ONLY, async (t) => {
+  if (process.platform !== 'linux') {
+    try { execFileSync('lsof', ['-v'], {stdio: 'ignore'}); } catch { try { execFileSync('lsof', ['-h'], {stdio: 'ignore'}); } catch { return t.skip('lsof is not installed'); } }
+  }
+  const box = sandbox(homeName);
   const mine = await fakeSocket(box, UUID_A);
   // A second live session for the same workspace, served by an unrelated process.
   const otherDir = path.join(box.home, 'sessions', UUID_B);
@@ -687,8 +692,9 @@ test('socket choice: the session whose socket my parent process owns wins an oth
     assert.equal(readState(box.ws).status, 'active');
   } finally { helper.kill(); await mine.close(); box.cleanup(); }
 });
+}
 
-test('socket choice: sessions of other workspaces are never driven, and ambiguity refuses', async () => {
+test('socket choice: sessions of other workspaces are never driven, and ambiguity refuses', UNIX_ONLY, async () => {
   const box = sandbox();
   const elsewhere = await fakeSocket(box, UUID_B);
   try {
@@ -702,7 +708,7 @@ test('socket choice: sessions of other workspaces are never driven, and ambiguit
 
 // --------------------------------------------------------- packaging contract
 
-test('hook commands locate the installed engine and are inert when it is missing', async () => {
+test('hook commands locate the installed engine and are inert when it is missing', UNIX_ONLY, async () => {
   const toml = fs.readFileSync(path.join(PLUGIN, 'hooks', 'loop.toml'), 'utf8');
   const commands = [...toml.matchAll(/command = '''\n([\s\S]*?)'''/g)].map((m) => m[1]);
   assert.equal(commands.length, 2);

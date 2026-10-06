@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -19,7 +19,8 @@ import {
   readSse,
   splitMessage,
   stripGroupPrefix,
-  ThreadStore
+  ThreadStore,
+  writeFileDurable
 } from "../src/lib.mjs";
 
 test("env and primitive parsers handle bridge env conventions", () => {
@@ -121,14 +122,31 @@ test("ThreadStore supports chat state, message dedupe, and action tokens", async
     assert.equal(await store.recordMessage("m3"), false);
     assert.deepEqual(store.data.messages, ["m2", "m3"]);
 
-    const token = await store.putAction({ kind: "resume", threadId: "thread-a" });
-    assert.equal((await store.getAction(token)).kind, "resume");
-    assert.equal((await store.takeAction(token)).threadId, "thread-a");
-    assert.equal(await store.getAction(token), null);
+    const token = await store.putAction({ kind: "resume", threadId: "thread-a" }, { chatId: "chat-a" });
+    assert.equal((await store.getAction(token, { chatId: "chat-a" })).kind, "resume");
+    assert.equal((await store.takeAction(token, { chatId: "chat-a" })).threadId, "thread-a");
+    assert.equal(await store.getAction(token, { chatId: "chat-a" }), null);
 
     const saved = await ThreadStore.open(statePath, { messageLimit: 2, actions: true });
     assert.equal((await saved.getChat("chat-a")).threadId, "thread-a");
     assert.deepEqual(saved.data.messages, ["m2", "m3"]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("action tokens remain distinct when clock and legacy randomness repeat", async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), "codewhale-action-tokens-"));
+  try {
+    const store = await ThreadStore.open(path.join(dir, "state.json"), { actions: true });
+    t.mock.method(Date, "now", () => 1);
+    t.mock.method(Math, "random", () => 0.5);
+    const first = await store.putAction({ threadId: "thread-a" }, { chatId: "chat-a" });
+    const second = await store.putAction({ threadId: "thread-b" }, { chatId: "chat-a" });
+    assert.notEqual(first, second);
+    assert.match(first, /^[a-f0-9]{32}$/);
+    assert.equal((await store.getAction(first, { chatId: "chat-a" })).threadId, "thread-a");
+    assert.equal((await store.getAction(second, { chatId: "chat-a" })).threadId, "thread-b");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -234,6 +252,38 @@ test("ThreadStore persists numeric cursors", async () => {
 
     const saved = await ThreadStore.open(statePath);
     assert.equal(saved.getCursor("telegram.update_offset"), 42);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("writeFileDurable replaces the file through unique temp names and leaves none behind", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "codewhale-bridge-core-"));
+  try {
+    const target = path.join(dir, "sync-buf.txt");
+    // Concurrent writers used to share one fixed `.tmp` path and race on it.
+    await Promise.all(Array.from({ length: 8 }, (_, index) => writeFileDurable(target, `cursor-${index}`)));
+    assert.match(await readFile(target, "utf8"), /^cursor-[0-7]$/);
+    assert.deepEqual(await readdir(dir), ["sync-buf.txt"]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("ThreadStore claims survive a restart: finished messages skip, an in-flight one is reported", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "codewhale-bridge-core-"));
+  try {
+    const statePath = path.join(dir, "thread-map.json");
+    const store = await ThreadStore.open(statePath, { messageLimit: 10 });
+    assert.equal(await store.claimMessage("u:1"), "new");
+    await store.completeMessage("u:1");
+    assert.equal(await store.claimMessage("u:2"), "new");
+    // The process dies here, before completeMessage("u:2").
+    const restarted = await ThreadStore.open(statePath, { messageLimit: 10 });
+    assert.equal(await restarted.claimMessage("u:1"), "done");
+    assert.equal(await restarted.claimMessage("u:2"), "interrupted");
+    assert.equal(await restarted.claimMessage("u:2"), "done", "reported once, then an ordinary duplicate");
+    assert.equal(await restarted.claimMessage("u:3"), "new");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -1,40 +1,56 @@
 # Current source qualification — October 6, 2026
 
 This addendum supersedes the October 5 Computer Use drift report below. Root
-reviewed the existing local-only wave commit `4e27243` and qualified the
-reconciliation on `feat/marketplace-wave-1005`; Engine remains frozen at
-`ed5e3f10dac5` while its final Mac gate finishes.
+reviewed the original wave commit `4e27243` and its follow-up reconciliation on
+`feat/marketplace-wave-1005`. Engine G6 `ed5e3f10dac5` is now on remote Main through
+original integration PR6846, merge `ad333fdcaf04` with the identical tested tree.
 
-- `npm test`: **932 passed, 0 failed, 26 skipped** across the reported groups.
+- `npm test`: **997 passed, 0 failed, 26 skipped** across the reported groups.
 - `npm run check:web`: **13 passed, 0 failed, 9 skipped**. Mobile extension cases
   remain intentionally skipped; this does not prove mobile extension support.
-- Marketplace contract, all four skill provenance manifests and all three wiki
-  pages passed; **19 catalog bundles** packaged locally.
-- Computer Use is an exact mirror of canonical Main `a656f674`. The upstream
-  local checkout `b47efff5` has the same tree. The exact owning Core lane matches
-  its runtime subset, with three declared Core variants. A check accidentally
-  targeting the older sibling Core checkout failed; the corrected owning-lane
-  check passed. No canonical source was forked to hide drift.
-- Cloudflare commands use `cf`. Typed config is executable, so the offline
-  preflight returns unvalidated and does not evaluate it or silently accept a
-  stale legacy config. The focused Cloudflare gate passed **24/0**.
-- Loop completion now requires the final nonblank reply line; an earlier marker
-  followed by unfinished work continues. **Seven installed native TUI checks
-  passed**, using the actual `ed5e3f10dac5` binary and a scripted localhost model,
-  with no live provider call. They cover cap/wrap-up, completion, cancellation,
-  ordinary messages, missing socket, and changed bundle trust.
-- The design checker decodes original HTML entities once and handles invalid
-  numeric scalars without crashing. This repairs the original PR's CodeQL
-  double-unescape report; fresh hosted security analysis is still required.
-- Catalog and Core provenance URLs use `codewhale-hq`. The hello-extension
-  homepage follows its real `plugins/samples/hello-extension` source. Skill
-  commit, generation 17, bodies and resource hashes are preserved.
+- Marketplace contract, all four skill provenance manifests, all three wiki
+  pages and exact owning-Core Computer Use sync passed. **19 catalog bundles**
+  packaged locally from the final source. The implementation was unchanged
+  throughout the full local gates; this evidence addendum was written afterward.
+- Computer Use exactly mirrors canonical Main `a656f674`; local upstream
+  `b47efff5` has the same tree. G6 matches the runtime subset, with three declared
+  Core variants. An earlier check against the stale sibling Core checkout failed;
+  the corrected owning-lane check passed. No canonical source was forked.
+- All **42 canonical bridge files and two referenced Weixin images** now mirror
+  G6 byte for byte. `integrations/upstream.json` records that exact commit and
+  all 44 hashes. This carries human approval identity, accepted-turn recovery,
+  Weixin account binding and QR fixes already present in Engine, instead of
+  inventing an independent marketplace fork. The integration wiki was updated
+  and resealed against the actual source set.
+- Fresh locked Feishu and WeCom installs, syntax checks and production dependency
+  audits passed: **0 vulnerabilities** in each. Both SDKs imported their expected
+  exports and their own Axios **1.20.0** dependency completed a localhost request.
+  No authenticated service was contacted.
+- The first hosted follow-up at `6f33bf07` passed macOS but failed one Linux and
+  35 Windows cases. Linux exposed truncated `lsof` socket paths; Loop now joins
+  listening Unix-socket inodes to ancestor process file descriptors. **40/0**
+  tests passed in an isolated Linux container, including a path with spaces.
+  Windows fixtures now follow the documented Unix-only Loop socket contract;
+  portable module imports and manifest path assertions were corrected.
+- Loop completion requires the final nonblank reply line. **Seven installed
+  native TUI checks passed again** against the final bundle and the actual G6
+  binary using a scripted localhost model. These cover cap/wrap-up, completion,
+  cancellation, ordinary messages, missing socket and changed bundle trust.
+- Authored Cloudflare commands use `cf`; executable typed config is not evaluated
+  by offline preflight or silently substituted with stale legacy config. The
+  focused Cloudflare gate passed **24/0**.
+- The design checker decodes original HTML entities once and replaces invalid
+  numeric scalars. Four-language CodeQL at `6f33bf07` passed after this repair.
+  Final-head three-OS CI and security analysis remain required before PR10 merges.
+- Catalog and Core provenance URLs use `codewhale-hq`; hello-extension points at
+  its actual `plugins/samples/hello-extension` source. Skill commit, generation
+  17, bodies and resource hashes are preserved.
 
-Node: **26.10.0**. The implementation was unchanged throughout the final local
-gates; this evidence addendum was written afterward. Raw gate logs, source hashes,
-package inventories and failed attempts are retained in the workspace takeover
-artifact directory. Hosted three-OS CI, fresh security analysis, authenticated
-plugin services and publication are separate proofs. No deployment occurred.
+Node: **26.10.0**. Raw gate logs, source hashes, package inventories and failed
+attempts are retained in the workspace takeover artifact directory. Hosted CI,
+authenticated services and publication are separate proofs. Engine's embedded
+marketplace revision remains a separate source pin until explicitly refreshed.
+No deployment occurred.
 
 ---
 

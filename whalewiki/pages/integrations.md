@@ -49,6 +49,14 @@ reattaching after restart they check that identity against the current allowlist
 and group policy. Legacy state without identity stays detached. Feishu updates
 its reply destination only after admitting the incoming sender.
 
+The current pinned bridges retain the accepted turn's initiating human for
+approval decisions. A newer group sender or an unbound legacy button cannot
+approve another person's turn. Restart recovery validates that identity before
+reattaching. Weixin also binds durable prompts, accepted operation IDs, saved
+replies and uncertain deliveries to the paired bot account; a replacement
+account cannot inherit them. QR setup and reconnect behavior still require
+real service qualification. These guarantees come from the same Core owner.
+
 ## Signed webhook intake
 
 The marketplace-owned webhook bridge reuses `bridge-core`'s runtime client.

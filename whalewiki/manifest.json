@@ -198,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "ed49ddd807a24d11e9d337bbd85121ed1b201bb8fcf34559ac3bc262abdfa881",
+      "page_sha256": "a02454389701d67e981ded5398916330a30b21b5a0be18ec5c0382419370bb00",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -221,8 +221,8 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "fafd7d8bd266248b09b3ada54b7341b53cd192d8f09799195fe6a64489e4ee19",
-          "bytes": 4517
+          "sha256": "62a7ee756e877b4e9be06f1322a19053b0b33413ea5e0192c9b89707054bbf13",
+          "bytes": 5356
         },
         {
           "path": "integrations/README.md",
@@ -257,24 +257,48 @@
         {
           "path": "integrations/telegram-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "bc9d0b5a2cfa944a96ec3b8858a5691b20b76f4a4d0e86182a9aea5807df3005",
-          "bytes": 32736
+          "sha256": "3da6441e6200e13ca900b656fd18981e4515a211100952c9963b3ed3c6f273cc",
+          "bytes": 34656
         },
         {
           "path": "integrations/feishu-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "0a5946804f179e122ddb00183a63aec31adb736b265a399c1d5c892c0e687938",
-          "bytes": 19755
+          "sha256": "05546cf94ee401d3f055b1d907a6d03544e308093bd41ea1b1b51b2eec1a22fa",
+          "bytes": 20652
         },
         {
           "path": "integrations/bridge-core/src/lib.mjs",
           "root": "repo",
-          "sha256": "a2b2e9e7b463a587412562a9ce597c6df6d954b2de68662463149f3d8d295a48",
-          "bytes": 15381
+          "sha256": "825abf362d68e4755584f72a5066172ca712e223201aedbf171fd04499233d23",
+          "bytes": 23493
+        },
+        {
+          "path": "integrations/wecom-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "9dd1576e6273383cf48b1a65aad0cfa030823bc8c2fc335102225ee25b0023ed",
+          "bytes": 18425
+        },
+        {
+          "path": "integrations/weixin-bridge/README.md",
+          "root": "repo",
+          "sha256": "0b35c389c376970228b6a31683f8ac8b79b9175f6d90a191ff9490798b3b922c",
+          "bytes": 7094
+        },
+        {
+          "path": "integrations/weixin-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "4a449dbb665f62509d2b15fd6225ddec57134d38f306786bb033bff327dd62d0",
+          "bytes": 39467
+        },
+        {
+          "path": "integrations/weixin-bridge/src/lib.mjs",
+          "root": "repo",
+          "sha256": "ba127c45ccfe22c0551e82991010ae73322dcc91d02de7b8c448d9c21bff4aa4",
+          "bytes": 12497
         }
       ],
-      "sealed_at": "2026-10-05T09:40:54.363Z"
+      "sealed_at": "2026-10-06T23:34:14.476Z"
     }
   },
-  "updated_at": "2026-10-05T09:40:54.364Z"
+  "updated_at": "2026-10-06T23:34:14.477Z"
 }

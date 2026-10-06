@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SAMPLES = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (...p) => fs.readFileSync(path.join(SAMPLES, ...p), "utf8");
@@ -122,7 +122,7 @@ test("hello-extension: tool and command behave as documented", { skip: !process.
   // Stand-in: records the default and lets `Config` be applied by the test.
   fs.writeFileSync(path.join(lib, "index.js"), "const chain = (d) => ({ default: (v) => chain(v), value: d });\nexport default { object: (shape) => ({ shape }), string: () => chain(undefined) };\n");
   fs.copyFileSync(path.join(SAMPLES, "hello-extension/hello.mts"), path.join(dir, "hello.mts"));
-  const mod = await import(path.join(dir, "hello.mts"));
+  const mod = await import(pathToFileURL(path.join(dir, "hello.mts")).href);
   assert.equal(mod.name, "hello-extension");
   assert.deepEqual(mod.inject, ["tools", "commands"]);
   assert.equal(mod.Config.shape.greeting.value, "Hello", "default greeting");

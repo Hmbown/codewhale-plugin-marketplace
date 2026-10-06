@@ -147,7 +147,7 @@ test('the real packager produces a clean installable tree', (t) => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const pkg = path.join(out, 'review-toolkit');
   const files = [];
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : files.push(path.relative(pkg, path.join(d, e.name)))));
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : files.push(path.relative(pkg, path.join(d, e.name)).split(path.sep).join('/'))));
   walk(pkg);
   for (const must of ['plugin.json', 'README.md', 'LICENSE', 'commands/review-pr.md', 'skills/review-panel/SKILL.md', ...Object.values(SHORT_NAMES).map((id) => `agents/${id}.toml`)]) assert.ok(files.includes(must), `package lacks ${must}`);
   assert.ok(JSON.parse(r.stdout).bytes < 5 * 1024 * 1024);

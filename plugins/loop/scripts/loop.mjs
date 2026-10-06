@@ -240,8 +240,33 @@ function ancestorPids() {
   return pids;
 }
 
-// pid that owns each listening unix socket path, from `lsof` (best effort)
-function socketOwners() {
+// Linux lsof truncates names containing spaces and appends a socket type. Match
+// kernel inodes to ancestor descriptors instead; unavailable ownership stays
+// ambiguous. macOS keeps its native lsof path lookup.
+function socketOwners(ancestors) {
+  if (process.platform === 'linux') {
+    const sockets = new Map();
+    for (const line of fs.readFileSync('/proc/net/unix', 'utf8').split('\n')) {
+      const m = /^\S+\s+\S+\s+\S+\s+00010000\s+0001\s+01\s+(\d+)\s+(\/.*)$/.exec(line.trimStart());
+      if (m) sockets.set(m[1], m[2]); // listening filesystem SOCK_STREAM
+    }
+    const owners = new Map();
+    for (const pid of ancestors) {
+      const dir = `/proc/${pid}/fd`;
+      let fds;
+      try { fds = fs.readdirSync(dir); } catch { continue; }
+      for (const fd of fds) {
+        let target;
+        try { target = fs.readlinkSync(path.join(dir, fd)); } catch { continue; }
+        const inode = /^socket:\[(\d+)\]$/.exec(target)?.[1];
+        const name = sockets.get(inode);
+        if (!name) continue;
+        if (!owners.has(name)) owners.set(name, new Set());
+        owners.get(name).add(pid);
+      }
+    }
+    return owners;
+  }
   const out = execFileSync('lsof', ['-nP', '-U', '-Fpn'], {encoding: 'utf8', timeout: 8000, maxBuffer: 64 << 20});
   const owners = new Map();
   let pid = null;
@@ -289,10 +314,10 @@ export async function resolveSocket(workspace, env = process.env) {
   if (pool.length > 1) {
     try {
       const ancestors = ancestorPids();
-      const owners = socketOwners();
+      const owners = socketOwners(ancestors);
       const mine = pool.filter((c) => [c.sock, real(c.sock)].some((n) => [...(owners.get(n) ?? [])].some((p) => ancestors.has(p))));
       if (mine.length) pool = mine;
-    } catch { /* lsof or ps unavailable */ }
+    } catch { /* ownership lookup or ps unavailable: retain ambiguity */ }
   }
   if (pool.length !== 1) {
     throw new Error(pool.length ? 'several Codewhale sessions use this workspace and the right one could not be identified. Close the others.' : 'no Codewhale session for this workspace has a control socket.');
