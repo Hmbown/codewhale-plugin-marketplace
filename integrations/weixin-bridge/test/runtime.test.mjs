@@ -250,6 +250,50 @@ test("replacement account explicitly starts fresh while retaining the old uncert
   assert.equal(f.sent.some((msg) => msg.item_list[0].text_item.text.includes("old private answer")), false);
 });
 
+for (const receiptKind of ["pendingAdmission", "turnDelivery"]) test(`unbound ${receiptKind} keeps its account context until explicit replacement`, async (t) => {
+  const f = await fixture(t);
+  const receipt = { accountId: "bot-A", actorId: "weixin-account:bot-A:user:alice", messageKey: "old-key",
+    ...(receiptKind === "pendingAdmission"
+      ? { request: { prompt: "old private prompt" }, submitted: false }
+      : { outputs: [{ text: "old private answer", status: "uncertain" }] }),
+  };
+  const old = { contextToken: "bot-A-context", contextTokenAccountId: "bot-A", [receiptKind]: receipt };
+  await fs.writeFile(path.join(f.dir, "thread-map.json"), JSON.stringify({ chats: { alice: old }, messages: [], inflight: {} }));
+  await fs.writeFile(path.join(f.dir, "account.json"), JSON.stringify({ ...f.account, accountId: "bot-B" }));
+  f.batches.push([incoming(1, "/help", "alice", "bot-B-context")]); f.start();
+  await until(() => f.sent.length === 1, "new account help was not handled");
+  assert.equal(f.sent[0].context_token, undefined);
+  assert.equal((await f.disk()).chats.alice.contextToken, "bot-A-context");
+  assert.deepEqual((await f.disk()).chats.alice[receiptKind], receipt);
+  f.batches.push([incoming(2, "/new", "alice", "bot-B-context")]);
+  await until(() => f.sent.some((msg) => msg.item_list[0].text_item.text === "Created thread thread-1"), "explicit replacement did not complete");
+  const current = (await f.disk()).chats.alice;
+  const retained = Object.values(current.retiredAccountStates);
+  assert.equal(retained.length, 1);
+  assert.equal(retained[0].contextToken, "bot-A-context");
+  assert.equal(retained[0].contextTokenAccountId, "bot-A");
+  assert.deepEqual(retained[0][receiptKind], receipt);
+  assert.equal(current.contextToken, "bot-B-context");
+  assert.equal(current.contextTokenAccountId, "bot-B");
+  assert.equal(current.bindingAccountId, "bot-B");
+  assert.equal(current[receiptKind], undefined);
+  assert.equal(f.sent.at(-1).context_token, "bot-B-context");
+  assert.equal(f.posts.length, 0);
+  assert.equal(f.threadReads.length, 0);
+});
+
+test("unattributed pending admission cannot have its context replaced by an inbound token", async (t) => {
+  const f = await fixture(t);
+  const old = { contextToken: "unattributed-context", pendingAdmission: { request: { prompt: "retained prompt" } } };
+  await fs.writeFile(path.join(f.dir, "thread-map.json"), JSON.stringify({ chats: { alice: old }, messages: [], inflight: {} }));
+  f.batches.push([incoming(1, "/help")]); f.start();
+  await until(() => f.sent.length === 1, "help was not handled");
+  assert.equal(f.sent[0].context_token, undefined);
+  assert.equal((await f.disk()).chats.alice.contextToken, old.contextToken);
+  assert.deepEqual((await f.disk()).chats.alice.pendingAdmission, old.pendingAdmission);
+  assert.equal(f.threadCreates, 0);
+});
+
 for (const limit of ["count", "bytes"]) test(`replacement account refuses ${limit} overflow without losing private receipts`, async (t) => {
   const f = await fixture(t);
   const retiredAccountStates = limit === "count"

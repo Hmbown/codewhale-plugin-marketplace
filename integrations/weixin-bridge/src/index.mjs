@@ -868,7 +868,11 @@ async function handleInbound(msg) {
   const text = extractText(msg.item_list);
   if (msg.context_token) {
     const state = await threadStore.getChat(fromUser);
-    if (!state?.bindingAccountId || state.bindingAccountId === accountIdentity()) {
+    // A pending admission already owns its context before a thread is bound.
+    // Preserve foreign or unattributed receipts until /new retires them.
+    if ((!state?.bindingAccountId || state.bindingAccountId === accountIdentity())
+      && (!state?.pendingAdmission || state.pendingAdmission.accountId === accountIdentity())
+      && (!state?.turnDelivery || state.turnDelivery.accountId === accountIdentity())) {
       await threadStore.patchChat(fromUser, {
         contextToken: msg.context_token,
         contextTokenAccountId: accountIdentity(),

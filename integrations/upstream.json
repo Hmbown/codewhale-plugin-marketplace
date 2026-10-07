@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/codewhale-hq/Codewhale",
-  "commit": "4a3001df706c053a2be5f48b907eefeea1fbfee8",
+  "commit": "a12bce903b9eac5bc99210c3bead58059fb9a4c4",
   "files": {
     "integrations/bridge-core/package.json": "25033f9e2720f3aa93cef149be99b0a2489afd8a72ed0592e800ad8185a8fdf8",
     "integrations/bridge-core/src/lib.mjs": "7b3941dc9a0244b97d0fc4e33ad5877afd48c92ffcab627e9367e4e452f715df",
@@ -38,12 +38,12 @@
     "integrations/weixin-bridge/README.md": "4453d45ae938bc6a3302a82b8e54e22dfb7c53397229cd30f78cfd029a157b30",
     "integrations/weixin-bridge/package.json": "d5ebdb9ebd2fdfe355eee10c88f794b1bedb13e1545d58c57be888e3b5c1bdee",
     "integrations/weixin-bridge/scripts/dev-up.sh": "2da81bc864e096808d9c48e5bbb6819b0e7f57e00c0465a3c80a6d8102b653c0",
-    "integrations/weixin-bridge/src/index.mjs": "21e7cf7d7a8ed18b1a94b2fbb002aff8b428be185cfd8273ebfc0aa7d018790e",
+    "integrations/weixin-bridge/src/index.mjs": "8506c6c0ed24496628983f0cdf56997231137675d3d1f7c3b534254444d26e46",
     "integrations/weixin-bridge/src/lib.mjs": "e5b5674c02b7f69d5bc1e8e74a2eb9c427a8f05928e2ad1d107bab4dcdaab9bc",
     "integrations/weixin-bridge/src/qr.mjs": "b3e9ba17175a0014a815f2cf3630e891e769f48128b29c92c4d031d2ff48fcc9",
     "integrations/weixin-bridge/test/lib.test.mjs": "02623420342b1e96ea340e1bb42b462d7d5fa546948bffff0b2a31bed5c504b3",
     "integrations/weixin-bridge/test/qr.test.mjs": "23e90648356afb8380db18f4dbed9b4ba8ab1bc6098989a915a1f88b7d3c71ff",
-    "integrations/weixin-bridge/test/runtime.test.mjs": "093d7e381561d4de821984b1dd711ff005f3e75b412347692228c19bf93a1a3d",
+    "integrations/weixin-bridge/test/runtime.test.mjs": "60466505f16e1251dc612f2bc05f3c0f727e4aa368a866eba8cdf96eb00f9b49",
     "docs/assets/weixin-bridge-qr-login.png": "f9d9e0d4d7bd13a22f2387ea4d98b62058b973b4b208cae0fd0eab75594e91a0",
     "docs/assets/weixin-bridge-status-verify.jpg": "37ee769276f2512da1808830060456a315f2ca883331f325e0ea23c138468bd6"
   }

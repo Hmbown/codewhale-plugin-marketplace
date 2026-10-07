@@ -198,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "af43766aa51948c3aaeb24ff4a39e71d8ffcbbe5c2fc8b32ba3887bb7f185a60",
+      "page_sha256": "9f15e1fe6a27a3b8fe1795f5afdc4f44cf38e713a6a1ec6d4e1116c890cf2ab9",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -221,7 +221,7 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "4ed78f4ddd5f7cb265832b39e14fcab3d5f86df09bd725abcb5ada60bdf27ff5",
+          "sha256": "39ae585ba77f2550191b5611c6bc02fa0dbaf845aca90c865661146ee01272ca",
           "bytes": 5356
         },
         {
@@ -287,8 +287,8 @@
         {
           "path": "integrations/weixin-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "21e7cf7d7a8ed18b1a94b2fbb002aff8b428be185cfd8273ebfc0aa7d018790e",
-          "bytes": 43189
+          "sha256": "8506c6c0ed24496628983f0cdf56997231137675d3d1f7c3b534254444d26e46",
+          "bytes": 43523
         },
         {
           "path": "integrations/weixin-bridge/src/lib.mjs",
@@ -297,8 +297,8 @@
           "bytes": 12546
         }
       ],
-      "sealed_at": "2026-10-07T04:29:30.413Z"
+      "sealed_at": "2026-10-07T04:42:05.051Z"
     }
   },
-  "updated_at": "2026-10-07T04:29:30.413Z"
+  "updated_at": "2026-10-07T04:42:05.051Z"
 }
