@@ -1,56 +1,35 @@
 # Current source qualification — October 6, 2026
 
-This addendum supersedes the October 5 Computer Use drift report below. Root
-reviewed the original wave commit `4e27243` and its follow-up reconciliation on
-`feat/marketplace-wave-1005`. Engine G6 `ed5e3f10dac5` is now on remote Main through
-original integration PR6846, merge `ad333fdcaf04` with the identical tested tree.
+This addendum supersedes the historical October 5 snapshot retained below.
+All original wave commits remain in PR10. Engine G6 is on Main through original
+PR6846, `ad333fdcaf04`, with the identical tested tree and all 11 original ready
+contributor heads. This follow-up preserves those receipts and fixes the actual
+Windows bridge failure exposed by the marketplace's hosted verification.
 
-- `npm test`: **997 passed, 0 failed, 26 skipped** across the reported groups.
-- `npm run check:web`: **13 passed, 0 failed, 9 skipped**. Mobile extension cases
-  remain intentionally skipped; this does not prove mobile extension support.
-- Marketplace contract, all four skill provenance manifests, all three wiki
-  pages and exact owning-Core Computer Use sync passed. **19 catalog bundles**
-  packaged locally from the final source. The implementation was unchanged
-  throughout the full local gates; this evidence addendum was written afterward.
-- Computer Use exactly mirrors canonical Main `a656f674`; local upstream
-  `b47efff5` has the same tree. G6 matches the runtime subset, with three declared
-  Core variants. An earlier check against the stale sibling Core checkout failed;
-  the corrected owning-lane check passed. No canonical source was forked.
-- All **42 canonical bridge files and two referenced Weixin images** now mirror
-  G6 byte for byte. `integrations/upstream.json` records that exact commit and
-  all 44 hashes. This carries human approval identity, accepted-turn recovery,
-  Weixin account binding and QR fixes already present in Engine, instead of
-  inventing an independent marketplace fork. The integration wiki was updated
-  and resealed against the actual source set.
-- Fresh locked Feishu and WeCom installs, syntax checks and production dependency
-  audits passed: **0 vulnerabilities** in each. Both SDKs imported their expected
-  exports and their own Axios **1.20.0** dependency completed a localhost request.
-  No authenticated service was contacted.
-- The first hosted follow-up at `6f33bf07` passed macOS but failed one Linux and
-  35 Windows cases. Linux exposed truncated `lsof` socket paths; Loop now joins
-  listening Unix-socket inodes to ancestor process file descriptors. **40/0**
-  tests passed in an isolated Linux container, including a path with spaces.
-  Windows fixtures now follow the documented Unix-only Loop socket contract;
-  portable module imports and manifest path assertions were corrected.
-- Loop completion requires the final nonblank reply line. **Seven installed
-  native TUI checks passed again** against the final bundle and the actual G6
-  binary using a scripted localhost model. These cover cap/wrap-up, completion,
-  cancellation, ordinary messages, missing socket and changed bundle trust.
-- Authored Cloudflare commands use `cf`; executable typed config is not evaluated
-  by offline preflight or silently substituted with stale legacy config. The
-  focused Cloudflare gate passed **24/0**.
-- The design checker decodes original HTML entities once and replaces invalid
-  numeric scalars. Four-language CodeQL at `6f33bf07` passed after this repair.
-  Final-head three-OS CI and security analysis remain required before PR10 merges.
-- Catalog and Core provenance URLs use `codewhale-hq`; hello-extension points at
-  its actual `plugins/samples/hello-extension` source. Skill commit, generation
-  17, bodies and resource hashes are preserved.
+- Full local gate: **997 passed, 0 failed, 27 skipped**; browser checks
+  **13 passed, 0 failed, 9 skipped**. The new skip is the genuine Windows-only
+  sharing-lock regression, which must run in hosted Windows verification.
+- All **44 canonical bridge files and referenced Weixin images** match committed
+  Engine `595bd10fcc30`; all hashes are in `integrations/upstream.json`. Windows
+  atomic replacement retries only sharing violations for a bounded delay and
+  preserves the old record on permanent failure. The regression holds an actual
+  Windows FileStream, rather than mocking the error or dropping concurrency.
+- Computer Use mirrors canonical Main `f585fbd25649`, including its **0.35.5**
+  image renderer and full-lock audit. Original CU PR12 merged only after all
+  three OS lanes and four-language security analysis passed. The owning Engine
+  runtime subset matches; three predeclared Core variants remain.
+- Source qualification at `7317c9a` passed hosted Linux/macOS and CodeQL, but
+  failed Windows with an atomic rename sharing violation. That failed receipt
+  remains evidence; it does not qualify this follow-up head.
+- Authored Cloudflare commands use `cf`. The 19-plugin catalog preserves the
+  original contributor work, native Loop acceptance, original-input entity
+  decoding, and pinned skill bodies/hashes. No service authentication, app
+  signing, website deployment or publication is claimed by this local gate.
 
-Node: **26.10.0**. Raw gate logs, source hashes, package inventories and failed
-attempts are retained in the workspace takeover artifact directory. Hosted CI,
-authenticated services and publication are separate proofs. Engine's embedded
-marketplace revision remains a separate source pin until explicitly refreshed.
-No deployment occurred.
+The integration wiki uses its existing source set and was resealed after the
+canonical refresh. Raw logs and prior failed attempts remain in the workspace
+release artifact directory. Current-head hosted three-OS CI, security analysis
+and review resolution are required before original PR10 merges.
 
 ---
 

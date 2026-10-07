@@ -198,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "a02454389701d67e981ded5398916330a30b21b5a0be18ec5c0382419370bb00",
+      "page_sha256": "804101d0464ce6fc0183bbdbad83fa29c82bc5279fee4860cf97c914c6d8d898",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -221,7 +221,7 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "62a7ee756e877b4e9be06f1322a19053b0b33413ea5e0192c9b89707054bbf13",
+          "sha256": "777d90e3fbe30046dd9c7c97bec28f4b338724d99b32695c056949df9e732aa1",
           "bytes": 5356
         },
         {
@@ -269,8 +269,8 @@
         {
           "path": "integrations/bridge-core/src/lib.mjs",
           "root": "repo",
-          "sha256": "825abf362d68e4755584f72a5066172ca712e223201aedbf171fd04499233d23",
-          "bytes": 23493
+          "sha256": "7b3941dc9a0244b97d0fc4e33ad5877afd48c92ffcab627e9367e4e452f715df",
+          "bytes": 23972
         },
         {
           "path": "integrations/wecom-bridge/src/index.mjs",
@@ -297,8 +297,8 @@
           "bytes": 12497
         }
       ],
-      "sealed_at": "2026-10-06T23:34:14.476Z"
+      "sealed_at": "2026-10-07T00:26:27.842Z"
     }
   },
-  "updated_at": "2026-10-06T23:34:14.477Z"
+  "updated_at": "2026-10-07T00:26:27.843Z"
 }

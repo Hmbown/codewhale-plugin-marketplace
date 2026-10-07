@@ -24,6 +24,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Audit locked dependencies
+        run: npm audit --audit-level=low
       # Consent and lifecycle tests share this image. Keep cold construction
       # outside their RPC deadlines and avoid concurrent first-use builds.
       - name: Build Linux desktop test image

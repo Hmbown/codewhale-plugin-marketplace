@@ -39,6 +39,11 @@ Core snapshot in `integrations/upstream.json`. Each copied file has a SHA-256
 pin. Update the canonical Core implementation first and refresh its complete
 changed source/test set here. Their presence does not qualify a live account.
 
+Windows bridge state replacement retries transient sharing violations within a
+bounded 2.75-second delay budget. The prior record is preserved if replacement
+still fails; the actual Windows file-lock regression checks both release and
+permanent-lock outcomes. A write failure is never reported as a durable save.
+
 `npm run integrations -- list` locates each guide. `start <name>` requires a
 private absolute env-file path and launches the chosen adapter from its package
 directory. Feishu and WeCom have declared dependencies to install first. No plugin

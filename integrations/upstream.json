@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/codewhale-hq/Codewhale",
-  "commit": "ed5e3f10dac5a3048ce379f64e7b6c7ffea77a1a",
+  "commit": "595bd10fcc30a30402ee84ef9260500272476c21",
   "files": {
     "integrations/bridge-core/package.json": "25033f9e2720f3aa93cef149be99b0a2489afd8a72ed0592e800ad8185a8fdf8",
-    "integrations/bridge-core/src/lib.mjs": "825abf362d68e4755584f72a5066172ca712e223201aedbf171fd04499233d23",
+    "integrations/bridge-core/src/lib.mjs": "7b3941dc9a0244b97d0fc4e33ad5877afd48c92ffcab627e9367e4e452f715df",
     "integrations/bridge-core/test/approvals.test.mjs": "385a377d92aa2b8c76031e4f943858e7b1153938a095eb273c95d076f3ea57e6",
-    "integrations/bridge-core/test/lib.test.mjs": "96593c380a903408a512246e1f51581458ea6ba5de18b5c42e9718369d1dd44c",
+    "integrations/bridge-core/test/lib.test.mjs": "66ce367a3c3d4a6858e0046f4589ea67e154e9032b54934d2aa73a9d1c22d981",
     "integrations/bridge-core/test/recovery-policy.test.mjs": "10f49d01a1ce6b0d6b85547232afb6f99e1180ecdeef26bb814d12652b9fc914",
     "integrations/feishu-bridge/.env.example": "30e1e28c03cd72653c3f99a2aabde6fdf30fbae0ee0865aff5526531f448a0e2",
     "integrations/feishu-bridge/README.md": "6f98d1f1508f6ad26da6364c029e526d58e5c371a79c6f3ccec15ad26bd0eab1",
