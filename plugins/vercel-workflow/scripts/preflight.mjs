@@ -37,24 +37,30 @@ function gitignoreLines(dir) {
   let cur = path.resolve(dir);
   for (let depth = 0; depth < 8; depth++) {
     const gi = path.join(cur, ".gitignore");
-    if (fs.existsSync(gi)) lines.push(...fs.readFileSync(gi, "utf8").split(/\r?\n/));
+    if (fs.existsSync(gi)) lines.unshift(...fs.readFileSync(gi, "utf8").split(/\r?\n/));
     if (fs.existsSync(path.join(cur, ".git"))) break;
     const up = path.dirname(cur);
     if (up === cur) break;
     cur = up;
   }
-  return lines.map((l) => l.trim().replace(/^\//, "").replace(/\/$/, "")).filter((l) => l && !l.startsWith("#") && !l.startsWith("!"));
+  return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
 }
 
 export function isIgnored(name, lines) {
-  return lines.some((l) => {
-    if (l === name || l === "*") return true;
-    if (l.includes("*")) {
-      const re = new RegExp("^" + l.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
-      return re.test(name);
+  let ignored = false;
+  const relativeName = name.split(path.sep).join("/");
+  for (const line of lines) {
+    const negated = line.startsWith("!");
+    const rawPattern = negated ? line.slice(1) : line;
+    const pattern = rawPattern.replace(/^\//, "").replace(/\/$/, "");
+    const target = rawPattern.startsWith("/") || pattern.includes("/") ? relativeName : path.posix.basename(relativeName);
+    if (pattern === target || pattern === "*") ignored = !negated;
+    else if (pattern.includes("*")) {
+      const re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+      if (re.test(target)) ignored = !negated;
     }
-    return false;
-  });
+  }
+  return ignored;
 }
 
 function* walkStrings(value, p = "") {
@@ -163,7 +169,7 @@ export function checkProject(dir) {
     const example = EXAMPLE_ENV.test(path.basename(f));
     let vars = [];
     try { vars = parseEnvFile(fs.readFileSync(path.join(dir, f), "utf8")); } catch { continue; }
-    if (!example && !isIgnored(f, ignore) && !isIgnored(path.basename(f), ignore) && !(f.startsWith(".vercel") && isIgnored(".vercel", ignore))) add("error", "VC-ENV-NOT-IGNORED", `${f} is not covered by .gitignore; local environment files can contain secrets`);
+    if (!example && !isIgnored(f, ignore) && !(f.startsWith(".vercel") && isIgnored(".vercel", ignore))) add("error", "VC-ENV-NOT-IGNORED", `${f} is not covered by .gitignore; local environment files can contain secrets`);
     for (const v of vars) {
       if (example && v.value && TOKEN_SHAPES.some((re) => re.test(v.value))) add("error", "VC-CREDENTIAL-IN-EXAMPLE", `${f}: ${v.name} holds a value shaped like a credential (value hidden); example files are committed`);
       if (PUBLIC_PREFIX.test(v.name) && !PUBLISHABLE.test(v.name)) {

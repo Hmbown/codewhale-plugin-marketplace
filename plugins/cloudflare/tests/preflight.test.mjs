@@ -80,6 +80,24 @@ test("missing name, nothing to deploy, bad and future compatibility dates", () =
   assert.ok(codes(check({ ...good, compatibility_date: "2024-01-01" })).includes("CF-OLD-COMPAT-DATE"));
 });
 
+test("compatibility dates must round-trip through the real calendar", () => {
+  for (const date of ["2026-02-30", "2026-02-29", "1900-02-29", "2026-04-31", "2026-00-01", "2026-13-01", "2026-01-00", "2026-01-32"]) {
+    assert.ok(codes(check({ ...good, compatibility_date: date })).includes("CF-BAD-COMPAT-DATE"), date);
+  }
+  for (const date of ["2000-02-29", "2024-02-29", "2026-02-28", "2026-04-30"]) {
+    assert.ok(!codes(check({ ...good, compatibility_date: date })).includes("CF-BAD-COMPAT-DATE"), date);
+  }
+});
+
+test("CLI rejects an impossible compatibility date in a readable config", () => {
+  const dir = tmp({ "wrangler.toml": 'name = "w"\nmain = "index.ts"\ncompatibility_date = "2026-02-30"\n', "index.ts": "" });
+  const res = spawnSync(process.execPath, [script, dir, "--json", "--today", TODAY], { encoding: "utf8" });
+  assert.equal(res.status, 1, res.stderr);
+  const result = JSON.parse(res.stdout);
+  assert.equal(result.code, 1);
+  assert.ok(codes(result.findings).includes("CF-BAD-COMPAT-DATE"));
+});
+
 test("pages config is flagged, not treated as nothing-to-deploy", () => {
   const c = codes(check({ name: "p", pages_build_output_dir: "dist" }));
   assert.ok(c.includes("CF-PAGES-CONFIG"));
@@ -138,6 +156,49 @@ test("gitignore matching", () => {
   assert.ok(isIgnored(".env", [".env", "node_modules"]));
   assert.ok(isIgnored(".env", [".env*"]));
   assert.ok(!isIgnored(".env", ["node_modules", ".envrc"]));
+});
+
+test("the last matching gitignore rule decides whether a secret is ignored", () => {
+  assert.equal(isIgnored(".env", [".env*", "!.env", "node_modules"]), false);
+  assert.equal(isIgnored(".env", ["!.env", ".env*"]), true);
+  assert.equal(isIgnored(".env", [".env*", "!.env.example"]), true);
+  assert.equal(isIgnored(".env", ["/.env*", "!/.env"]), false);
+  assert.equal(isIgnored(".dev.vars", [".dev.vars*", "!.dev.*"]), false);
+});
+
+test("filesystem and CLI flag secrets re-included by negated gitignore rules", () => {
+  const dir = tmp({
+    "wrangler.jsonc": JSON.stringify(good),
+    "src/index.ts": "",
+    ".env": "API_TOKEN=private-fixture-value\n",
+    ".dev.vars": "API_TOKEN=private-fixture-value\n",
+    ".gitignore": ".env*\n!.env\n.dev.vars*\n!/.dev.vars\n",
+  });
+  const result = runPreflight(dir, { today: TODAY });
+  assert.equal(result.code, 1);
+  assert.equal(result.findings.filter((f) => f.code === "CF-LOCAL-SECRETS-TRACKED").length, 2);
+  const cli = spawnSync(process.execPath, [script, dir, "--json", "--today", TODAY], { encoding: "utf8" });
+  assert.equal(cli.status, 1, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).code, 1);
+  assert.ok(!cli.stdout.includes("private-fixture-value"));
+  fs.writeFileSync(path.join(dir, ".gitignore"), "!.env\n.env*\n!/.dev.vars\n.dev.vars*\n");
+  assert.equal(runPreflight(dir, { today: TODAY }).code, 0);
+});
+
+test("a project gitignore overrides its parent rules", () => {
+  const root = tmp({
+    ".git": "",
+    ".gitignore": ".env*\n",
+    "project/.gitignore": "!.env\n",
+    "project/.env": "API_TOKEN=fixture\n",
+    "project/wrangler.jsonc": JSON.stringify(good),
+    "project/src/index.ts": "",
+  });
+  const dir = path.join(root, "project");
+  assert.ok(codes(runPreflight(dir, { today: TODAY }).findings).includes("CF-LOCAL-SECRETS-TRACKED"));
+  fs.writeFileSync(path.join(root, ".gitignore"), "!.env\n");
+  fs.writeFileSync(path.join(dir, ".gitignore"), ".env*\n");
+  assert.equal(runPreflight(dir, { today: TODAY }).code, 0);
 });
 
 test("filesystem: untracked local secrets, missing assets directory", () => {

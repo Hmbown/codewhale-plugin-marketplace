@@ -228,24 +228,30 @@ function gitignoreLines(dir) {
   let cur = path.resolve(dir);
   for (let depth = 0; depth < 8; depth++) {
     const gi = path.join(cur, ".gitignore");
-    if (fs.existsSync(gi)) lines.push(...fs.readFileSync(gi, "utf8").split(/\r?\n/));
+    if (fs.existsSync(gi)) lines.unshift(...fs.readFileSync(gi, "utf8").split(/\r?\n/));
     if (fs.existsSync(path.join(cur, ".git"))) break;
     const up = path.dirname(cur);
     if (up === cur) break;
     cur = up;
   }
-  return lines.map((l) => l.trim().replace(/^\//, "").replace(/\/$/, "")).filter((l) => l && !l.startsWith("#") && !l.startsWith("!"));
+  return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
 }
 
 export function isIgnored(name, lines) {
-  return lines.some((l) => {
-    if (l === name || l === `${name}*` || l === "*") return true;
-    if (l.includes("*")) {
-      const re = new RegExp("^" + l.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
-      return re.test(name);
+  let ignored = false;
+  const relativeName = name.split(path.sep).join("/");
+  for (const line of lines) {
+    const negated = line.startsWith("!");
+    const rawPattern = negated ? line.slice(1) : line;
+    const pattern = rawPattern.replace(/^\//, "").replace(/\/$/, "");
+    const target = rawPattern.startsWith("/") || pattern.includes("/") ? relativeName : path.posix.basename(relativeName);
+    if (pattern === target || pattern === "*") ignored = !negated;
+    else if (pattern.includes("*")) {
+      const re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+      if (re.test(target)) ignored = !negated;
     }
-    return false;
-  });
+  }
+  return ignored;
 }
 
 // --------------------------------------------------------------- checks
@@ -291,7 +297,7 @@ export function checkConfig(config, { dir = ".", today = new Date().toISOString(
   // Compatibility date.
   const cd = config.compatibility_date;
   if (!cd) add("warn", "CF-NO-COMPAT-DATE", "`compatibility_date` is missing; runtime behavior is not pinned (set it to today's date for a new project)");
-  else if (!/^\d{4}-\d{2}-\d{2}$/.test(String(cd)) || Number.isNaN(Date.parse(String(cd)))) add("error", "CF-BAD-COMPAT-DATE", "`compatibility_date` must be a real YYYY-MM-DD date");
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(String(cd)) || Number.isNaN(Date.parse(String(cd))) || new Date(String(cd)).toISOString().slice(0, 10) !== String(cd)) add("error", "CF-BAD-COMPAT-DATE", "`compatibility_date` must be a real YYYY-MM-DD date");
   else if (String(cd) > today) add("error", "CF-FUTURE-COMPAT-DATE", `\`compatibility_date\` ${cd} is after today (${today}); the deploy is rejected`);
   else if (daysBetween(String(cd), today) > 365) add("info", "CF-OLD-COMPAT-DATE", `\`compatibility_date\` ${cd} is over a year old; newer runtime behavior is opt-in, so move it forward only with tests`);
 

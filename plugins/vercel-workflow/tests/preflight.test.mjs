@@ -32,6 +32,54 @@ test("gitignore matching", () => {
   assert.ok(!isIgnored(".env.local", ["node_modules"]));
 });
 
+test("the last matching gitignore rule decides whether an env file is ignored", () => {
+  assert.equal(isIgnored(".env.production", [".env*", "!.env.production", "node_modules"]), false);
+  assert.equal(isIgnored(".env.production", ["!.env.production", ".env*"]), true);
+  assert.equal(isIgnored(".env.production", [".env*", "!.env.example"]), true);
+  assert.equal(isIgnored(".env.production", ["/.env*", "!/.env.production"]), false);
+  assert.equal(isIgnored(".env.production", [".env*", "!.env.prod*"]), false);
+  assert.equal(isIgnored(path.join(".vercel", ".env.production.local"), [".env*", "!.vercel/.env.production.local"]), false);
+  assert.equal(isIgnored(path.join(".vercel", ".env.production.local"), ["/.env*"]), false);
+});
+
+test("filesystem and CLI flag env files re-included by negated gitignore rules", () => {
+  const dir = tmp({ ...linked, ".env.production": "API_TOKEN=private-fixture-value\n", ".gitignore": ".vercel\n.env*\n!.env.production\n" });
+  const result = runPreflight(dir);
+  assert.equal(result.code, 1);
+  assert.equal(result.findings.filter((f) => f.code === "VC-ENV-NOT-IGNORED").length, 1);
+  const cli = spawnSync(process.execPath, [script, dir, "--json"], { encoding: "utf8" });
+  assert.equal(cli.status, 1, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).code, 1);
+  assert.ok(!cli.stdout.includes("private-fixture-value"));
+  fs.writeFileSync(path.join(dir, ".gitignore"), ".vercel\n!.env.production\n.env*\n");
+  assert.equal(runPreflight(dir).code, 0);
+});
+
+test("a project gitignore overrides its parent rules", () => {
+  const root = tmp({
+    ".git": "",
+    ".gitignore": ".env*\n",
+    "project/.gitignore": ".vercel\n!.env.production\n",
+    "project/.env.production": "API_TOKEN=fixture\n",
+    "project/.vercel/project.json": { projectId: "prj_x", orgId: "team_x", projectName: "demo" },
+  });
+  const dir = path.join(root, "project");
+  assert.ok(codes(runPreflight(dir).findings).includes("VC-ENV-NOT-IGNORED"));
+  fs.writeFileSync(path.join(root, ".gitignore"), "!.env.production\n");
+  fs.writeFileSync(path.join(dir, ".gitignore"), ".vercel\n.env*\n");
+  assert.equal(runPreflight(dir).code, 0);
+});
+
+test("path-specific negation for pulled env files cannot be overridden by basename matching", () => {
+  const dir = tmp({ ...linked, ".vercel/.env.production.local": "API_TOKEN=fixture\n", ".gitignore": ".env*\n!.vercel/.env.production.local\n" });
+  assert.ok(codes(runPreflight(dir).findings).includes("VC-ENV-NOT-IGNORED"));
+  fs.writeFileSync(path.join(dir, ".gitignore"), "!.vercel/.env.production.local\n.env*\n");
+  assert.ok(!codes(runPreflight(dir).findings).includes("VC-ENV-NOT-IGNORED"));
+  // Git cannot re-include a file while its entire parent directory is excluded.
+  fs.writeFileSync(path.join(dir, ".gitignore"), ".vercel/\n!.vercel/.env.production.local\n");
+  assert.ok(!codes(runPreflight(dir).findings).includes("VC-ENV-NOT-IGNORED"));
+});
+
 test("a linked, clean project has no errors or warnings", () => {
   const dir = tmp({ ...linked, "vercel.json": { buildCommand: "npm run build", crons: [{ path: "/api/cron", schedule: "0 5 * * *" }], rewrites: [{ source: "/a", destination: "/b" }] }, "package.json": { name: "x" } });
   const r = runPreflight(dir);
