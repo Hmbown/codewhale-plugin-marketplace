@@ -1,35 +1,43 @@
 # Current source qualification — October 6, 2026
 
 This addendum supersedes the historical October 5 snapshot retained below.
-All original wave commits remain in PR10. Engine G6 is on Main through original
-PR6846, `ad333fdcaf04`, with the identical tested tree and all 11 original ready
-contributor heads. This follow-up preserves those receipts and fixes the actual
-Windows bridge failure exposed by the marketplace's hosted verification.
+Original PR10 retains all author commits and thirteen installable additions,
+including `hello-extension`; the other sample formats remain repository fixtures.
 
-- Full local gate: **997 passed, 0 failed, 27 skipped**; browser checks
-  **13 passed, 0 failed, 9 skipped**. The new skip is the genuine Windows-only
-  sharing-lock regression, which must run in hosted Windows verification.
-- All **44 canonical bridge files and referenced Weixin images** match committed
-  Engine `595bd10fcc30`; all hashes are in `integrations/upstream.json`. Windows
-  atomic replacement retries only sharing violations for a bounded delay and
-  preserves the old record on permanent failure. The regression holds an actual
-  Windows FileStream, rather than mocking the error or dropping concurrency.
-- Computer Use mirrors canonical Main `f585fbd25649`, including its **0.35.5**
-  image renderer and full-lock audit. Original CU PR12 merged only after all
-  three OS lanes and four-language security analysis passed. The owning Engine
-  runtime subset matches; three predeclared Core variants remain.
-- Source qualification at `7317c9a` passed hosted Linux/macOS and CodeQL, but
-  failed Windows with an atomic rename sharing violation. That failed receipt
-  remains evidence; it does not qualify this follow-up head.
-- Authored Cloudflare commands use `cf`. The 19-plugin catalog preserves the
-  original contributor work, native Loop acceptance, original-input entity
-  decoding, and pinned skill bodies/hashes. No service authentication, app
-  signing, website deployment or publication is claimed by this local gate.
+- Full local gate: **1,026 passed, 0 failed, 27 skipped**. Browser checks:
+  **13 passed, 0 failed, 9 skipped**. All **19 bundles** packaged; catalog,
+  canonical CU/runtime parity, skill provenance and all three wiki pages passed.
+- All **44 canonical bridge files and referenced images** match committed
+  Engine `e09cf47bb84a` byte for byte. Windows atomic state replacement retries
+  transient sharing violations for a bounded 2.75 seconds, preserving the old
+  record on permanent failure. Both real Windows FileStream lock scenarios ran
+  successfully at the preceding head; current-head Windows remains required.
+- Weixin now checks account-and-chat ownership before resume and filters thread
+  summaries. Explicit `/new` after account replacement retains the full old
+  private receipt for human review without replaying it. Failed handlers keep
+  inflight claims; the actual production restart boundary retains frozen prompts.
+  Canonical focused gate: **48 passed, 0 failed, 0 skipped**.
+- Loop rechecks admission under its lock and pins continuation to the original
+  control socket. Verified offline Linux gate: **45/0/0 skipped**; actual
+  installed G6 TUI, ordinary install/trust/enable/reload flow: **7/0/0 skipped**.
+  The model in this Loop check was scripted localhost, not a live provider.
+- Ordered ignore negations and ancestor-relative paths protect preflight secret
+  checks; impossible Cloudflare calendar dates are rejected. Focused preflight
+  gate: **41/0**. Design review requires nonempty ARIA reference text and a
+  focus-state replacement. Artifact scanning flags literal CSS files and
+  network APIs, with its static-analysis limits stated in source.
+- Computer Use matches canonical Main `f585fbd25649`, including sharp0.35.5.
+  Original CU PR12 passed three OS lanes and four-language CodeQL before merge.
+  Three declared Core variants remain; full root/CU/Feishu/WeCom audits had
+  **0 vulnerabilities**. Authored Cloudflare commands use `cf`.
 
-The integration wiki uses its existing source set and was resealed after the
-canonical refresh. Raw logs and prior failed attempts remain in the workspace
-release artifact directory. Current-head hosted three-OS CI, security analysis
-and review resolution are required before original PR10 merges.
+The preceding `22b4271` passed Linux/macOS and CodeQL but failed only the
+Windows root catalog fixture's path separator; normalized relative paths now
+preserve the same fixture exclusions on every OS. Older sharing-lock and socket
+path failures, setup failures and raw logs remain in the workspace artifacts.
+Current-head hosted Linux/macOS/Windows, security and review resolution still
+qualify original PR10. No live service authentication, signing, deployment,
+publication or installed Engine followup is claimed by these source gates.
 
 ---
 

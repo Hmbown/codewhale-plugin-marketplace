@@ -201,6 +201,20 @@ test("a project gitignore overrides its parent rules", () => {
   assert.equal(runPreflight(dir, { today: TODAY }).code, 0);
 });
 
+test("ancestor ignore paths and negations are relative to the file that defines them", (t) => {
+  const root = tmp({
+    ".git/keep": "", ".gitignore": ".env*\n!project/.env\n",
+    "project/wrangler.json": JSON.stringify(good), "project/src/index.ts": "", "project/.env": "API_TOKEN=fixture\n",
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dir = path.join(root, "project");
+  assert.ok(codes(runPreflight(dir, { today: TODAY }).findings).includes("CF-LOCAL-SECRETS-TRACKED"));
+  fs.writeFileSync(path.join(root, ".gitignore"), "/.env\n");
+  assert.ok(codes(runPreflight(dir, { today: TODAY }).findings).includes("CF-LOCAL-SECRETS-TRACKED"), "a root-anchored rule does not cover the nested project's env file");
+  fs.writeFileSync(path.join(root, ".gitignore"), "/project/.env\n");
+  assert.ok(!codes(runPreflight(dir, { today: TODAY }).findings).includes("CF-LOCAL-SECRETS-TRACKED"));
+});
+
 test("filesystem: untracked local secrets, missing assets directory", () => {
   const dir = tmp({
     "wrangler.jsonc": JSON.stringify({ ...good, assets: { directory: "./dist" } }),

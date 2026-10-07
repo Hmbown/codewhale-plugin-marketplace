@@ -70,6 +70,20 @@ test("a project gitignore overrides its parent rules", () => {
   assert.equal(runPreflight(dir).code, 0);
 });
 
+test("ancestor ignore paths and negations are relative to the file that defines them", (t) => {
+  const root = tmp({
+    ".git/keep": "", ".gitignore": ".env*\n!project/.env.production\n",
+    "project/.vercel/project.json": { projectId: "prj_x", orgId: "team_x" }, "project/.env.production": "API_TOKEN=fixture\n",
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dir = path.join(root, "project");
+  assert.ok(codes(checkProject(dir)).includes("VC-ENV-NOT-IGNORED"));
+  fs.writeFileSync(path.join(root, ".gitignore"), "/.env.production\n");
+  assert.ok(codes(checkProject(dir)).includes("VC-ENV-NOT-IGNORED"), "a root-anchored rule does not cover the nested project's env file");
+  fs.writeFileSync(path.join(root, ".gitignore"), "/project/.env.production\n");
+  assert.ok(!codes(checkProject(dir)).includes("VC-ENV-NOT-IGNORED"));
+});
+
 test("path-specific negation for pulled env files cannot be overridden by basename matching", () => {
   const dir = tmp({ ...linked, ".vercel/.env.production.local": "API_TOKEN=fixture\n", ".gitignore": ".env*\n!.vercel/.env.production.local\n" });
   assert.ok(codes(runPreflight(dir).findings).includes("VC-ENV-NOT-IGNORED"));

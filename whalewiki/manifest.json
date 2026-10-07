@@ -159,11 +159,11 @@
         {
           "path": "tests/catalog-wiring.test.mjs",
           "root": "repo",
-          "sha256": "34620d530f84487001ae0225c893666a99ba5b56bf8706e3161e3edafcab518d",
-          "bytes": 5554
+          "sha256": "8a284e8c61456b0d5ba04edd374110af0aa0361befbaa3d0eac0d8083a0b527f",
+          "bytes": 5612
         }
       ],
-      "sealed_at": "2026-10-05T09:40:54.253Z"
+      "sealed_at": "2026-10-07T01:00:23.740Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -198,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "804101d0464ce6fc0183bbdbad83fa29c82bc5279fee4860cf97c914c6d8d898",
+      "page_sha256": "69bd5988e6ff41f0d6a65e0a57f07f2e337fa0f055d32472382cc4ff7f7740a7",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -221,7 +221,7 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "777d90e3fbe30046dd9c7c97bec28f4b338724d99b32695c056949df9e732aa1",
+          "sha256": "b198572c2463bb60896a6d528e13ac2dcfbeb83c127b5e44c6d5f205972bb488",
           "bytes": 5356
         },
         {
@@ -281,24 +281,24 @@
         {
           "path": "integrations/weixin-bridge/README.md",
           "root": "repo",
-          "sha256": "0b35c389c376970228b6a31683f8ac8b79b9175f6d90a191ff9490798b3b922c",
-          "bytes": 7094
+          "sha256": "21cefad730c5314cbcf57e83beda512b756e00b08f72ce01f5593cd6827ad562",
+          "bytes": 7622
         },
         {
           "path": "integrations/weixin-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "4a449dbb665f62509d2b15fd6225ddec57134d38f306786bb033bff327dd62d0",
-          "bytes": 39467
+          "sha256": "ac1022688848bfde3b2a977d3b31997128bc7c227907e50fe19f6d7c82fa4476",
+          "bytes": 41927
         },
         {
           "path": "integrations/weixin-bridge/src/lib.mjs",
           "root": "repo",
-          "sha256": "ba127c45ccfe22c0551e82991010ae73322dcc91d02de7b8c448d9c21bff4aa4",
-          "bytes": 12497
+          "sha256": "e5b5674c02b7f69d5bc1e8e74a2eb9c427a8f05928e2ad1d107bab4dcdaab9bc",
+          "bytes": 12546
         }
       ],
-      "sealed_at": "2026-10-07T00:26:27.842Z"
+      "sealed_at": "2026-10-07T01:00:23.804Z"
     }
   },
-  "updated_at": "2026-10-07T00:26:27.843Z"
+  "updated_at": "2026-10-07T01:00:23.805Z"
 }

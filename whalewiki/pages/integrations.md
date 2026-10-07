@@ -59,8 +59,13 @@ approval decisions. A newer group sender or an unbound legacy button cannot
 approve another person's turn. Restart recovery validates that identity before
 reattaching. Weixin also binds durable prompts, accepted operation IDs, saved
 replies and uncertain deliveries to the paired bot account; a replacement
-account cannot inherit them. QR setup and reconnect behavior still require
-real service qualification. These guarantees come from the same Core owner.
+account cannot inherit them. An explicit `/new` after account replacement
+durably retains the old private receipt for human review before binding a fresh
+conversation; it never resubmits the old prompt or uncertain reply. Same-account
+pending work still blocks replacement. `/threads` filters to that account and
+chat's recorded bindings, and `/resume` checks ownership before reading a
+thread. QR setup and reconnect behavior still require real service qualification.
+These guarantees come from the same Core owner.
 
 ## Signed webhook intake
 

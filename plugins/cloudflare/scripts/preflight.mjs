@@ -228,19 +228,20 @@ function gitignoreLines(dir) {
   let cur = path.resolve(dir);
   for (let depth = 0; depth < 8; depth++) {
     const gi = path.join(cur, ".gitignore");
-    if (fs.existsSync(gi)) lines.unshift(...fs.readFileSync(gi, "utf8").split(/\r?\n/));
+    if (fs.existsSync(gi)) lines.unshift(...fs.readFileSync(gi, "utf8").split(/\r?\n/).map((pattern) => ({ pattern: pattern.trim(), dir: cur })));
     if (fs.existsSync(path.join(cur, ".git"))) break;
     const up = path.dirname(cur);
     if (up === cur) break;
     cur = up;
   }
-  return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  return lines.filter(({ pattern }) => pattern && !pattern.startsWith("#"));
 }
 
-export function isIgnored(name, lines) {
+export function isIgnored(name, lines, dir = ".") {
   let ignored = false;
-  const relativeName = name.split(path.sep).join("/");
-  for (const line of lines) {
+  for (const rule of lines) {
+    const line = typeof rule === "string" ? rule : rule.pattern;
+    const relativeName = (typeof rule === "string" ? name : path.relative(rule.dir, path.resolve(dir, name))).split(path.sep).join("/");
     const negated = line.startsWith("!");
     const rawPattern = negated ? line.slice(1) : line;
     const pattern = rawPattern.replace(/^\//, "").replace(/\/$/, "");
@@ -357,9 +358,9 @@ export function checkConfig(config, { dir = ".", today = new Date().toISOString(
   if (fsChecks) {
     const ignore = gitignoreLines(dir);
     for (const f of [".dev.vars", ".env"]) {
-      if (fs.existsSync(path.join(dir, f)) && !isIgnored(f, ignore)) add("error", "CF-LOCAL-SECRETS-TRACKED", `${f} exists and is not in .gitignore; local secrets could be committed`);
+      if (fs.existsSync(path.join(dir, f)) && !isIgnored(f, ignore, dir)) add("error", "CF-LOCAL-SECRETS-TRACKED", `${f} exists and is not in .gitignore; local secrets could be committed`);
     }
-    if (fs.existsSync(path.join(dir, ".wrangler")) && !isIgnored(".wrangler", ignore)) add("warn", "CF-WRANGLER-DIR", ".wrangler/ (local state) is not in .gitignore");
+    if (fs.existsSync(path.join(dir, ".wrangler")) && !isIgnored(".wrangler", ignore, dir)) add("warn", "CF-WRANGLER-DIR", ".wrangler/ (local state) is not in .gitignore");
     if (typeof config.assets?.directory === "string" && !fs.existsSync(path.resolve(dir, config.assets.directory))) add("warn", "CF-ASSETS-MISSING", `assets.directory ${JSON.stringify(config.assets.directory)} does not exist yet; run the project build before deploying`);
     if (typeof config.main === "string" && !fs.existsSync(path.resolve(dir, config.main))) add("warn", "CF-MAIN-MISSING", `main ${JSON.stringify(config.main)} does not exist; fine if it is a build output, otherwise fix the path`);
   }

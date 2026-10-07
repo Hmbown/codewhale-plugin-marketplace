@@ -34,10 +34,11 @@ test('every catalog entry points at a bundle whose manifest name and version mat
 });
 
 test('every plugin bundle under plugins/ is cataloged, except documented repository-only fixtures', () => {
-  const listed = new Set(entries.map((p) => path.relative(ROOT, p.dir)));
+  const relative = (dir) => path.relative(ROOT, dir).split(path.sep).join('/');
+  const listed = new Set(entries.map((p) => relative(p.dir)));
   const found = [];
   for (const f of walk(path.join(ROOT, 'plugins'))) {
-    if (path.basename(f) === 'plugin.json' && !f.includes(`${path.sep}tests${path.sep}`)) found.push(path.relative(ROOT, path.dirname(f)));
+    if (path.basename(f) === 'plugin.json' && !f.includes(`${path.sep}tests${path.sep}`)) found.push(relative(path.dirname(f)));
   }
   // claude-sample and dsh-sample prove import paths the catalog tooling does not
   // package yet (see plugins/samples/README.md); they are fixtures, not catalog rows.

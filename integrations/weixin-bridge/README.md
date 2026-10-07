@@ -97,8 +97,14 @@ Engine 必须同时声明 `turn_operation_idempotency` 和 `turn_operation_looku
 能力，bridge 才会查询并恢复没有收到确认的提交。旧 Engine 的不确定提交会
 保留供操作员核对，不会自动重新执行。发送结果不确定时，回答保留在私有的
 线程映射文件中；`/status` 会提示，bridge 不会自动重发。操作员须先核对
-Engine turn 与微信记录，避免重复执行或重复发送。仍有待核对工作时，
-`/new`、`/resume` 和新提示不会覆盖它。
+Engine turn 与微信记录，避免重复执行或重复发送。同一账户仍有待核对工作时，
+`/new`、`/resume` 和新提示不会覆盖它。更换 bot 账户后，明确发送 `/new`
+会先把旧账户的完整状态保留在线程映射的私有 `retiredAccountStates` 中，
+再建立新对话；旧提交与不确定回答仍须人工核对，不会自动执行或发送。
+
+`/threads` 只显示当前账户与当前聊天拥有的最近对话，`/resume` 只接受该
+账户和聊天已经绑定的对话。创建新对话会保留最多 200 条绑定记录；超出记录
+范围的旧对话或其他聊天的对话不能通过任意线程 ID 接管。
 
 注意：bridge **不读取 `.env` 文件**，手动运行时环境变量必须通过 `export` 传入，
 或使用 `node --env-file=.env src/index.mjs`。

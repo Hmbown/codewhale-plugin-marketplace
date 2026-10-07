@@ -274,8 +274,12 @@ async function handleCommand(chatId, command, inbound = {}) {
       await sendThreads(chatId);
       return;
     case "new_thread": {
-      const state = await ensureThread(chatId, { forceNew: true });
-      await sendText(chatId, `Created thread ${state.threadId}`);
+      try {
+        const state = await ensureThread(chatId, { forceNew: true });
+        await sendText(chatId, `Created thread ${state.threadId}`);
+      } catch (error) {
+        await sendText(chatId, `New conversation failed: ${error.message}`);
+      }
       return;
     }
     case "resume":
@@ -302,11 +306,22 @@ async function handleCommand(chatId, command, inbound = {}) {
 }
 
 async function ensureThread(chatId, { forceNew = false, threadRequest } = {}) {
-  const existing = await threadStore.getChat(chatId);
-  if (forceNew && hasPendingWork(existing)) throw new Error("This chat still has a pending turn or retained reply. Use /status first.");
+  let existing = await threadStore.getChat(chatId);
+  const previousAccounts = new Set([existing?.bindingAccountId, existing?.pendingAdmission?.accountId, existing?.turnDelivery?.accountId].filter(Boolean));
+  const replacingAccount = forceNew && previousAccounts.size === 1 && !previousAccounts.has(accountIdentity());
+  if (forceNew && hasPendingWork(existing) && !replacingAccount) throw new Error("This chat still has a pending turn or retained reply. Use /status first.");
   if (existing?.threadId && !forceNew) {
     if (existing.bindingAccountId !== accountIdentity()) throw new Error("This thread belongs to another or unverified bot account. Use /new to create an explicit binding.");
     return existing;
+  }
+
+  if (replacingAccount) {
+    // Explicit /new retires the previous account's private receipt before any
+    // new side effect. It remains in this store, outside automatic recovery.
+    const { retiredAccountStates = {}, ...retired } = existing;
+    const receipt = crypto.createHash("sha256").update(JSON.stringify(retired)).digest("hex");
+    await threadStore.patchChat(chatId, { retiredAccountStates: { ...retiredAccountStates, [receipt]: retired } });
+    existing = await threadStore.getChat(chatId);
   }
 
   const effectiveModel = existing?.model || config.model;
@@ -327,7 +342,10 @@ async function ensureThread(chatId, { forceNew = false, threadRequest } = {}) {
   });
 
   const state = {
-    ...preservedChatStateFields(existing, ["model", "authorizedIdentity", "contextToken", "pendingAdmission"]),
+    ...preservedChatStateFields(existing, replacingAccount
+      ? ["model", "contextToken", "retiredAccountStates"]
+      : ["model", "authorizedIdentity", "contextToken", "pendingAdmission", "retiredAccountStates"]),
+    threadBindings: [...threadBindings(chatId, existing), { threadId: thread.id, accountId: accountIdentity(), actorId: turnActor(chatId) }].slice(-threadStore.options.actionLimit),
     threadId: thread.id,
     bindingAccountId: accountIdentity(),
     lastSeq: 0,
@@ -344,6 +362,19 @@ function accountIdentity() {
 
 function turnActor(chatId) {
   return accountIdentity() && chatId ? `weixin-account:${accountIdentity()}:user:${chatId}` : "";
+}
+
+function threadBindings(chatId, state) {
+  const bindings = (Array.isArray(state?.threadBindings) ? state.threadBindings : []).filter((entry) => entry?.threadId && entry.accountId && entry.actorId);
+  if (state?.threadId && state.bindingAccountId) {
+    const current = { threadId: state.threadId, accountId: state.bindingAccountId, actorId: `weixin-account:${state.bindingAccountId}:user:${chatId}` };
+    if (!bindings.some((entry) => entry.threadId === current.threadId && entry.accountId === current.accountId && entry.actorId === current.actorId)) bindings.push(current);
+  }
+  return bindings.slice(-threadStore.options.actionLimit);
+}
+
+function ownsThread(chatId, state, threadId) {
+  return threadBindings(chatId, state).some((entry) => entry.threadId === threadId && entry.accountId === accountIdentity() && entry.actorId === turnActor(chatId));
 }
 
 function inboundKey(msg) {
@@ -609,7 +640,7 @@ async function sendStatus(chatId) {
       [
         `user_id=${chatId}`,
         state?.pendingAdmission ? "Turn admission is pending; its original request is retained." : "",
-        state?.activeTurnId ? `accepted_turn=${state.activeTurnId}` : "",
+        state?.activeTurnId && ownsRecovery(chatId, state) ? `accepted_turn=${state.activeTurnId}` : "",
         state?.turnDelivery?.outputs?.some((entry) => entry.status === "uncertain") ? "A reply has unconfirmed API acceptance. It is retained for review and will not be resent automatically." : "",
         `runtime=${health.status || "unknown"}`,
         `version=${runtimeInfo.version || "unknown"}`,
@@ -630,11 +661,12 @@ async function sendStatus(chatId) {
 
 async function sendThreads(chatId) {
   try {
-    const threads = await runtimeJson(
+    const state = await threadStore.getChat(chatId);
+    const threads = (await runtimeJson(
       "/v1/threads/summary?limit=8&include_archived=true"
-    );
+    )).filter((thread) => ownsThread(chatId, state, thread.id));
     if (!threads.length) {
-      await sendText(chatId, "No runtime threads yet.");
+      await sendText(chatId, "No recent runtime threads owned by this account and chat.");
       return;
     }
     await sendText(
@@ -660,11 +692,13 @@ async function resumeThread(chatId, args) {
   try {
     const existing = await threadStore.getChat(chatId);
     if (hasPendingWork(existing)) throw new Error("This chat still has a pending turn or retained reply. Use /status first.");
+    if (!ownsThread(chatId, existing, threadId)) throw new ApprovalOwnershipError("Thread is not owned by this account and chat");
     const detail = await runtimeJson(
       `/v1/threads/${encodeURIComponent(threadId)}`
     );
     await threadStore.setChat(chatId, {
-      ...preservedChatStateFields(existing, ["model", "authorizedIdentity", "contextToken"]),
+      ...preservedChatStateFields(existing, ["model", "authorizedIdentity", "contextToken", "retiredAccountStates"]),
+      threadBindings: threadBindings(chatId, existing),
       threadId,
       bindingAccountId: accountIdentity(),
       lastSeq: Number(detail.latest_seq || 0),
