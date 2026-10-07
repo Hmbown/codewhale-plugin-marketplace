@@ -9,6 +9,10 @@
 //
 // Nothing here publishes, deploys or contacts a service. `build` runs npm,
 // which downloads packages from the npm registry; every other command is local.
+// `check` scans literal source only: it does not execute scripts, resolve CSS
+// escapes, computed URLs, interpolated templates or JavaScript bindings. A
+// clean result is not proof of self-containment for dynamically built content.
+// Literal text in comments and source examples can also match these patterns.
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -114,6 +118,12 @@ export function checkHtml(html, { maxKb = DEFAULT_MAX_KB, allowNetwork = false }
   if (bytes > maxKb * 1024) errors.push(`file is ${(bytes / 1024).toFixed(0)} KB, over the ${maxKb} KB limit (--max-kb)`);
 
   const external = (what, where) => (allowNetwork ? warnings : errors).push(`${where} loads ${what} from the network, so the page is not self-contained (pass --allow-network to accept this)`);
+  const resource = (value, where) => {
+    const v = value.trim();
+    if (!v || v.startsWith("#") || /^(data|blob|about):/i.test(v)) return;
+    if (/^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(v)) external(v, where);
+    else errors.push(`${where} references "${v}" as a separate file, so the page is not a single file`);
+  };
   for (const { tag, name, value } of tagAttributes(html)) {
     if (!LOADERS.has(tag) || !["src", "href", "srcset", "poster", "data"].includes(name)) continue;
     if (tag === "input" && name !== "src") continue;
@@ -123,10 +133,18 @@ export function checkHtml(html, { maxKb = DEFAULT_MAX_KB, allowNetwork = false }
     else if (tag === "link" && !/\.(css|js|mjs|ico|png|svg|webmanifest)(\?|$)/i.test(v)) continue;
     else errors.push(`<${tag} ${name}="${v}"> references a separate file, so the page is not a single file`);
   }
-  for (const m of html.matchAll(/url\(\s*["']?(https?:)?\/\/[^)"']+/gi)) external(m[0].replace(/^url\(\s*["']?/i, ""), "CSS url()");
-  for (const m of html.matchAll(/@import\s+(?:url\()?\s*["']?(https?:)?\/\/[^"')\s;]+/gi)) external(m[0].replace(/^@import\s+(?:url\()?\s*["']?/i, ""), "@import");
+  for (const m of html.matchAll(/\burl\(\s*(?:"([^"]*)"|'([^']*)'|([^()"']*))\s*\)/gi)) resource(m[1] ?? m[2] ?? m[3], "CSS url()");
+  for (const m of html.matchAll(/@import\s+(?!url\s*\()(?:"([^"]*)"|'([^']*)'|([^\s;]+))/gi)) resource(m[1] ?? m[2] ?? m[3], "@import");
   for (const m of html.matchAll(/\bimport\s*(?:\([^)]*)?["'`](https?:\/\/[^"'`]+)/g)) external(m[1], "a JavaScript import");
   for (const m of html.matchAll(/\bfrom\s+["'](https?:\/\/[^"']+)["']/g)) external(m[1], "a JavaScript import");
+  // Direct literal calls and XHR-shaped open(method, url) calls only. In
+  // particular, this never evaluates a script to discover a request target.
+  const request = (value, where) => {
+    if (!value.trim() || /^(data|blob|about):/i.test(value.trim())) return;
+    external(value, where);
+  };
+  for (const m of html.matchAll(/\b(fetch|WebSocket|EventSource|sendBeacon)\s*\(\s*(?:"([^"]*)"|'([^']*)'|`((?:[^`$]|\$(?!\{))*)`)/g)) request(m[2] ?? m[3] ?? m[4], `${m[1]}()`);
+  for (const m of html.matchAll(/\.open\s*\(\s*["'](?:GET|POST|HEAD|PUT|DELETE|PATCH|OPTIONS|CONNECT|TRACE)["']\s*,\s*(?:"([^"]*)"|'([^']*)'|`((?:[^`$]|\$(?!\{))*)`)/gi)) request(m[1] ?? m[2] ?? m[3], "XMLHttpRequest-shaped open()");
 
   for (const [re, label] of SECRET_PATTERNS) if (re.test(html)) errors.push(`contains ${label}; a page file is readable by everyone who gets it`);
   if (/(\/Users\/|\/home\/[a-z]|[A-Z]:\\Users\\)/.test(html)) warnings.push("contains what looks like a local filesystem path");

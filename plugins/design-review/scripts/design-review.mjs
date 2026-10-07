@@ -106,13 +106,16 @@ function svgName(svg) {
 const NONTEXT_INPUT = new Set(["hidden", "submit", "button", "reset", "image"]);
 const FOCUSABLE = new Set(["a", "button", "input", "select", "textarea", "summary"]);
 
+function labelledByText(node, ids) {
+  return (node.attrs["aria-labelledby"] ?? "").split(/\s+/).filter(Boolean)
+    .map((id) => (ids.has(id) ? textOf(ids.get(id)) : "")).join(" ").trim();
+}
+
 function accessibleName(node, ids) {
   const a = node.attrs;
   if (a["aria-label"]?.trim()) return a["aria-label"].trim();
-  if (a["aria-labelledby"]) {
-    const t = a["aria-labelledby"].split(/\s+/).map((id) => (ids.get(id) ? textOf(ids.get(id)) : "")).join(" ").trim();
-    if (t) return t;
-  }
+  const labelled = labelledByText(node, ids);
+  if (labelled) return labelled;
   const own = textOf(node);
   if (own) return own;
   return a.title?.trim() || "";
@@ -158,7 +161,7 @@ export function scanHtml(html) {
       if (["submit", "button", "reset"].includes((a.type ?? "").toLowerCase()) && !a.value && !a["aria-label"] && !a.title) add("error", "button-name", "4.1.2", n, `<input type="${a.type}"> has no value or label`);
       if ((a.type ?? "").toLowerCase() === "image" && !a.alt && !a["aria-label"]) add("error", "button-name", "1.1.1", n, '<input type="image"> has no alt text');
     } else if (["input", "select", "textarea"].includes(t)) {
-      const named = a["aria-label"]?.trim() || (a["aria-labelledby"] && a["aria-labelledby"].split(/\s+/).some((id) => ids.has(id))) || (a.id && labelFor.has(a.id)) || inLabel(n);
+      const named = a["aria-label"]?.trim() || labelledByText(n, ids) || (a.id && labelFor.has(a.id)) || inLabel(n);
       if (!named) add("error", "input-label", "1.3.1", n, `<${t}${a.name ? ` name="${a.name}"` : ""}> has no label; a placeholder is not a label${a.title ? " (title is a weak fallback)" : ""}`);
     }
     if (t === "button" || role === "button") {
@@ -202,8 +205,12 @@ export function scanHtml(html) {
     while ((r = rule.exec(text))) {
       const [, selector, body] = r;
       if (!/outline\s*:\s*(none|0)\b/i.test(body)) continue;
-      if (/:not\(\s*:focus-visible\s*\)/i.test(selector)) continue; // :focus:not(:focus-visible) keeps keyboard focus styled
-      if (/box-shadow\s*:\s*(?!none)|border(-color)?\s*:|background(-color)?\s*:|text-decoration\s*:/i.test(body)) continue;
+      const keyboardSelectors = selector.split(",").filter((part) => !/:not\(\s*:focus-visible\s*\)/i.test(part));
+      if (!keyboardSelectors.length) continue; // :focus:not(:focus-visible) keeps keyboard focus styled
+      // Decoration on a generic selector is not a focus change. This only
+      // recognises same-rule focus replacements; cascade/contrast need review.
+      const focusOnly = keyboardSelectors.every((part) => /:focus(?:-visible)?(?![-\w])/i.test(part.replace(/:not\(\s*:focus\s*\)/gi, "")));
+      if (focusOnly && /box-shadow\s*:\s*(?!none\b)\S|border(-color)?\s*:|background(-color)?\s*:|text-decoration\s*:/i.test(body)) continue;
       add("warning", "focus-outline-removed", "2.4.7", { line }, `"${selector.trim().slice(0, 50)}" removes the outline without a replacement focus style`);
     }
   }

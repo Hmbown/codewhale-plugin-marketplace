@@ -40,6 +40,45 @@ test("labels are recognised through for=, wrapping, aria-label and aria-labelled
   assert.deepEqual(rules(scanHtml(bad)), ["input-label"]);
 });
 
+test("aria-labelledby must resolve to non-empty text for every form control", () => {
+  for (const label of [
+    '<span id="label"></span>',
+    '<span id="label"> \n &nbsp;</span>',
+    '<span id="label"><span aria-hidden="true">Hidden decoration</span></span>',
+  ]) {
+    const controls = '<input aria-labelledby="missing label" title="Weak fallback">' +
+      '<select aria-labelledby="label"></select><textarea aria-labelledby="label"></textarea>';
+    assert.deepEqual(rules(scanHtml(label + controls)), ["input-label", "input-label", "input-label"], label);
+  }
+  assert.deepEqual(rules(scanHtml('<span id="">Not an ID reference</span><input aria-labelledby="  ">')), ["input-label"]);
+});
+
+test("aria-labelledby accepts named content among missing and empty references", () => {
+  const labels = '<span id="empty"></span><span id="label"><span>Name</span></span>';
+  const controls = '<input aria-labelledby="missing empty label"><select aria-labelledby="label empty"></select>' +
+    '<textarea aria-labelledby="label"></textarea><input aria-label="Explicit" aria-labelledby="empty">';
+  assert.deepEqual(scanHtml(labels + controls), []);
+});
+
+test("generic decoration never replaces the removed keyboard focus outline", () => {
+  for (const decoration of ["background: blue", "background-color: blue", "border: 2px solid blue", "border-color: blue", "box-shadow: 0 0 0 2px blue", "text-decoration: underline"]) {
+    const findings = scanHtml(`<style>button { outline: none; ${decoration}; }</style>`);
+    assert.deepEqual(rules(findings), ["focus-outline-removed"], decoration);
+  }
+  assert.deepEqual(rules(scanHtml('<button style="outline: 0; background: blue" aria-label="Go"></button>')), ["focus-outline-removed"]);
+});
+
+test("replacement styles must belong to keyboard focus selectors throughout a selector list", () => {
+  for (const selector of ["button:focus", "button:focus-visible", "button:focus, input:focus-visible"]) {
+    assert.deepEqual(scanHtml(`<style>${selector} { outline: none; border-color: blue; }</style>`), [], selector);
+  }
+  for (const selector of ["button:focus, input", "button:not(:focus)", "button:focus-within", "button:focus:not(:focus-visible), input"]) {
+    assert.deepEqual(rules(scanHtml(`<style>${selector} { outline: none; background: blue; }</style>`)), ["focus-outline-removed"], selector);
+  }
+  assert.deepEqual(scanHtml('<style>button:focus:not(:focus-visible) { outline: none; }</style>'), []);
+  assert.deepEqual(rules(scanHtml('<style>button:focus { outline: none; box-shadow: none; }</style>')), ["focus-outline-removed"]);
+});
+
 test("hidden, submit and image inputs follow their own rules", () => {
   const html = '<!doctype html><html lang="en"><head><title>t</title></head><body><main><h1>x</h1>' +
     '<input type="hidden" name="t"><input type="submit" value="Send"><input type="submit"><input type="image" src="a.png"></main></body></html>';

@@ -82,6 +82,65 @@ test("check accepts data URIs, anchors and in-page links, and downgrades network
   assert.ok(r.warnings.some((w) => w.includes("network")));
 });
 
+test("check rejects relative CSS resources even when network use is allowed", () => {
+  for (const css of [
+    'body { background: url(logo.png); }',
+    'body { background: url("./images/logo.png"); }',
+    "@font-face { src: url('../fonts/page.woff2'); }",
+    'body { background: url(/images/logo.png); }',
+    '@import "./theme.css";',
+    "@import url('theme.css');",
+  ]) {
+    const html = GOOD.replace("</head>", `<style>${css}</style></head>`);
+    for (const allowNetwork of [false, true]) {
+      const result = checkHtml(html, { allowNetwork });
+      assert.equal(result.ok, false, css);
+      assert.ok(result.errors.some((e) => e.includes("separate file")), `${css}: ${JSON.stringify(result)}`);
+    }
+  }
+  const inline = GOOD.replace('<p>x</p>', '<p style="background: url(logo.png)">x</p>');
+  assert.ok(checkHtml(inline).errors.some((e) => e.includes("separate file")));
+});
+
+test("CSS data URIs and fragment resources remain contained; remote CSS is an explicit downgrade", () => {
+  const contained = GOOD.replace("</head>", '<style>body { background: url("data:image/svg+xml,%3Csvg%3E%3C/svg%3E"); filter: url(#blur); } @font-face { src: url(data:font/woff2;base64,AA==); }</style></head>');
+  assert.deepEqual(checkHtml(contained).errors, []);
+  for (const css of ['body { background: url("https://assets.example.invalid/image.png"); }', '@import "//assets.example.invalid/style.css";']) {
+    const html = GOOD.replace("</head>", `<style>${css}</style></head>`);
+    assert.equal(checkHtml(html).ok, false, css);
+    const allowed = checkHtml(html, { allowNetwork: true });
+    assert.equal(allowed.ok, true, css);
+    assert.ok(allowed.warnings.some((w) => w.includes("network")), css);
+  }
+});
+
+test("literal network calls fail self-containment unless explicitly allowed", () => {
+  for (const script of [
+    'fetch("https://api.example.invalid/data")',
+    "window.fetch('//api.example.invalid/data')",
+    'fetch(`/api/data`)',
+    'fetch(`https://api.example.invalid/price$usd`)',
+    'new WebSocket("wss://api.example.invalid/events")',
+    "new EventSource('https://api.example.invalid/events')",
+    'navigator.sendBeacon("https://api.example.invalid/events", "receipt")',
+    'const xhr = new XMLHttpRequest(); xhr.open("GET", "https://api.example.invalid/data")',
+    "const xhr = new XMLHttpRequest(); xhr.open('POST', '/api/data', true)",
+  ]) {
+    const html = GOOD.replace("</body>", `<script>${script}</script></body>`);
+    const result = checkHtml(html);
+    assert.equal(result.ok, false, script);
+    assert.ok(result.errors.some((e) => e.includes("network")), script);
+    const allowed = checkHtml(html, { allowNetwork: true });
+    assert.equal(allowed.ok, true, script);
+    assert.ok(allowed.warnings.some((w) => w.includes("--allow-network")), script);
+  }
+});
+
+test("checking literal calls never executes input and accepts embedded data", () => {
+  const html = GOOD.replace("</body>", '<script>throw new Error("must not execute"); fetch("data:application/json,%7B%7D");</script></body>');
+  assert.deepEqual(checkHtml(html).errors, []);
+});
+
 test("check warns about a missing lang and a zoom-blocking viewport", () => {
   const r = checkHtml(GOOD.replace(' lang="en"', "").replace("initial-scale=1", "initial-scale=1, user-scalable=no"));
   assert.ok(r.warnings.some((w) => w.includes("lang")));
