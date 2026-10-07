@@ -22,6 +22,7 @@ import {
   compactRuntimeError,
   latestRunningTurn,
   helpText,
+  processUpdateBatch,
 } from "./lib.mjs";
 import { renderQrToText } from "./qr.mjs";
 import { ThreadStore as CoreThreadStore, writeFileDurable, ApprovalOwnershipError, decideApproval as decideRuntimeApproval } from "../../bridge-core/src/lib.mjs";
@@ -254,7 +255,11 @@ async function sendText(chatId, text, { clientId } = {}) {
 
 async function getContextToken(chatId) {
   const state = await threadStore.getChat(chatId);
-  return state?.contextToken || undefined;
+  // Legacy tokens without an account identity are ambiguous; the next inbound
+  // message stores a fresh token bound to the active bot account.
+  return state?.contextTokenAccountId === accountIdentity()
+    ? state.contextToken || undefined
+    : undefined;
 }
 
 // ============================================================================
@@ -276,6 +281,12 @@ async function handleCommand(chatId, command, inbound = {}) {
     case "new_thread": {
       try {
         const state = await ensureThread(chatId, { forceNew: true });
+        if (inbound.contextToken) {
+          await threadStore.patchChat(chatId, {
+            contextToken: inbound.contextToken,
+            contextTokenAccountId: accountIdentity(),
+          });
+        }
         await sendText(chatId, `Created thread ${state.threadId}`);
       } catch (error) {
         await sendText(chatId, `New conversation failed: ${error.message}`);
@@ -320,7 +331,13 @@ async function ensureThread(chatId, { forceNew = false, threadRequest } = {}) {
     // new side effect. It remains in this store, outside automatic recovery.
     const { retiredAccountStates = {}, ...retired } = existing;
     const receipt = crypto.createHash("sha256").update(JSON.stringify(retired)).digest("hex");
-    await threadStore.patchChat(chatId, { retiredAccountStates: { ...retiredAccountStates, [receipt]: retired } });
+    const retained = { ...retiredAccountStates, [receipt]: retired };
+    // Fail before creating a new thread; never evict an uncertain submission
+    // or reply merely to make room. Existing over-limit stores remain intact.
+    if (Object.keys(retained).length > threadStore.options.actionLimit || Buffer.byteLength(JSON.stringify(retained), "utf8") > 1024 * 1024) {
+      throw new Error("Retired account receipt storage is full. Ask the local operator to stop the bridge, back up thread-map.json, and reconcile retiredAccountStates before retrying /new.");
+    }
+    await threadStore.patchChat(chatId, { retiredAccountStates: retained });
     existing = await threadStore.getChat(chatId);
   }
 
@@ -343,8 +360,8 @@ async function ensureThread(chatId, { forceNew = false, threadRequest } = {}) {
 
   const state = {
     ...preservedChatStateFields(existing, replacingAccount
-      ? ["model", "contextToken", "retiredAccountStates"]
-      : ["model", "authorizedIdentity", "contextToken", "pendingAdmission", "retiredAccountStates"]),
+      ? ["model", "retiredAccountStates"]
+      : ["model", "authorizedIdentity", "contextToken", "contextTokenAccountId", "pendingAdmission", "retiredAccountStates"]),
     threadBindings: [...threadBindings(chatId, existing), { threadId: thread.id, accountId: accountIdentity(), actorId: turnActor(chatId) }].slice(-threadStore.options.actionLimit),
     threadId: thread.id,
     bindingAccountId: accountIdentity(),
@@ -662,9 +679,16 @@ async function sendStatus(chatId) {
 async function sendThreads(chatId) {
   try {
     const state = await threadStore.getChat(chatId);
-    const threads = (await runtimeJson(
-      "/v1/threads/summary?limit=8&include_archived=true"
-    )).filter((thread) => ownsThread(chatId, state, thread.id));
+    const ownedIds = threadBindings(chatId, state)
+      .filter((entry) => entry.accountId === accountIdentity() && entry.actorId === turnActor(chatId))
+      .map((entry) => entry.threadId);
+    if (!ownedIds.length) {
+      await sendText(chatId, "No recent runtime threads owned by this account and chat.");
+      return;
+    }
+    const query = new URLSearchParams({ limit: "8", include_archived: "true", thread_ids: ownedIds.join(",") });
+    const threads = (await runtimeJson(`/v1/threads/summary?${query}`))
+      .filter((thread) => ownsThread(chatId, state, thread.id));
     if (!threads.length) {
       await sendText(chatId, "No recent runtime threads owned by this account and chat.");
       return;
@@ -697,7 +721,7 @@ async function resumeThread(chatId, args) {
       `/v1/threads/${encodeURIComponent(threadId)}`
     );
     await threadStore.setChat(chatId, {
-      ...preservedChatStateFields(existing, ["model", "authorizedIdentity", "contextToken", "retiredAccountStates"]),
+      ...preservedChatStateFields(existing, ["model", "authorizedIdentity", "contextToken", "contextTokenAccountId", "retiredAccountStates"]),
       threadBindings: threadBindings(chatId, existing),
       threadId,
       bindingAccountId: accountIdentity(),
@@ -841,10 +865,21 @@ async function handleInbound(msg) {
   const fromUser = msg.from_user_id || "";
   if (msg.message_type !== undefined && msg.message_type !== 1) return;
   if (!isAllowed(fromUser)) return;
-  if (msg.context_token) await threadStore.patchChat(fromUser, { contextToken: msg.context_token });
   const text = extractText(msg.item_list);
+  if (msg.context_token) {
+    const state = await threadStore.getChat(fromUser);
+    if (!state?.bindingAccountId || state.bindingAccountId === accountIdentity()) {
+      await threadStore.patchChat(fromUser, {
+        contextToken: msg.context_token,
+        contextTokenAccountId: accountIdentity(),
+      });
+    }
+  }
   if (!text) return sendText(fromUser, "仅支持文本消息。图片/语音/视频/文件暂不支持。");
-  await handleCommand(fromUser, parseCommand(text), { messageKey: inboundKey(msg) });
+  await handleCommand(fromUser, parseCommand(text), {
+    messageKey: inboundKey(msg),
+    contextToken: msg.context_token,
+  });
 }
 
 async function monitorLoop() {
@@ -899,16 +934,18 @@ async function monitorLoop() {
 
       consecutiveFailures = 0;
 
-      // Claims stay inflight until durable admission/handling succeeds. A crash
-      // replays commands conservatively and reconciles the persisted prompt receipt.
-      for (const msg of resp.msgs || []) {
-        const key = inboundKey(msg);
-        if (!key) { console.warn("Ignored inbound message without a stable account/peer/message identity."); continue; }
-        // Core claimMessage retires an interrupted claim before returning it.
-        // Keep this caller's inflight marker until its recovery payload is durable.
-        const claim = threadStore.data.inflight?.[key] ? "interrupted" : await threadStore.claimMessage(key);
-        if (claim === "done") continue;
-        if (claim === "interrupted") {
+      await processUpdateBatch({
+        messages: resp.msgs,
+        nextCursor: resp.get_updates_buf,
+        store: threadStore,
+        keyOf: (msg) => {
+          const key = inboundKey(msg);
+          if (!key) console.warn("Ignored inbound message without a stable account/peer/message identity.");
+          return key;
+        },
+        handle: handleInbound,
+        interrupted: async (msg) => {
+          const key = inboundKey(msg);
           const state = await threadStore.getChat(msg.from_user_id);
           if (state?.pendingAdmission?.messageKey === key || state?.turnDelivery?.messageKey === key) {
             startChatRecovery(msg.from_user_id);
@@ -919,16 +956,12 @@ async function monitorLoop() {
           } else if (isAllowed(msg.from_user_id)) {
             await sendText(msg.from_user_id, "The bridge restarted while handling this command. Its effect is uncertain; check /status before repeating it.");
           }
-          await threadStore.completeMessage(key);
-          continue;
-        }
-        await handleInbound(msg);
-        await threadStore.completeMessage(key);
-      }
-      if (resp.get_updates_buf) {
-        await saveSyncBuf(config.stateDir, resp.get_updates_buf);
-        getUpdatesBuf = resp.get_updates_buf;
-      }
+        },
+        commitCursor: async (cursor) => {
+          await saveSyncBuf(config.stateDir, cursor);
+          getUpdatesBuf = cursor;
+        },
+      });
       for (const [chatId, state] of threadStore.listChats()) {
         if (hasPendingWork(state)) startChatRecovery(chatId);
       }
