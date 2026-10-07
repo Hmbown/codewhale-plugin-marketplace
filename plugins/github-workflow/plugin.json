@@ -1,0 +1,32 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "github-workflow",
+  "version": "0.1.0",
+  "description": "Review pull requests, triage issues and file well-formed issues through GitHub's official remote MCP server. Needs your own GitHub token; never posts without your approval.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "github-mcp",
+    "pull-request",
+    "pr-review",
+    "github-issues"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "GitHub",
+      "capabilities": {
+        "network_hosts": [
+          "api.githubcopilot.com"
+        ]
+      },
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

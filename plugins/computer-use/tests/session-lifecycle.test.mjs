@@ -1,5 +1,6 @@
 // Exercise the actual helper socket and MCP lifecycle with recording backends.
 // Child-process cancellation must prevent delayed input, not just hide replies.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -41,6 +42,7 @@ async function until(check, timeoutMs = 3000) {
 
 function mcp() {
   const child = spawn(process.execPath, [path.join(ROOT, "mcp/server.mjs")], { env, stdio: ["pipe", "pipe", "pipe"] });
+  child.stdin.write(hostKeysLine());
   hosts.add(child);
   const replies = new Map();
   let buf = "";
@@ -55,7 +57,7 @@ function mcp() {
       replies.set(msg.id, msg);
     }
   });
-  const send = (method, params, requestId) => child.stdin.write(JSON.stringify({ jsonrpc: "2.0", ...(requestId === undefined ? {} : { id: requestId }), method, params }) + "\n");
+  const send = (method, params, requestId) => child.stdin.write(JSON.stringify({ jsonrpc: "2.0", ...(requestId === undefined ? {} : { id: requestId }), method, params: attestParams(method, params) }) + "\n");
   const start = (name, args = {}) => { const requestId = ++id; send("tools/call", { name, arguments: args }, requestId); return requestId; };
   const response = async (requestId) => {
     await until(() => replies.has(requestId));

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "linear": {
+      "type": "streamable-http",
+      "url": "https://mcp.linear.app/mcp",
+      "extensions": {
+        "net.codewhale": {
+          "bearer_token_env_var": "LINEAR_API_KEY",
+          "connect_timeout": 30,
+          "execute_timeout": 60,
+          "disabled_tools": [
+            "delete_comment",
+            "delete_attachment",
+            "delete_status_update"
+          ]
+        }
+      }
+    }
+  }
+}

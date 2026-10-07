@@ -3,9 +3,9 @@
   "version": "0.12.1",
   "description": "Let Codewhale see and operate your apps. Background control, permission setup and human safety controls over MCP.",
   "license": "MIT",
-  "repository": "github:Hmbown/codewhale-cu-plugin",
-  "homepage": "https://github.com/Hmbown/codewhale-cu-plugin#readme",
-  "bugs": "https://github.com/Hmbown/codewhale-cu-plugin/issues",
+  "repository": "github:codewhale-hq/codewhale-cu-plugin",
+  "homepage": "https://github.com/codewhale-hq/codewhale-cu-plugin#readme",
+  "bugs": "https://github.com/codewhale-hq/codewhale-cu-plugin/issues",
   "type": "module",
   "private": true,
   "main": "./mcp/server.mjs",
@@ -31,6 +31,6 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "sharp": "0.35.4"
+    "sharp": "0.35.5"
   }
 }

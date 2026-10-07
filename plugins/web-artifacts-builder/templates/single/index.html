@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #fbfaf7;
+      --surface: #ffffff;
+      --text: #1d1b16;
+      --muted: #5f5a4e;
+      --line: #ddd8cc;
+      --accent: #0b6e69;
+      --accent-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14130f;
+        --surface: #1d1b16;
+        --text: #f2efe6;
+        --muted: #aaa493;
+        --line: #38352b;
+        --accent: #4fc3bb;
+        --accent-text: #0b1a19;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { max-width: 42rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 .25rem; }
+    .lede { color: var(--muted); margin: 0 0 1.5rem; }
+    form { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    input[type="text"] {
+      flex: 1; min-width: 0; padding: .6rem .75rem; font: inherit;
+      color: var(--text); background: var(--surface);
+      border: 1px solid var(--line); border-radius: .5rem;
+    }
+    button {
+      font: inherit; padding: .6rem 1rem; border: 0; border-radius: .5rem;
+      background: var(--accent); color: var(--accent-text); cursor: pointer;
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+    li { display: flex; align-items: center; gap: .75rem; padding: .7rem 0; border-bottom: 1px solid var(--line); }
+    li.done span { text-decoration: line-through; color: var(--muted); }
+    #status { color: var(--muted); margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{TITLE}}</h1>
+    <p class="lede">Replace this starter with your page. Everything it needs is in this one file.</p>
+    <form id="add" autocomplete="off">
+      <label for="item" class="sr-only">New item</label>
+      <input id="item" type="text" placeholder="Add an item" required>
+      <button type="submit">Add</button>
+    </form>
+    <ul id="list" aria-live="polite"></ul>
+    <p id="status"></p>
+  </main>
+  <script>
+    (function () {
+      var items = [{ text: "Open this page in a browser", done: true }, { text: "Edit index.html", done: false }];
+      var list = document.getElementById("list");
+      var status = document.getElementById("status");
+      function render() {
+        list.textContent = "";
+        items.forEach(function (item, i) {
+          var li = document.createElement("li");
+          if (item.done) li.className = "done";
+          var box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = item.done;
+          box.id = "item-" + i;
+          box.addEventListener("change", function () { item.done = box.checked; render(); });
+          var label = document.createElement("label");
+          label.htmlFor = box.id;
+          var span = document.createElement("span");
+          span.textContent = item.text;
+          label.appendChild(span);
+          li.appendChild(box);
+          li.appendChild(label);
+          list.appendChild(li);
+        });
+        var left = items.filter(function (x) { return !x.done; }).length;
+        status.textContent = left + " of " + items.length + " remaining";
+      }
+      document.getElementById("add").addEventListener("submit", function (event) {
+        event.preventDefault();
+        var input = document.getElementById("item");
+        var text = input.value.trim();
+        if (!text) return;
+        items.push({ text: text, done: false });
+        input.value = "";
+        render();
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>

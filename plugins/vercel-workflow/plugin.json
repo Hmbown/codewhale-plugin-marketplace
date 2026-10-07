@@ -1,0 +1,27 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "vercel-workflow",
+  "version": "0.1.0",
+  "description": "Vercel workflows for Codewhale: preview and production deploys only after you approve, environment variables, runtime and build logs, and Next.js configuration.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "vercel",
+    "nextjs",
+    "preview-deployment",
+    "vercel-cli"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Vercel",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

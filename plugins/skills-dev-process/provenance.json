@@ -1,0 +1,18 @@
+{
+  "source": "skills/<name>/SKILL.md in this repository (copied byte for byte)",
+  "repository": "https://github.com/codewhale-hq/Codewhale",
+  "commit": "21c8f86c4c774f0028247d566ce976d16bbd4fbc",
+  "generation": "17",
+  "skills": {
+    "plan": "eeeac11c375b17f188522e498e242fb16c77e14a27dc87d37e49c7b4462aa975",
+    "implement": "0d837b63efc177c24ab8dcb421dc9ea654efaee4332570c81661d6c8358c0b57",
+    "debug": "34d6d926aba281d731e62dc7688a81c6afff6036b27933904dff5348d158c48e",
+    "test": "9c6665b525f9cdb8e89a67193a1f1d02d65cfd90cf356b9dc1dc2cffcab1d333",
+    "review": "bc9f6c16b68f59319cb61fa5571be8828077c0c12f2719cf456f7bde404a0f8a",
+    "security-review": "3d84c7977ae9ce51a94d4db468eca3f8da086d11368551e1ee90cb6ca3eac2e5",
+    "simplify": "9ad62b9622c989825f02a17979aa6b8d363705c277261ad677c00d5bebfbad3d",
+    "verify": "25211745e3856643be8217e0cfc51eee20ecaf67674e00b69f55cd8d38ed0a35",
+    "handoff": "bb7c8f29376929ce2e4b3f66cbda9d7ca03d95d59d8a8395aee0e196f8d2e20c",
+    "interview": "273bc3906c6bc0b9d4f10f426593dc0e6d45ad8a56d6800c0dff7cd8c5fc8310"
+  }
+}

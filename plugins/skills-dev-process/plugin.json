@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "skills-dev-process",
+  "version": "0.1.0",
+  "description": "Software process workflows: plan, implement, debug, test, review, security-review, simplify, verify, hand off, and interview for missing requirements.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "debugging",
+    "code-review",
+    "test-plan",
+    "handoff",
+    "verification"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Dev Process Skills",
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

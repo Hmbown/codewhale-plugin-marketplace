@@ -47,7 +47,7 @@ function harmonyFixtureExec(t) {
       return fakeJpeg(168, 120);
     },
   };
-  return { exec, calls };
+  return { exec, calls, layout };
 }
 
 test("harmony: parseBounds handles uitest bounds strings", () => {
@@ -78,11 +78,13 @@ test("harmony: get_app_state flattens dumpLayout with indices and actions", asyn
   assert.ok(ok.actions.includes("click"));
 });
 
-test("harmony: screenshot pulls the file and reports panel dimensions", async () => {
+test("harmony: screenshot pulls the file and reports panel dimensions", async (t) => {
   const { exec } = harmonyFixtureExec();
   const mod = await import("../src/backends/harmonyos.mjs");
   const b = mod.create({ exec });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-hm-test-"));
+  const oldRec = process.env.CODEWHALE_CU_RECORDINGS_DIR; process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  t.after(() => { if (oldRec === undefined) delete process.env.CODEWHALE_CU_RECORDINGS_DIR; else process.env.CODEWHALE_CU_RECORDINGS_DIR = oldRec; });
   const shot = await b.screenshot({ path: path.join(dir, "shot.jpeg") });
   assert.equal(shot.pixels.w, 168);
   assert.equal(shot.pixels.h, 120);
@@ -98,6 +100,24 @@ test("harmony: click routes through uitest uiInput with validated args", async (
   assert.equal(r.action_sent, true);
   const ui = calls.find((c) => c.args[0] === "uitest");
   assert.deepEqual(ui.args, ["uitest", "uiInput", "click", "124", "45"]);
+});
+
+test("harmony: element actions re-find the observed element and refuse a reordered tree", async () => {
+  const { exec, calls, layout } = harmonyFixtureExec();
+  const mod = await import("../src/backends/harmonyos.mjs");
+  const b = mod.create({ exec });
+  const ok = (await b.get_app_state({})).elements.find((e) => e.label === "OK");
+  const target = { index: ok.index, path: ok.path, role: ok.role, label: ok.label };
+  await b.perform_action({ target, action: "click" });
+  assert.deepEqual(calls.filter((c) => c.args?.[1] === "uiInput").at(-1).args, ["uitest", "uiInput", "click", "200", "230"]);
+  // A new sibling ahead of OK shifts every uitest index: the stored index now
+  // names "Delete". Nothing may be clicked.
+  layout.children.unshift({ attributes: { type: "Button", text: "Delete", bounds: "[0,300][100,360]" }, children: [] });
+  const before = calls.filter((c) => c.args?.[1] === "uiInput").length;
+  await assert.rejects(b.perform_action({ target, action: "click" }), (error) => error.code === "element_stale" && /label changed/.test(error.message));
+  await assert.rejects(b.set_value({ target, value: "x" }), (error) => error.code === "element_stale");
+  await assert.rejects(b.perform_action({ target: { index: ok.index }, action: "click" }), (error) => error.code === "element_stale", "a bare index has no identity to verify");
+  assert.equal(calls.filter((c) => c.args?.[1] === "uiInput").length, before, "no input after the tree changed");
 });
 
 test("harmony: clipboard and select_text fail closed with named reasons", async () => {
@@ -199,4 +219,49 @@ test("remote agent answers the platform probe", async () => {
   const reply = JSON.parse(r.stdout.trim());
   assert.equal(reply.ok, true);
   assert.equal(reply.platform, process.platform);
+});
+
+
+test("linux: nested zooms crop only the latest backend-owned raster", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cu-linux-crop-"));
+  const saved = Object.fromEntries(["CODEWHALE_CU_RECORDINGS_DIR", "DISPLAY", "WAYLAND_DISPLAY", "XDG_SESSION_TYPE"].map(k => [k, process.env[k]]));
+  process.env.CODEWHALE_CU_RECORDINGS_DIR = dir;
+  process.env.DISPLAY = "fixture";
+  delete process.env.WAYLAND_DISPLAY;
+  process.env.XDG_SESSION_TYPE = "x11";
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved)) value === undefined ? delete process.env[key] : process.env[key] = value;
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const png = Buffer.alloc(24);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(png);
+  png.write("IHDR", 12); png.writeUInt32BE(100, 16); png.writeUInt32BE(80, 20);
+  const commands = [];
+  let cropFailure = null;
+  const run = async (cmd, args) => {
+    commands.push({ cmd, args });
+    if (cmd === "ffmpeg" && cropFailure) return { code: 0, stdout: "", stderr: "", ...cropFailure };
+    const output = args.at(-1);
+    if (typeof output === "string" && output.startsWith(dir) && output.endsWith(".png")) fs.writeFileSync(output, png);
+    return { code: 0, stdout: "", stderr: "" };
+  };
+  const { create } = await import("../src/backends/linux.mjs");
+  const backend = create({ exec: { run, have: async () => true } });
+  const shot = await backend.screenshot();
+  for (const [failure, reason] of [
+    [{ aborted: true }, /cancelled/],
+    [{ timedOut: true }, /timeout/],
+    [{ code: 1, stderr: "fixture crop failure" }, /fixture crop failure/],
+  ]) {
+    cropFailure = failure;
+    await assert.rejects(backend.zoom({ region: [0, 0, 10, 10] }), reason);
+  }
+  cropFailure = null;
+  const first = await backend.zoom({ region: [10, 20, 40, 30], source: "/untrusted/caller.png" });
+  const child = await backend.zoom({ region: [2, 3, 10, 8], source: "/untrusted/caller.png" });
+  const crops = commands.filter(call => call.cmd === "ffmpeg").slice(-2);
+  assert.equal(crops[0].args[crops[0].args.indexOf("-i") + 1], shot.file);
+  assert.equal(crops[1].args[crops[1].args.indexOf("-i") + 1], first.file);
+  assert.deepEqual(child.points, { x: 12, y: 23, w: 10, h: 8 });
+  assert.deepEqual(child.pixels, { w: 10, h: 8 });
 });

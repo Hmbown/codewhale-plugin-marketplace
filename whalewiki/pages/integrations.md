@@ -16,6 +16,15 @@ keeps service setup outside installable URL wrappers. Slack and Vercel require
 further Codewhale client qualification, so their recipes offer no install
 command. A documented endpoint is not a verified login.
 
+`github-workflow`, `linear-workflow` and `vercel-workflow` are installable
+plugins that sit beside those recipes under different ids. They add reviewed
+skills and commands. The first two declare the service's remote MCP with a
+bearer token read from an environment variable, because plugin MCP cannot run
+OAuth; `vercel-workflow` ships no MCP and uses the Vercel CLI login. Both MCP
+endpoints answered 401 without a token when checked, and no authenticated call
+has been made, so tool names in those skills are unverified against a live
+account.
+
 BaizhiCloud Agent Toolkit is a documented bearer connection. The generated
 server entry keeps the token in the host environment through the native
 `bearer_token_env_var` field. It offers search/read setup guidance but does not
@@ -30,6 +39,11 @@ Core snapshot in `integrations/upstream.json`. Each copied file has a SHA-256
 pin. Update the canonical Core implementation first and refresh its complete
 changed source/test set here. Their presence does not qualify a live account.
 
+Windows bridge state replacement retries transient sharing violations within a
+bounded 2.75-second delay budget. The prior record is preserved if replacement
+still fails; the actual Windows file-lock regression checks both release and
+permanent-lock outcomes. A write failure is never reported as a durable save.
+
 `npm run integrations -- list` locates each guide. `start <name>` requires a
 private absolute env-file path and launches the chosen adapter from its package
 directory. Feishu and WeCom have declared dependencies to install first. No plugin
@@ -39,6 +53,19 @@ Telegram and Feishu persist the admitted sender's identity for recovery. Before
 reattaching after restart they check that identity against the current allowlist
 and group policy. Legacy state without identity stays detached. Feishu updates
 its reply destination only after admitting the incoming sender.
+
+The current pinned bridges retain the accepted turn's initiating human for
+approval decisions. A newer group sender or an unbound legacy button cannot
+approve another person's turn. Restart recovery validates that identity before
+reattaching. Weixin also binds durable prompts, accepted operation IDs, saved
+replies and uncertain deliveries to the paired bot account; a replacement
+account cannot inherit them. An explicit `/new` after account replacement
+durably retains the old private receipt for human review before binding a fresh
+conversation; it never resubmits the old prompt or uncertain reply. Same-account
+pending work still blocks replacement. `/threads` filters to that account and
+chat's recorded bindings, and `/resume` checks ownership before reading a
+thread. QR setup and reconnect behavior still require real service qualification.
+These guarantees come from the same Core owner.
 
 ## Signed webhook intake
 

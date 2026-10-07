@@ -1,6 +1,7 @@
 // Target-pipeline tests: real MCP server over stdio with an injected fake
 // backend (CODEWHALE_CU_TEST_BACKEND) so raster math and element
 // revalidation can be asserted against the exact args the backend receives.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -27,14 +28,14 @@ function rpc(method, params, timeoutMs = 30_000) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, timeoutMs);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 
 function rpcId(method, params) {
   const id = nextId++;
   const p = new Promise((resolve) => pending.set(id, resolve));
-  server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+  server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   return { id, p };
 }
 
@@ -71,6 +72,7 @@ before(async () => {
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`));
   server.stdout.setEncoding("utf8");
   server.stdout.on("data", (d) => {
@@ -237,6 +239,15 @@ test("zoom binds a child raster that keeps parent scale and shifted origin", asy
   const last = calls("left_click").at(-1);
   // origin 0 + (100 + 10) / 2 = 55
   assert.deepEqual({ x: last.args.target.x, y: last.args.target.y }, { x: 55, y: 55 });
+});
+
+test("screenshot and zoom never forward a caller-named source file", async () => {
+  const shot = await tool("screenshot", { source: "/etc/hosts" });
+  assert.equal(Object.hasOwn(calls("screenshot").at(-1).args, "source"), false);
+  const z = await tool("zoom", { region: [0, 0, 10, 10], source: "/etc/hosts" });
+  assert.equal(z.ok, true, JSON.stringify(z.error));
+  assert.equal(calls("zoom").at(-1).args.source, shot.file, "only the server-bound capture is forwarded");
+  assert.notEqual(calls("zoom").at(-1).args.source, "/etc/hosts");
 });
 
 test("zoom without a bound raster fails with no_raster", async () => {

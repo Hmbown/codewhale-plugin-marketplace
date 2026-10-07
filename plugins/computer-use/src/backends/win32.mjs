@@ -4,11 +4,11 @@
 // keyboard events come from user32 P/Invoke (SendInput/mouse_event).
 // Recording stays unavailable until its native process has session-owned cleanup.
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { run, ExecError, tryJson, withSignal, throwIfAborted } from "../exec.mjs";
 import { createBrowser } from "../browser-cdp.mjs";
+import { recordingsDir, recordingsOutputPath } from "../recordings.mjs";
 
 const USER32 = `
 using System;
@@ -68,10 +68,6 @@ public static class User32 {
     }
   }
 }`;
-
-function recordingsDir() {
-  return process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings");
-}
 
 // Windows virtual-key codes for named keys.
 const VK = {
@@ -402,12 +398,13 @@ Write-Output ($result | ConvertTo-Json -Depth 6 -Compress);`, { timeoutMs: 60_00
     },
     screenshot: async (args = {}) => {
       if (Object.hasOwn(args, "app_ref") || Object.hasOwn(args, "window_id")) throw unsupportedSelector("Windows screenshot does not support app_ref or window_id; omit them for a desktop screenshot");
-      const { display = activeDisplay, region, path: outPath } = args;
+      const { display = activeDisplay, region } = args;
+      const outPath = recordingsOutputPath(args.path);
       if (display != null && (!Number.isInteger(display) || display < 1)) throw new ExecError("display index must be a positive integer");
       if (region != null && (!Array.isArray(region) || region.length !== 4 || !region.every(Number.isInteger) || region[2] <= 0 || region[3] <= 0)) throw new ExecError("region must be integer [x,y,width,height] with positive size");
       const dir = recordingsDir();
       fs.mkdirSync(dir, { recursive: true });
-      const file = path.resolve(outPath || path.join(dir, `shot-${crypto.randomBytes(6).toString("hex")}.png`));
+      const file = path.resolve(outPath ?? path.join(dir, `shot-${crypto.randomBytes(6).toString("hex")}.png`));
       const meta = await psJson(`Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing;
 $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen;
 ${display == null ? "" : `$screens = [System.Windows.Forms.Screen]::AllScreens; if (${display} -gt $screens.Count) { throw 'display index is out of range' }; $bounds = $screens[${display - 1}].Bounds;`}
@@ -423,10 +420,14 @@ try {
       lastRaster = { file, bytes: fs.statSync(file).size, points: { x: meta.x, y: meta.y, w: meta.w, h: meta.h }, pixels: { w: meta.w, h: meta.h }, scale: 1, capturedAt: new Date().toISOString() };
       return { ...lastRaster };
     },
-    zoom: async ({ source, region, path: outPath }) => {
-      const src = source ?? lastRaster?.file;
+    // Always crops the last raster this backend captured; a caller-named
+    // source file is not accepted.
+    zoom: async ({ region, path: outPath }) => {
+      // Validate the caller's output path before anything else runs.
+      const explicitOut = recordingsOutputPath(outPath);
+      const src = lastRaster?.file;
       if (!src) throw new ExecError("no screenshot taken yet on this computer — call screenshot first");
-      const out = outPath || path.join(recordingsDir(), `zoom-${crypto.randomBytes(4).toString("hex")}.png`);
+      const out = explicitOut ?? path.join(recordingsDir(), `zoom-${crypto.randomBytes(4).toString("hex")}.png`);
       const script = `Add-Type -AssemblyName System.Drawing;
 $img = [System.Drawing.Image]::FromFile('${src.replace(/'/g, "''")}');
 $rect = New-Object System.Drawing.Rectangle(${Math.round(region[0])}, ${Math.round(region[1])}, ${Math.round(region[2])}, ${Math.round(region[3])});
@@ -439,7 +440,12 @@ $bmp.Dispose(); $img.Dispose();
 Write-Output '{"ok": true}';`;
       const r = await psOk(script, { timeoutMs: 20_000 });
       if (r.code !== 0 || !fs.existsSync(out)) throw new ExecError(`zoom failed: ${(r.stderr || "").slice(0, 250)}`, r);
-      return { file: out, bytes: fs.statSync(out).size, region, source: src };
+      const parent = lastRaster;
+      const [x, y, w, h] = region.map(Math.round);
+      lastRaster = { file: out, bytes: fs.statSync(out).size, region, source: src,
+        points: { x: (parent.points?.x ?? 0) + x / parent.scale, y: (parent.points?.y ?? 0) + y / parent.scale, w: w / parent.scale, h: h / parent.scale },
+        pixels: { w, h }, scale: parent.scale, capturedAt: new Date().toISOString() };
+      return { ...lastRaster };
     },
     left_click: ({ target, strategy }) => { assertEventStrategy(strategy); return clickAt(0, target.x, target.y, 1); },
     double_click: ({ target }) => clickAt(0, target.x, target.y, 2),

@@ -1,0 +1,35 @@
+# Both hooks run the engine the plugin installed under the user's Codewhale
+# home (CODEWHALE_HOME, else ~/.codewhale). Codewhale rechecks this bundle's
+# trust immediately before it spawns either command. If the engine is not
+# found the hook exits 0 and does nothing, so ordinary messages are never
+# blocked by a missing install.
+enabled = true
+
+# Gate: owns /loop, /cancel-loop, /loop-status and every loop continuation.
+# Anything that is not a loop message passes through untouched.
+[[hooks]]
+name = "loop-gate"
+event = "message_submit"
+timeout_secs = 20
+continue_on_error = true
+command = '''
+for d in "${CODEWHALE_HOME:-}" "$HOME/.codewhale"; do
+  f="$d/plugins/loop/scripts/loop.mjs"
+  if [ -n "$d" ] && [ -f "$f" ]; then exec node "$f" gate; fi
+done
+exit 0
+'''
+
+# Driver: after each finished turn, decide to stop or ask for the next one.
+[[hooks]]
+name = "loop-turn-end"
+event = "turn_end"
+timeout_secs = 30
+continue_on_error = true
+command = '''
+for d in "${CODEWHALE_HOME:-}" "$HOME/.codewhale"; do
+  f="$d/plugins/loop/scripts/loop.mjs"
+  if [ -n "$d" ] && [ -f "$f" ]; then exec node "$f" turn-end; fi
+done
+exit 0
+'''

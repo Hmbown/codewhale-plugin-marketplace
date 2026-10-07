@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "skills-docs",
+  "version": "0.1.0",
+  "description": "Workflows for Word, PDF, PowerPoint and Excel files, plus writing repository documentation. No account or connection needed.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "docx",
+    "pdf",
+    "pptx",
+    "xlsx",
+    "spreadsheet"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Document Skills",
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

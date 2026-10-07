@@ -46,8 +46,8 @@ export const TOOLS = [
   { name: "preview", description: "macOS: show or hide the nonactivating app preview with the drawn agent cursor. On by default while an app is bound — each action updates the captured window and cursor without moving the real pointer. Set enabled:false to mute it for the session.", inputSchema: { type: "object", properties: { enabled: { type: "boolean" }, computer: computerParam }, additionalProperties: false } },
   // ---- computers (switching is a default) ----
   {
-    name: "computer", description: "The computer registry. action list | switch | register | spawn | remove. switch/register/spawn/remove take `id`; register also takes transport (local|ssh|hdc) plus host/port/user/target/installAgent; spawn takes transport (docker) plus optional image/label and creates a task-owned disposable desktop that remove or session end destroys. Prefer a spawned computer for work that does not need the user's own session. Every other tool also accepts `computer` to switch stickily on use.",
-    inputSchema: { type: "object", required: ["action"], properties: { action: { enum: ["list", "switch", "register", "spawn", "remove"] }, id: { type: "string", description: "Short id for the registered computer (letters, digits, dot, dash)" }, transport: { enum: ["local", "ssh", "hdc", "docker"] }, label: { type: "string" }, image: { type: "string", description: "spawn/docker: image to run (default the plugin's Linux desktop image)" }, host: { type: "string", description: "ssh: hostname" }, port: { type: "integer", description: "ssh: port (default 22)" }, user: { type: "string", description: "ssh: user" }, target: { type: "string", description: "hdc: target key (omit for the only connected device)" }, installAgent: { type: "boolean", description: "ssh: push the remote agent before first use (default true)" } }, additionalProperties: false },
+    name: "computer", description: "The computer registry. action list | switch | register | spawn | remove. switch/register/spawn/remove take `id`; register also takes transport (local|ssh|hdc) plus host/port/user/knownHosts/target/installAgent; spawn takes transport (docker) plus optional image/label and creates a task-owned disposable desktop that remove or session end destroys. Prefer a spawned computer for work that does not need the user's own session. Every other tool also accepts `computer` to switch stickily on use.",
+    inputSchema: { type: "object", required: ["action"], properties: { action: { enum: ["list", "switch", "register", "spawn", "remove"] }, id: { type: "string", description: "Short id for the registered computer (letters, digits, dot, dash)" }, transport: { enum: ["local", "ssh", "hdc", "docker"] }, label: { type: "string" }, image: { type: "string", description: "spawn/docker: image to run (default the plugin's Linux desktop image)" }, host: { type: "string", description: "ssh: hostname" }, port: { type: "integer", description: "ssh: port (default 22)" }, user: { type: "string", description: "ssh: user" }, knownHosts: { type: "string", description: "ssh: absolute path to the existing trusted host-key file" }, target: { type: "string", description: "hdc: target key (omit for the only connected device)" }, installAgent: { type: "boolean", description: "ssh: push the remote agent before first use (default true)" } }, additionalProperties: false },
   },
   {
     name: "computer_list",
@@ -72,6 +72,7 @@ export const TOOLS = [
         host: { type: "string", description: "ssh: hostname" },
         port: { type: "integer", description: "ssh: port (default 22)" },
         user: { type: "string", description: "ssh: user" },
+        knownHosts: { type: "string", description: "ssh: absolute path to the existing trusted host-key file" },
         target: { type: "string", description: "hdc: target key (omit for the only connected device)" },
         installAgent: { type: "boolean", description: "ssh: push the remote agent before first use (default true)" },
       },
@@ -223,7 +224,7 @@ export const TOOLS = [
         app_ref: { type: "object", properties: { name: { type: "string" }, bundle_id: { type: "string" }, pid: { type: "integer" } }, description: "macOS: capture this app window even when it is in the background." },
         display: { type: ["integer", "string"], description: "Display index or 'all'" },
         region: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[x, y, w, h] in screen points" },
-        path: { type: "string", description: "Optional output path (absolute). Defaults into the recordings directory." },
+        path: { type: "string", description: "Optional absolute .png/.jpg/.jpeg path inside the recordings directory. Omit to use a generated name there." },
         computer: computerParam,
       },
       additionalProperties: false,
@@ -238,7 +239,7 @@ export const TOOLS = [
       properties: {
         raster_id: { type: "string", minLength: 1, maxLength: 128, description: "Identity of the parent screenshot being cropped. Refuses if a newer raster replaced it. The result returns a fresh raster_id for child-image coordinates." },
         region: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[x, y, w, h] in last-raster pixels" },
-        path: { type: "string" },
+        path: { type: "string", description: "Optional absolute .png/.jpg/.jpeg path inside the recordings directory. Omit to use a generated name there." },
         computer: computerParam,
       },
       additionalProperties: false,

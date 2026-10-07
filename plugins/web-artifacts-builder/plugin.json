@@ -1,0 +1,38 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "web-artifacts-builder",
+  "version": "0.1.0",
+  "description": "Build a self-contained single-file or small React and Tailwind page locally, check that it is really self-contained, and preview it on loopback.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "single-file-html",
+    "react",
+    "tailwind",
+    "vite",
+    "prototype"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Web Artifacts Builder",
+      "commands": {
+        "path": "commands"
+      },
+      "skills": {
+        "path": "skills"
+      },
+      "when": {
+        "binaries": [
+          "node"
+        ],
+        "os": [
+          "macos",
+          "linux",
+          "windows"
+        ]
+      }
+    }
+  }
+}

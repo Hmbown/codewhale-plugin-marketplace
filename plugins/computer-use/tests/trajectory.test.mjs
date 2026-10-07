@@ -1,6 +1,7 @@
 // Trajectory recording and replay over the real server: files land in an
 // isolated recordings dir; replay re-enters the normal tool pipeline and the
 // recorder never records itself.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -24,7 +25,7 @@ function rpc(method, params) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => { pending.delete(id); reject(new Error(`timeout: ${method}`)); }, 20_000);
     pending.set(id, (msg) => { clearTimeout(t); resolve(msg); });
-    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+    server.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params: attestParams(method, params) }) + "\n");
   });
 }
 async function tool(name, args = {}) {
@@ -38,6 +39,7 @@ before(() => {
       CODEWHALE_CU_TEST_BACKEND: path.join(ROOT, "tests/fixtures/fake-backend.mjs"), FAKE_BACKEND_CALLS: callsFile },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  server.stdin.write(hostKeysLine());
   server.stdout.on("data", (c) => {
     buf += c.toString();
     let i;
@@ -127,6 +129,19 @@ test("E4: entered text is redacted, the file is 0600 in a 0700 dir, and redacted
   const replay = await tool("trajectory", { action: "replay", id: path.basename(stopped.file) });
   assert.equal(replay.replayed, 1);
   assert.deepEqual(replay.results, [{ tool: "set_value", ok: false, code: "not_replayable" }]);
+});
+
+test("trajectory_replay skips app_script", async () => {
+  const started = await tool("trajectory", { action: "start" });
+  assert.equal(started.recording, true);
+  // The recorded attempt (whatever its outcome) is enough: a script is the
+  // user's decision each time and never runs from a recording.
+  await tool("app_script", { script: "return 1" });
+  const stopped = await tool("trajectory", { action: "stop" });
+  const dry = await tool("trajectory", { action: "replay", id: path.basename(stopped.file), dry_run: true });
+  assert.deepEqual(dry.not_replayable, [0]);
+  const replay = await tool("trajectory", { action: "replay", id: path.basename(stopped.file) });
+  assert.deepEqual(replay.results, [{ tool: "app_script", ok: false, code: "not_replayable" }]);
 });
 
 test("saved capture pins cannot replay, including legacy files and nested actions", async () => {

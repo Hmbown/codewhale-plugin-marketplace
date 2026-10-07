@@ -942,13 +942,23 @@ static NSRunningApplication *resolve(NSDictionary *ref) {
     } else return nil;
   }
   NSString *bundle=ref[@"bundle_id"], *name=ref[@"name"];
+  // A name or bundle shared by several running processes (two instances of
+  // one browser, a helper and its app) must not resolve to whichever happens
+  // to be listed first: that sends observation and input to the wrong window.
+  // Refuse like kill_app does; the observed pid disambiguates.
+  NSMutableArray<NSRunningApplication *> *hits=[NSMutableArray array];
   for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications) {
     if(ref[@"pid"] && a.processIdentifier!=[ref[@"pid"] intValue]) continue;
     if(bundle && !matchesName(a.bundleIdentifier,bundle)) continue;
     if(name && !matchesName(a.localizedName,name)) continue;
-    return a;
+    [hits addObject:a];
   }
-  return nil;
+  if(hits.count>1) {
+    NSMutableArray *desc=[NSMutableArray array];
+    for(NSRunningApplication *a in hits) [desc addObject:[NSString stringWithFormat:@"%@ (pid %d)",a.localizedName?:@"?",a.processIdentifier]];
+    @throw [NSException exceptionWithName:@"app" reason:[NSString stringWithFormat:@"several running applications match (%@); pass pid to choose one",[desc componentsJoinedByString:@", "]] userInfo:nil];
+  }
+  return hits.firstObject;
 }
 static CGEventRef textEvent(NSString *text, BOOL down) {
   UniChar *chars=calloc(text.length,sizeof(UniChar)); [text getCharacters:chars range:NSMakeRange(0,text.length)];

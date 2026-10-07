@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import { run as nativeRun, runOk, ExecError, tryJson, have as nativeHave, withSignal, throwIfAborted, wait } from "../exec.mjs";
 import { pngSize } from "../png-size.mjs";
 import { createBrowser } from "../browser-cdp.mjs";
+import { recordingsDir, recordingsOutputPath } from "../recordings.mjs";
 
 const XKEYS = {
   return: "Return", enter: "Return", tab: "Tab", escape: "Escape", esc: "Escape",
@@ -141,10 +142,6 @@ export function create({ exec } = {}) {
     }
     const r = await run(cmd, args, { timeoutMs: 10_000 });
     if (r.code !== 0) throw new ExecError(`${cmd} exited ${r.code}: ${r.stderr.trim().slice(0, 300)}`, r);
-  }
-
-  function recordingsDir() {
-    return path.resolve(process.env.CODEWHALE_CU_RECORDINGS_DIR || path.join(os.homedir(), ".codewhale-cu", "recordings"));
   }
 
   async function xdotool(args, opts = {}) {
@@ -495,12 +492,12 @@ except Exception as e:
     },
     screenshot: async (args = {}) => {
       rejectWindowSelectors(args);
-      const { display, region, path: outPath } = args;
-      if (outPath != null) outputPath(outPath);
+      const { display, region } = args;
+      const outPath = recordingsOutputPath(args.path);
       await probeSession();
       const dir = recordingsDir();
       fs.mkdirSync(dir, { recursive: true });
-      const file = outPath || path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.png`);
+      const file = outPath ?? path.join(dir, `shot-${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomBytes(3).toString("hex")}.png`);
       await takeShot(file, region);
       const dims = pngSize(file);
       lastRaster = {
@@ -557,13 +554,25 @@ print(json.dumps({"found": True, "reason": None, "element": {
       if (!out) throw new ExecError(`AT-SPI resolve failed: ${(r.stderr || r.stdout).slice(0, 250)}`, r);
       return out;
     },
-    zoom: async ({ source, region, path: outPath }) => {
+    // Always crops the last raster this backend captured; a caller-named
+    // source file is not accepted.
+    zoom: async ({ region, path: outPath }) => {
+      // Validate the caller's output path before anything else runs.
+      const explicitOut = recordingsOutputPath(outPath);
       need("ffmpeg", "zoom/crop");
-      const src = source ?? lastRaster?.file;
+      const src = lastRaster?.file;
       if (!src) throw new ExecError("no screenshot taken yet on this computer — call screenshot first");
-      const out = outputPath(outPath ?? path.join(recordingsDir(), `zoom-${crypto.randomBytes(4).toString("hex")}.png`));
-      await runOk("ffmpeg", ["-y", "-loglevel", "error", "-i", src, "-vf", `crop=${Math.round(region[2])}:${Math.round(region[3])}:${Math.round(region[0])}:${Math.round(region[1])}`, out], { timeoutMs: 20_000 });
-      return { file: out, bytes: fs.statSync(out).size, region, source: src };
+      const out = outputPath(explicitOut ?? path.join(recordingsDir(), `zoom-${crypto.randomBytes(4).toString("hex")}.png`));
+      const cropped = await run("ffmpeg", ["-y", "-loglevel", "error", "-i", src, "-vf", `crop=${Math.round(region[2])}:${Math.round(region[3])}:${Math.round(region[0])}:${Math.round(region[1])}`, out], { timeoutMs: 20_000 });
+      if (cropped.aborted) throw Object.assign(new ExecError("computer request cancelled", cropped), { code: "cancelled" });
+      if (cropped.timedOut) throw new ExecError("timeout after 20000ms: ffmpeg", cropped);
+      if (cropped.code !== 0) throw new ExecError(`ffmpeg exited ${cropped.code}: ${(cropped.stderr || cropped.stdout || "").trim().slice(0, 300)}`, cropped);
+      const parent = lastRaster;
+      const [x, y, w, h] = region.map(Math.round);
+      lastRaster = { file: out, bytes: fs.statSync(out).size, region, source: src,
+        points: { x: (parent.points?.x ?? 0) + x / parent.scale, y: (parent.points?.y ?? 0) + y / parent.scale, w: w / parent.scale, h: h / parent.scale },
+        pixels: { w, h }, scale: parent.scale, capturedAt: new Date().toISOString() };
+      return { ...lastRaster };
     },
     left_click: ({ target, strategy }) => { assertNum(target.x, "x"); assertNum(target.y, "y"); assertEventStrategy(strategy); return inputChain(target.x, target.y, () => clickButton(1, 1)); },
     double_click: ({ target }) => inputChain(target.x, target.y, () => clickButton(1, 2)),

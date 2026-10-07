@@ -4,13 +4,13 @@
   "pages": {
     "pages/extensions.md": {
       "title": "Choose and ship an extension",
-      "page_sha256": "bf0937e2cbd68ef4d6ee7732d2d600f6a80ebbf7dd979a4f38183b13233e4081",
+      "page_sha256": "83815cfb6ae73d15cf0de4d33822800da3444d8396c1d91c19198d0a1f464299",
       "sources": [
         {
           "path": "marketplace.json",
           "root": "repo",
-          "sha256": "8d8d44ec26bf83024c7dcf22c084f2d5217fce79798a46dc9c814fb9fe47e341",
-          "bytes": 5761
+          "sha256": "03a5875d80a3d32b8c304de20896e8fd30ee7f4c6e7f49793f5c4b28f23351e4",
+          "bytes": 11896
         },
         {
           "path": "CONTRIBUTING.md",
@@ -33,8 +33,8 @@
         {
           "path": "package.json",
           "root": "repo",
-          "sha256": "6270ac30bdfa5d28bcbafbb494cd3f67f2202a4704a4ce3d323a0e04bd5dda17",
-          "bytes": 1231
+          "sha256": "e9f75f8c99bfa52a8a72fd4c7d69f8202ff226839a1398dcadec0ca5882b0801",
+          "bytes": 1421
         },
         {
           "path": "plugins/computer-use/docs/DISTRIBUTION.md",
@@ -69,20 +69,20 @@
         {
           "path": "scripts/skills.mjs",
           "root": "repo",
-          "sha256": "0d75298ba30111461e7ac6a03de065ccfc8463aeb7276ec4aaa2c509b66c1406",
-          "bytes": 10356
+          "sha256": "ededc4a44acc66b769a4ffb5a0a23c3700415016e5faab5cf9c39d14b0845e7c",
+          "bytes": 10345
         },
         {
           "path": "skills/upstream.json",
           "root": "repo",
-          "sha256": "69259e7572ce5707e5925d77d112b2077dc2e13475150e696c1930b38d248555",
-          "bytes": 5332
+          "sha256": "7dc014aeb7fa8939dea55ee38c16875fdc217d159c6b5dd69338af9bed698f65",
+          "bytes": 5338
         },
         {
           "path": "skills/README.md",
           "root": "repo",
-          "sha256": "e9669cf7299edeaa9a4bb4946a793247f463e9f390c5165a3b3e03da23d00328",
-          "bytes": 10919
+          "sha256": "3f423b0004acee7b51ccb12a7fac10dff00e3ae0525aa91f23dee3a52f05f4be",
+          "bytes": 10925
         },
         {
           "path": "plugins/chromewhale/README.md",
@@ -99,14 +99,14 @@
         {
           "path": "plugins/computer-use/mcp/server.mjs",
           "root": "repo",
-          "sha256": "3682308c272a77e2ede458731ba62d75eeb453d8e63319f8acca68cd03eb051d",
-          "bytes": 90840
+          "sha256": "4e5ed7132d36a558a141c175d0e69f26ac75f926db4618452d6fce066d8a8ffd",
+          "bytes": 98514
         },
         {
           "path": "plugins/computer-use/skills/computer-use/SKILL.md",
           "root": "repo",
-          "sha256": "ac23e2c6f738589c25b6732a1bd2f93660fa4107d54c307ca84f19a2c43f507e",
-          "bytes": 5355
+          "sha256": "4d0827676cd998204f15c7afdbb31f12e339ca7951535664644c62e100f16c22",
+          "bytes": 5682
         },
         {
           "path": "tests/browser/chromewhale.spec.mjs",
@@ -135,17 +135,35 @@
         {
           "path": "plugins/computer-use/src/trajectory.mjs",
           "root": "repo",
-          "sha256": "c5e9fcd187c08d3ff98ec4a54f5b1e52980a05f91c520fd1e9e1e5039c612f91",
-          "bytes": 6881
+          "sha256": "ca6f52ef2fdf751e2b343d62fe320aabb7b9917b685b0284e4c2625fd94c3aed",
+          "bytes": 6825
         },
         {
           "path": "plugins/computer-use/skills/recording/SKILL.md",
           "root": "repo",
           "sha256": "1e111a6eb6d8116fef983e9162bc289ee3a6c4ee3e16ce74f650f94ef78c5cb2",
           "bytes": 2167
+        },
+        {
+          "path": "scripts/test-plugins.mjs",
+          "root": "repo",
+          "sha256": "1bcb55e4026012168b11305f5116dc47be5e5d4cb65be9d6278dd01503288d42",
+          "bytes": 1967
+        },
+        {
+          "path": "scripts/sync-skill-plugins.mjs",
+          "root": "repo",
+          "sha256": "5d51e251788e92502df7630fe590f25ff8df831840d506ad68acb61c2f19c166",
+          "bytes": 2970
+        },
+        {
+          "path": "tests/catalog-wiring.test.mjs",
+          "root": "repo",
+          "sha256": "8a284e8c61456b0d5ba04edd374110af0aa0361befbaa3d0eac0d8083a0b527f",
+          "bytes": 5612
         }
       ],
-      "sealed_at": "2026-10-04T17:45:30.044Z"
+      "sealed_at": "2026-10-07T01:00:23.740Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -180,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "9b25f620ad38af1d42b56995fc5edcf77201662553313334e82997c8d60d9c70",
+      "page_sha256": "69bd5988e6ff41f0d6a65e0a57f07f2e337fa0f055d32472382cc4ff7f7740a7",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -197,14 +215,14 @@
         {
           "path": "docs/CONNECTIONS.md",
           "root": "repo",
-          "sha256": "dd6ea0bb7e8856bc99792a3502164c3e82225bd42586018498496996c7ce263d",
-          "bytes": 5556
+          "sha256": "3722ae1302e96766111f6de3730910a6c7eb699157de3c9ad59c8360edfb8a0e",
+          "bytes": 6484
         },
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "fafd7d8bd266248b09b3ada54b7341b53cd192d8f09799195fe6a64489e4ee19",
-          "bytes": 4517
+          "sha256": "b198572c2463bb60896a6d528e13ac2dcfbeb83c127b5e44c6d5f205972bb488",
+          "bytes": 5356
         },
         {
           "path": "integrations/README.md",
@@ -239,24 +257,48 @@
         {
           "path": "integrations/telegram-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "bc9d0b5a2cfa944a96ec3b8858a5691b20b76f4a4d0e86182a9aea5807df3005",
-          "bytes": 32736
+          "sha256": "3da6441e6200e13ca900b656fd18981e4515a211100952c9963b3ed3c6f273cc",
+          "bytes": 34656
         },
         {
           "path": "integrations/feishu-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "0a5946804f179e122ddb00183a63aec31adb736b265a399c1d5c892c0e687938",
-          "bytes": 19755
+          "sha256": "05546cf94ee401d3f055b1d907a6d03544e308093bd41ea1b1b51b2eec1a22fa",
+          "bytes": 20652
         },
         {
           "path": "integrations/bridge-core/src/lib.mjs",
           "root": "repo",
-          "sha256": "a2b2e9e7b463a587412562a9ce597c6df6d954b2de68662463149f3d8d295a48",
-          "bytes": 15381
+          "sha256": "7b3941dc9a0244b97d0fc4e33ad5877afd48c92ffcab627e9367e4e452f715df",
+          "bytes": 23972
+        },
+        {
+          "path": "integrations/wecom-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "9dd1576e6273383cf48b1a65aad0cfa030823bc8c2fc335102225ee25b0023ed",
+          "bytes": 18425
+        },
+        {
+          "path": "integrations/weixin-bridge/README.md",
+          "root": "repo",
+          "sha256": "21cefad730c5314cbcf57e83beda512b756e00b08f72ce01f5593cd6827ad562",
+          "bytes": 7622
+        },
+        {
+          "path": "integrations/weixin-bridge/src/index.mjs",
+          "root": "repo",
+          "sha256": "ac1022688848bfde3b2a977d3b31997128bc7c227907e50fe19f6d7c82fa4476",
+          "bytes": 41927
+        },
+        {
+          "path": "integrations/weixin-bridge/src/lib.mjs",
+          "root": "repo",
+          "sha256": "e5b5674c02b7f69d5bc1e8e74a2eb9c427a8f05928e2ad1d107bab4dcdaab9bc",
+          "bytes": 12546
         }
       ],
-      "sealed_at": "2026-09-21T07:10:20.161Z"
+      "sealed_at": "2026-10-07T01:00:23.804Z"
     }
   },
-  "updated_at": "2026-10-04T17:45:30.047Z"
+  "updated_at": "2026-10-07T01:00:23.805Z"
 }

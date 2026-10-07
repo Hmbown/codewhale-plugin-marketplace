@@ -6,6 +6,7 @@
 //  - hdc:   HarmonyOS device over `hdc` shell / file push-pull
 import { run, runOk, runInputLease, ExecError, currentSignal } from "./exec.mjs";
 import { ensureApp, appSessionRequest } from "./app-socket.mjs";
+import { sshArgv, sshDestination, sshOptions, validateSshTarget } from "./ssh-args.mjs";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -201,10 +202,9 @@ function attachPersistentChannel(ex, binding, serveArgv) {
 
 /** ssh executor: speaks to the remote agent installed by installRemoteAgent(). */
 export function sshExec(computer, binding) {
-  const userHost = computer.user ? `${computer.user}@${computer.host}` : computer.host;
-  const portArgs = computer.port ? ["-p", String(computer.port)] : [];
+  const userHost = sshDestination(computer);
   const remoteAgent = safeRemotePath(computer.agentPath ?? ".codewhale-cu/agent/agent.mjs");
-  const base = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "StrictHostKeyChecking=accept-new", ...portArgs, userHost];
+  const base = sshArgv(computer);
   const ex = {
     kind: "ssh",
     base,
@@ -218,8 +218,10 @@ export function sshExec(computer, binding) {
       const r = await run("ssh", [...base, "node", remoteAgent, b64({ args: request.args ?? {}, tool: request.tool, nonce: crypto.randomBytes(6).toString("hex") })], {
         timeoutMs: opts.timeoutMs ?? 25_000,
       });
-      if (r.aborted) throw Object.assign(new ExecError("computer request cancelled", r), { code: "cancelled" });
-      if (r.timedOut) throw new ExecError(`ssh ${userHost}: timed out`, r);
+      // A spawned one-shot agent may have acted before it was cancelled or
+      // timed out; say so rather than inviting a blind retry.
+      if (r.aborted) throw Object.assign(new ExecError("computer request cancelled", r), { code: "cancelled" }, r.spawned ? { requestDispatched: true } : {});
+      if (r.timedOut) throw Object.assign(new ExecError(`ssh ${userHost}: timed out`, r), { code: "remote_timeout", requestDispatched: true });
       if (r.code !== 0) throw new ExecError(`ssh ${userHost} exited ${r.code}: ${r.stderr.trim().slice(0, 400)}`, r);
       // The agent prints exactly one JSON line; anything before it is MOTD noise.
       const line = r.stdout.trim().split("\n").filter((l) => l.startsWith("{")).pop();
@@ -254,8 +256,8 @@ export function dockerExec(computer, binding) {
       const r = await run("docker", ["exec", container, "/bin/sh", remoteAgent, b64({ args: request.args ?? {}, tool: request.tool, nonce: crypto.randomBytes(6).toString("hex") })], {
         timeoutMs: opts.timeoutMs ?? 25_000,
       });
-      if (r.aborted) throw Object.assign(new ExecError("computer request cancelled", r), { code: "cancelled" });
-      if (r.timedOut) throw new ExecError(`docker exec ${container}: timed out`, r);
+      if (r.aborted) throw Object.assign(new ExecError("computer request cancelled", r), { code: "cancelled" }, r.spawned ? { requestDispatched: true } : {});
+      if (r.timedOut) throw Object.assign(new ExecError(`docker exec ${container}: timed out`, r), { code: "remote_timeout", requestDispatched: true });
       if (r.code !== 0) throw new ExecError(`docker exec ${container} exited ${r.code}: ${r.stderr.trim().slice(0, 400)}`, r);
       const line = r.stdout.trim().split("\n").filter((l) => l.startsWith("{")).pop();
       const reply = line ? JSON.parse(line) : null;
@@ -284,7 +286,8 @@ export async function installRemoteAgent(computer) {
   for (const rel of rels) {
     const localPath = rel === "agent.mjs" ? path.join(PLUGIN_ROOT, "agent.mjs") : path.join(srcDir, rel.slice(4));
     const dest = safeRemotePath(`${marker}/${rel}`);
-    r = await run("scp", [...(computer.port ? ["-P", String(computer.port)] : []), localPath, `${ex.userHost}:${dest}`], { timeoutMs: 30_000 });
+    validateSshTarget(computer);
+    r = await run("scp", [...sshOptions(computer, { portFlag: "-P" }), "--", localPath, `${ex.userHost}:${dest}`], { timeoutMs: 30_000 });
     if (r.code !== 0) throw new ExecError(`scp ${rel} failed: ${r.stderr.trim().slice(0, 300)}`, r);
   }
   // Probe remote platform via the agent itself.
@@ -370,7 +373,7 @@ export function routeFingerprint(computer) {
   if (computer.transport === "docker") route.push(computer.container || null);
   if (computer.transport === "hdc") route.push(computer.target || null);
   if (computer.transport === "ssh") route.push(computer.host, computer.user || null,
-    computer.port || null, computer.agentPath ?? ".codewhale-cu/agent/agent.mjs");
+    computer.port || null, computer.knownHosts || null, computer.agentPath ?? ".codewhale-cu/agent/agent.mjs");
   return JSON.stringify(route);
 }
 

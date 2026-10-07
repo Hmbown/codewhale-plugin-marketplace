@@ -251,6 +251,8 @@ test("checkBrowserUrl allows http(s) and about:blank only; findBrowserApp honors
   assert.equal(checkBrowserUrl("http://127.0.0.1:8080/"), "http://127.0.0.1:8080/");
   assert.equal(checkBrowserUrl("about:blank"), "about:blank");
   assert.throws(() => checkBrowserUrl("file:///etc/passwd"), /only http/);
+  assert.throws(() => checkBrowserUrl("file:///w/field-guide.html"), /use open_in_app/);
+  assert.throws(() => checkBrowserUrl("ftp://a.test/x"), (error) => !/open_in_app/.test(error.message));
   assert.throws(() => checkBrowserUrl("example.com"), /not a URL/);
   assert.throws(() => checkBrowserUrl(""), /need a url/);
   assert.equal(findBrowserApp("darwin", {}, (p) => p === "/Applications/Google Chrome.app"), "/Applications/Google Chrome.app");
@@ -268,4 +270,20 @@ test('findBrowserApp uses actual Windows vendor folders and executable names', (
     const expected = `C:\\fixture\\${relative}`;
     assert.equal(findBrowserApp('win32', { [root]: 'C:\\fixture' }, candidate => candidate === expected), expected);
   }
+});
+
+test("an unanswered CDP command times out as outcome-unknown and stop still finishes", async (t) => {
+  const prior = process.env.CODEWHALE_CU_BROWSER_COMMAND_TIMEOUT_MS;
+  process.env.CODEWHALE_CU_BROWSER_COMMAND_TIMEOUT_MS = "60";
+  t.after(() => { if (prior === undefined) delete process.env.CODEWHALE_CU_BROWSER_COMMAND_TIMEOUT_MS; else process.env.CODEWHALE_CU_BROWSER_COMMAND_TIMEOUT_MS = prior; });
+  // An open peer that never answers these commands (a wedged renderer).
+  const script = { ...defaultScript(pageState()), "Input.insertText": undefined, "Target.closeTarget": undefined, "Browser.close": undefined };
+  const { browser, sockets } = harness(t, { script });
+  await browser.start({});
+  await assert.rejects(browser.type({ text: "hello" }), (error) => error.code === "timeout" && error.requestDispatched === true && /Input\.insertText/.test(error.message));
+  const stopped = await Promise.race([browser.stop(), new Promise((resolve) => setTimeout(() => resolve("hung"), 2_000))]);
+  assert.notEqual(stopped, "hung", "stop must not wait forever on an unanswered peer");
+  assert.equal(stopped.closed, true);
+  assert.equal(sockets[0].ws.sentOf("Target.closeTarget").length, 1);
+  assert.equal((await browser.status()).running, false);
 });

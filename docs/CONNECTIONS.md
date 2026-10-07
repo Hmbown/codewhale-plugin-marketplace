@@ -9,6 +9,19 @@ removed. They added an install/trust step without proving authentication or a
 useful tool. Their history remains in Git. Cloudflare docs stays installable
 because it provides useful tools without another login.
 
+Three installable plugins sit on top of services that also have a connection
+recipe: `github-workflow`, `linear-workflow` and `vercel-workflow`. They are named
+differently from the recipe ids (`github`, `linear`, `vercel`) on purpose, so a
+recipe and a plugin never share an id. What they add is real work, not a URL: pull
+request review and issue triage, issue claim and status updates, and deploy,
+environment and log workflows, each with a rule that shared writes need your
+approval. `github-workflow` and `linear-workflow` do carry a remote MCP endpoint
+and read a token you provide from an environment variable, because plugin MCP
+cannot run the interactive login yet. If you want browser OAuth instead, add the
+server at user level with the commands below and do not enable the plugin's
+copy. `vercel-workflow` ships no MCP server; it uses your Vercel CLI login.
+Neither the recipe nor the plugin proves the other works.
+
 ## Find the correct setup
 
 ```sh

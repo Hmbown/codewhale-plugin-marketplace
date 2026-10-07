@@ -1,8 +1,9 @@
 # Choose and ship an extension
 
-This repository has six installable bundles: Computer Use, Codewhale for Chrome,
-WhaleSong, WhaleWiki, Cloudflare docs and the bundled Codewhale skills. The
-catalog declares
+This repository's catalog lists nineteen installable bundles. The first six are
+Computer Use, Codewhale for Chrome, WhaleSong, WhaleWiki, Cloudflare docs and the
+bundled Codewhale skills. The October 2026 wave added thirteen more (see
+"What the October wave added"). The catalog declares
 relative sources, stable IDs, human-readable names and versions. An entry offers installation; it does not grant
 capabilities or establish a service login.
 
@@ -126,6 +127,29 @@ A URL alone does not earn an installable plugin. See
 boundaries. An adapter must reuse Codewhale's runtime, approvals and model
 selection; adding another model loop or credential store splits that ownership.
 
+## What the October wave added
+
+Review toolkit (six read-only reviewer profiles and `/review-pr`), Loop
+(`/loop` with a hard cap and `/cancel-loop`; macOS and Linux, needs the control
+socket), GitHub workflow and Linear workflow (skills over each service's remote
+MCP with a token you supply), Cloudflare and Vercel workflow (skills plus an
+offline preflight script; deploys wait for approval), Web artifacts builder,
+Design review, four domain skill plugins (`skills-docs`, `skills-google`,
+`skills-personal`, `skills-dev-process`) and one native TypeScript sample,
+`hello-extension`. The GitHub, Linear and Vercel plugins carry a `-workflow`
+suffix because their bare names are connection-recipe ids, and a test keeps
+recipe ids out of the catalog.
+
+The domain skill plugins are byte copies of files in `skills/`. Their
+`provenance.json` pins the same Core commit, and `npm run sync:skills` refreshes
+them through `scripts/sync-skill-plugins.mjs`; `npm run check:skill-plugins`
+fails on drift. Each plugin's own tests run from `npm test` by discovery
+(`scripts/test-plugins.mjs`), so a new plugin cannot ship tests that are never
+run. `tests/catalog-wiring.test.mjs` checks that qualified skill references name
+the plugin that really ships the skill. Two samples, `claude-sample` and
+`dsh-sample`, stay out of the catalog because the packaging tooling does not yet
+recognise their formats.
+
 ## Package before review
 
 From a development checkout, run `npm run package:plugin -- whalewiki` or select
@@ -179,6 +203,7 @@ handoff and inspect the current validation receipt before publication.
 - `scripts/package-plugin.mjs`, `packagePlugin`: source inventory and package guards.
 - `scripts/check-marketplace.mjs`: catalog, manifest, keyword and MCP contract checks.
 - `package.json`: executable repository gates.
+- `scripts/test-plugins.mjs`, `scripts/sync-skill-plugins.mjs`, `tests/catalog-wiring.test.mjs`: plugin test discovery, domain-skill refresh and catalog wiring checks.
 - `scripts/skills.mjs`, `skills/upstream.json`, `skills/README.md`: active catalog,
   provenance, resource checks and user-facing workflow directory.
 - `plugins/computer-use/docs/DISTRIBUTION.md`: build, notarization and website qualification procedure.

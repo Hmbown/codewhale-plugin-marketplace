@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { validateSshTarget } from "./ssh-args.mjs";
 
 export class RegistryError extends Error {
   constructor(code, message) { super(message); this.name = "RegistryError"; this.code = code; }
@@ -29,10 +30,22 @@ function localEntry() {
   };
 }
 
+/** An entry read from computers.json that could not have been registered. */
+function unusableEntry(entry) {
+  if (!entry || typeof entry !== "object") return true;
+  if (entry.transport !== "ssh") return false;
+  try { validateSshTarget(entry); return false; } catch { return true; }
+}
+
 export function load() {
   try {
     const raw = JSON.parse(fs.readFileSync(registryPath(), "utf8"));
     if (!raw || typeof raw !== "object" || !raw.computers) throw new Error("bad shape");
+    // The file is state, not authority: an entry that registration would
+    // refuse (an ssh host or user that reads as an option) is dropped.
+    for (const [id, entry] of Object.entries(raw.computers)) {
+      if (unusableEntry(entry)) delete raw.computers[id];
+    }
     return raw;
   } catch {
     const fresh = { version: 1, active: "local", computers: { local: localEntry() } };
@@ -84,14 +97,10 @@ export function register({ id, transport, label, ...rest }) {
     throw new RegistryError("reserved_id", '"local" is reserved for this machine');
   }
   if (transport === "ssh") {
-    if (!rest.host || !/^[A-Za-z0-9._-]+$/.test(rest.host)) {
-      throw new RegistryError("invalid_host", "ssh computers need a valid host (letters, digits, dot, dash, underscore)");
-    }
-    if (rest.port != null && (!Number.isInteger(rest.port) || rest.port < 1 || rest.port > 65535)) {
-      throw new RegistryError("invalid_port", "port must be an integer in 1..65535");
-    }
-    if (rest.user != null && !/^[a-zA-Z0-9._-]+$/.test(rest.user)) {
-      throw new RegistryError("invalid_user", "user must be a plain name");
+    try {
+      validateSshTarget(rest);
+    } catch (e) {
+      throw new RegistryError(e.code ?? "invalid_host", e.message);
     }
   }
   if (transport === "hdc") {

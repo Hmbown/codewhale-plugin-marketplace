@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "skills-google",
+  "version": "0.1.0",
+  "description": "Workflows for Gmail and Google Calendar through a connected tool or your own OAuth client. Does not connect an account by itself.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gmail",
+    "google-calendar",
+    "workspace"
+  ],
+  "extensions": {
+    "net.codewhale": {
+      "display_name": "Google Skills",
+      "skills": {
+        "path": "skills"
+      }
+    }
+  }
+}

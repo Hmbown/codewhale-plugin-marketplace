@@ -1,5 +1,6 @@
 // Real MCP + real transports, with HDC/SSH executables or local backends replaced.
 // Every catalog, downloaded byte and command log belongs to this fixture.
+import { hostKeysLine, attest, attestParams } from "./fixtures/host-decision.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -73,6 +74,7 @@ if (args[0] === 'file' && args[1] === 'recv') {
     fs.writeFileSync(env.CODEWHALE_CU_TEST_BACKEND, backendSource);
   }
   const child = spawn(process.execPath, [path.join(ROOT, "mcp/server.mjs")], { env, stdio: ["pipe", "pipe", "pipe"] });
+  child.stdin.write(hostKeysLine());
   let nextId = 0;
   const pending = new Map();
   const lines = createInterface({ input: child.stdout });
@@ -100,7 +102,7 @@ if (args[0] === 'file' && args[1] === 'recv') {
         const response = await new Promise((resolve, reject) => {
           timer = setTimeout(() => reject(new Error(`${name} timed out: ${stderr}`)), 8_000);
           pending.set(id, resolve);
-          child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } }) + "\n");
+          child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: attest({ name, arguments: args }) }) + "\n");
         });
         assert.ok(response.result, JSON.stringify(response));
         return JSON.parse(response.result.content[0].text);
@@ -503,3 +505,45 @@ for (const mode of ["backend", "reply", "connection"]) {
     });
   }
 }
+
+test("register and spawn never replace a desktop another session spawned", async t => {
+  const f = fixture(t, null, null);
+  const file = path.join(f.dir, "computers.json");
+  const owned = { id: "desk", transport: "docker", label: "desk", container: "cu-spawn-desk-ab12cd", image: "codewhale-cu-linux", platform: "linux", owned: true, spawnedBy: "another-session", registeredAt: new Date().toISOString() };
+  writeJsonAtomic(file, { version: 1, active: "local", computers: { desk: owned } });
+  for (const [name, args] of [["computer_register", { computer: "desk", transport: "hdc", target: "B" }], ["computer_spawn", { computer: "desk", transport: "docker" }]]) {
+    const result = await f.tool(name, args);
+    assert.equal(result.ok, false, JSON.stringify(result));
+    assert.equal(result.error.code, "computer_owned_elsewhere");
+    assert.deepEqual(JSON.parse(fs.readFileSync(file)).computers.desk, owned, `${name} must leave the owning session's entry intact`);
+  }
+});
+
+test("SSH registration retains its trusted host-key file after platform discovery", async t => {
+  const f = fixture(t, null, `
+    const fs = require('node:fs');
+    const args = process.argv.slice(2);
+    fs.appendFileSync(process.env.ROUTE_LOG, JSON.stringify({args}) + '\\n');
+    console.log(JSON.stringify({ok:true,platform:'linux'}));
+  `);
+  const knownHosts = path.join(f.dir, "trusted-hosts");
+  const result = await f.tool("computer_register", {
+    computer: "pad", transport: "ssh", host: "fixture.test",
+    knownHosts, installAgent: false,
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.registered.knownHosts, knownHosts);
+  assert.equal(result.registered.platformHint, "linux");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.dir, "computers.json"))).computers.pad.knownHosts, knownHosts);
+  const calls = f.calls();
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].args.includes(`UserKnownHostsFile=${process.platform === "win32" ? knownHosts.replaceAll("\\", "/") : knownHosts}`));
+  assert.ok(calls[0].args.includes(`GlobalKnownHostsFile=${process.platform === "win32" ? "NUL" : "/dev/null"}`));
+  assert.ok(calls[0].args.includes("StrictHostKeyChecking=yes"));
+});
+
+test("changing the trusted SSH host-key file changes route identity", () => {
+  const original = {transport: "ssh", host: "fixture.test", knownHosts: "/private/trusted-a"};
+  assert.notEqual(routeFingerprint(original), routeFingerprint({...original, knownHosts: "/private/trusted-b"}));
+  assert.notEqual(routeFingerprint(original), routeFingerprint({...original, knownHosts: undefined}));
+});

@@ -1,0 +1,13 @@
+{
+  "source": "skills/<name>/SKILL.md in this repository (copied byte for byte)",
+  "repository": "https://github.com/codewhale-hq/Codewhale",
+  "commit": "21c8f86c4c774f0028247d566ce976d16bbd4fbc",
+  "generation": "17",
+  "skills": {
+    "docx": "fb2edb80df2119e42c1febcb5eae74c15092ba1e5dfbedf91ee45118ed9c7556",
+    "pdf": "cc368bc8eda5e061d290b00a407ea25cd22d0b1c3c1ce773c434cd9b6e5bee5b",
+    "pptx": "e9663d929e47533efff3b9388f6da62aad7f48b75f01e30ae310dd59b53f169a",
+    "xlsx": "9f39afcb40351ffae49827440f25b820847da73d2a383136c81a47f192e997f5",
+    "document": "4d37e787251935f981c69ae22fb5faf66459c22520edf28472692ed0d5c24e64"
+  }
+}

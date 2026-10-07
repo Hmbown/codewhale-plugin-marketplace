@@ -1,0 +1,10 @@
+{
+  "source": "skills/<name>/SKILL.md in this repository (copied byte for byte)",
+  "repository": "https://github.com/codewhale-hq/Codewhale",
+  "commit": "21c8f86c4c774f0028247d566ce976d16bbd4fbc",
+  "generation": "17",
+  "skills": {
+    "gmail": "e6687849ac632137db18404fa15e56aa4634f5ee18457009c8d431433c8a89e0",
+    "google-calendar": "c9eae5b2799df57c0e3a9182c36ed662c57dd942eb3dae48aec1cae0ea8dd6a6"
+  }
+}

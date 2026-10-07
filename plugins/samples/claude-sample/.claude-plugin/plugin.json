@@ -1,0 +1,13 @@
+{
+  "name": "claude-sample",
+  "version": "0.1.0",
+  "description": "A tiny Claude Code format plugin with one skill and one command. Used to show that Codewhale loads .claude-plugin/plugin.json bundles.",
+  "author": {
+    "name": "Codewhale"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-format",
+    "commit-message"
+  ]
+}
