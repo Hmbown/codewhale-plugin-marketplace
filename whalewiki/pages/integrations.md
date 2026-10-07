@@ -59,12 +59,20 @@ approval decisions. A newer group sender or an unbound legacy button cannot
 approve another person's turn. Restart recovery validates that identity before
 reattaching. Weixin also binds durable prompts, accepted operation IDs, saved
 replies and uncertain deliveries to the paired bot account; a replacement
-account cannot inherit them. An explicit `/new` after account replacement
+account cannot inherit them. Reply context tokens also belong to the paired
+account, including pending work that has not yet received a thread ID. New
+inbound tokens cannot overwrite another account's retained context; an unbound
+legacy token cannot authorize a reply. An explicit `/new` after account replacement
 durably retains the old private receipt for human review before binding a fresh
-conversation; it never resubmits the old prompt or uncertain reply. Same-account
-pending work still blocks replacement. `/threads` filters to that account and
-chat's recorded bindings, and `/resume` checks ownership before reading a
-thread. QR setup and reconnect behavior still require real service qualification.
+conversation; it never resubmits the old prompt or uncertain reply. Retired
+receipts are bounded per chat by the configured action limit (200 by default)
+and 1 MiB. Reaching either limit stops replacement before creating a thread;
+the operator must back up and reconcile the private records rather than evict
+uncertain work. Same-account pending work still blocks replacement. `/threads`
+filters to that account and chat's recorded bindings before applying its result
+limit, and `/resume` checks ownership before reading a thread. The live poller
+uses the same tested batch handler: failed handling cannot advance its cursor.
+QR setup and reconnect behavior still require real service qualification.
 These guarantees come from the same Core owner.
 
 ## Signed webhook intake

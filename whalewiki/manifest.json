@@ -198,7 +198,7 @@
     },
     "pages/integrations.md": {
       "title": "Connections and inbound requests",
-      "page_sha256": "69bd5988e6ff41f0d6a65e0a57f07f2e337fa0f055d32472382cc4ff7f7740a7",
+      "page_sha256": "9f15e1fe6a27a3b8fe1795f5afdc4f44cf38e713a6a1ec6d4e1116c890cf2ab9",
       "sources": [
         {
           "path": "connections/catalog.json",
@@ -221,7 +221,7 @@
         {
           "path": "integrations/upstream.json",
           "root": "repo",
-          "sha256": "b198572c2463bb60896a6d528e13ac2dcfbeb83c127b5e44c6d5f205972bb488",
+          "sha256": "39ae585ba77f2550191b5611c6bc02fa0dbaf845aca90c865661146ee01272ca",
           "bytes": 5356
         },
         {
@@ -281,14 +281,14 @@
         {
           "path": "integrations/weixin-bridge/README.md",
           "root": "repo",
-          "sha256": "21cefad730c5314cbcf57e83beda512b756e00b08f72ce01f5593cd6827ad562",
-          "bytes": 7622
+          "sha256": "4453d45ae938bc6a3302a82b8e54e22dfb7c53397229cd30f78cfd029a157b30",
+          "bytes": 8098
         },
         {
           "path": "integrations/weixin-bridge/src/index.mjs",
           "root": "repo",
-          "sha256": "ac1022688848bfde3b2a977d3b31997128bc7c227907e50fe19f6d7c82fa4476",
-          "bytes": 41927
+          "sha256": "8506c6c0ed24496628983f0cdf56997231137675d3d1f7c3b534254444d26e46",
+          "bytes": 43523
         },
         {
           "path": "integrations/weixin-bridge/src/lib.mjs",
@@ -297,8 +297,8 @@
           "bytes": 12546
         }
       ],
-      "sealed_at": "2026-10-07T01:00:23.804Z"
+      "sealed_at": "2026-10-07T04:42:05.051Z"
     }
   },
-  "updated_at": "2026-10-07T01:00:23.805Z"
+  "updated_at": "2026-10-07T04:42:05.051Z"
 }
