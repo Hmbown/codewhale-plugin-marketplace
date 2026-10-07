@@ -58,7 +58,9 @@ async function fakeSocket(box, uuid = UUID_A, opts = {}) {
           ? {id: req.id, error: {code: 'command_error', message: 'refused'}}
           : {id: req.id, result: {type: 'message_sent', delivery: 'dispatched'}};
       }
-      c.end(JSON.stringify(res) + '\n');
+      const reply = () => c.end(JSON.stringify(res) + '\n');
+      if (req.method === 'status' && opts.statusBarrier) opts.statusBarrier(reply);
+      else reply();
     });
     c.on('error', () => {});
   });
@@ -160,6 +162,7 @@ test('gate: /loop writes state, keeps it out of git, and rewrites the message in
     assert.equal(state.max, 3);
     assert.equal(state.until, 'ALL_GREEN');
     assert.equal(state.owner_session, SESSION);
+    assert.equal(state.owner_socket_uuid, UUID_A);
     assert.ok(prompt.startsWith(`[loop ${state.id} #1/3]`));
     assert.ok(prompt.includes('fix the tests'));
     assert.ok(prompt.includes('exactly: ALL_GREEN'));
@@ -558,6 +561,69 @@ test('turn-end: a missing control socket or a refused message stops the loop wit
   } finally { await refusing.close(); box2.cleanup(); }
 });
 
+test('turn-end: a missing owner socket never redirects continuation, wrap-up or completion checks to a workspace peer', UNIX_ONLY, async () => {
+  for (const args of ['x --max 3', 'x --max 1', 'x --max 3 --until DONE']) {
+    const box = sandbox();
+    const owner = await fakeSocket(box);
+    const {state, prompt} = await started(box, args);
+    await owner.close();
+    fs.rmSync(path.dirname(owner.sock), {recursive: true});
+    const peer = await fakeSocket(box, UUID_B);
+    try {
+      transcript(box, UUID_B, box.ws, [[prompt, 'DONE']]);
+      assert.equal(await turnEnd(ended(box), box.env), 'error', args);
+      const stopped = readState(box.ws);
+      assert.equal(stopped.status, 'error');
+      assert.equal(stopped.id, state.id);
+      assert.equal(stopped.iteration, 1);
+      assert.equal(stopped.turn_open, false);
+      assert.match(stopped.reason, /original Codewhale session.*control socket/);
+      assert.deepEqual(peer.received, [], 'another session must receive no loop message');
+      assert.equal(await turnEnd(ended(box), box.env), 'ignored');
+    } finally { await peer.close(); box.cleanup(); }
+  }
+});
+
+test('turn-end: the pinned owner remains selected when another session appears in its workspace', UNIX_ONLY, async () => {
+  const box = sandbox();
+  const owner = await fakeSocket(box);
+  let peer;
+  try {
+    const {state} = await started(box, 'x --max 3');
+    peer = await fakeSocket(box, UUID_B);
+    transcript(box, UUID_A, box.ws, []);
+    transcript(box, UUID_B, box.ws, []);
+    assert.equal(await turnEnd(ended(box), box.env), 'continued');
+    assert.deepEqual(owner.received, [`<<loop-next:${state.id}:2>>`]);
+    assert.deepEqual(peer.received, []);
+  } finally { if (peer) await peer.close(); await owner.close(); box.cleanup(); }
+});
+
+test('turn-end: a pinned owner socket in another workspace is refused', UNIX_ONLY, async () => {
+  const box = sandbox();
+  const owner = await fakeSocket(box);
+  try {
+    await started(box, 'x --max 3');
+    transcript(box, UUID_A, '/somewhere/else', []);
+    assert.equal(await turnEnd(ended(box), box.env), 'error');
+    assert.match(readState(box.ws).reason, /original Codewhale session.*control socket/);
+    assert.deepEqual(owner.received, []);
+  } finally { await owner.close(); box.cleanup(); }
+});
+
+test('turn-end: legacy state without an owner socket binding fails closed', UNIX_ONLY, async () => {
+  const box = sandbox();
+  const owner = await fakeSocket(box);
+  try {
+    const {state} = await started(box, 'x --max 3');
+    delete state.owner_socket_uuid;
+    writeState(box.ws, state);
+    assert.equal(await turnEnd(ended(box), box.env), 'error');
+    assert.match(readState(box.ws).reason, /no recorded owner control socket/);
+    assert.deepEqual(owner.received, []);
+  } finally { await owner.close(); box.cleanup(); }
+});
+
 // ---------------------------------------------- whole loop, hook by hook, capped
 
 test('a whole loop: runs exactly --max iterations, wraps up once, then every later event is inert', UNIX_ONLY, async () => {
@@ -634,6 +700,33 @@ test('cli gate: exit codes and stdout follow the message_submit contract', UNIX_
   } finally { await sock.close(); box.cleanup(); }
 });
 
+test('cli: simultaneous starts admit exactly one loop and retain its owner under the state lock', {...UNIX_ONLY, timeout: 10000}, async () => {
+  const box = sandbox();
+  const waiting = [];
+  const sock = await fakeSocket(box, UUID_A, {statusBarrier: (reply) => {
+    // Both workers have passed the initial state read before either may write.
+    waiting.push(reply);
+    if (waiting.length === 2) waiting.splice(0).forEach((release) => release());
+  }});
+  try {
+    const sessions = ['sess_first', 'sess_second'];
+    const results = await Promise.all(sessions.map((session, i) =>
+      run('gate', submit(box, startText(`task ${i} --max 2`), session), box.env)));
+    assert.ok(results.every((r) => r.code === 0), JSON.stringify(results));
+    const admitted = results.map((r, i) => ({r, i})).filter(({r}) => !isNotice(r));
+    assert.equal(admitted.length, 1, 'exactly one worker may start iteration 1');
+    const refused = results.filter(isNotice);
+    assert.equal(refused.length, 1);
+    assert.match(said(refused[0]), /cancel-loop/);
+    const state = readState(box.ws);
+    assert.equal(state.owner_session, sessions[admitted[0].i]);
+    assert.equal(state.prompt, `task ${admitted[0].i}`);
+    assert.equal(state.owner_socket_uuid, UUID_A);
+    assert.ok(said(admitted[0].r).startsWith(`[loop ${state.id} #1/2]`));
+    assert.equal(fs.existsSync(path.join(box.ws, '.codewhale', 'loop', '.lock')), false, 'lock released');
+  } finally { await sock.close(); box.cleanup(); }
+});
+
 test('cli: concurrent hook processes cannot advance the same iteration twice', UNIX_ONLY, async () => {
   const box = sandbox();
   const sock = await fakeSocket(box);
@@ -690,6 +783,7 @@ test(`socket choice: the ancestor-owned session wins an ambiguous workspace (${h
     assert.equal(res.code, 0, res.out);
     assert.ok(!isNotice(res), 'it found exactly one socket to drive');
     assert.equal(readState(box.ws).status, 'active');
+    assert.equal(readState(box.ws).owner_socket_uuid, UUID_A);
   } finally { helper.kill(); await mine.close(); box.cleanup(); }
 });
 }

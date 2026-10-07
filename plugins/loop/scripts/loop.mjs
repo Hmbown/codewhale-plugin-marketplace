@@ -286,7 +286,7 @@ function socketOwners(ancestors) {
 // uuid, so narrow by workspace, then by "owned by one of my ancestor processes".
 // Anything still ambiguous is an error, never a guess: the loop must not drive a
 // different session.
-export async function resolveSocket(workspace, env = process.env) {
+export async function resolveSocket(workspace, env = process.env, ownerUuid = null) {
   const dir = sessionsDir(env);
   let names = [];
   try { names = fs.readdirSync(dir); } catch { /* no sessions dir */ }
@@ -308,6 +308,14 @@ export async function resolveSocket(workspace, env = process.env) {
       const meta = JSON.parse(fs.readFileSync(path.join(dir, `${c.uuid}.json`), 'utf8')).metadata;
       c.workspace = meta?.workspace ? real(meta.workspace) : null;
     } catch { c.workspace = null; }
+  }
+  if (ownerUuid !== null) {
+    // Continuation uses the session selected at admission, never a new workspace match.
+    const owner = alive.find((c) => c.uuid === ownerUuid);
+    if (!owner || (owner.workspace !== ws && owner.workspace !== null)) {
+      throw new Error('the original Codewhale session has no live control socket for this workspace.');
+    }
+    return {sock: owner.sock, uuid: owner.uuid, status: owner.status};
   }
   let pool = alive.filter((c) => c.workspace === ws);
   if (!pool.length) pool = alive.filter((c) => c.workspace === null);
@@ -449,6 +457,7 @@ async function start(text, workspace, session, env) {
     until: parsed.until,
     iteration: 1,
     owner_session: session,
+    owner_socket_uuid: target.uuid,
     workspace,
     wrapup: 'none',
     turn_open: true,
@@ -456,8 +465,14 @@ async function start(text, workspace, session, env) {
     updated_at: new Date(now).toISOString(),
     deadline_at: new Date(now + MAX_AGE_MS).toISOString(),
   };
-  withLock(workspace, () => writeState(workspace, state));
-  return rewrite(iterationPrompt(state));
+  return withLock(workspace, () => {
+    const current = readState(workspace);
+    if (current?.status === 'active' && !isStale(current)) {
+      return notice(`The loop was not started. ${describe(current)} Run /cancel-loop first to start a different one.`);
+    }
+    writeState(workspace, state);
+    return rewrite(iterationPrompt(state));
+  });
 }
 
 function cancel(workspace) {
@@ -562,7 +577,10 @@ export async function turnEnd(payload, env = process.env) {
 
   let target;
   try {
-    target = await resolveSocket(workspace, env);
+    if (typeof state.owner_socket_uuid !== 'string' || !state.owner_socket_uuid) {
+      throw new Error('the loop has no recorded owner control socket. Start a new loop.');
+    }
+    target = await resolveSocket(workspace, env, state.owner_socket_uuid);
   } catch (e) {
     finish(workspace, state.id, 'error', `Stopped: ${e.message}`);
     return 'error';
