@@ -99,8 +99,8 @@
         {
           "path": "plugins/computer-use/mcp/server.mjs",
           "root": "repo",
-          "sha256": "637876bf68262afd1b12516308599fe665d1a7560538f483f1aa51fb101bc7b1",
-          "bytes": 106715
+          "sha256": "1b9979aa1761083c41559fe6f28c6086f1cc451bb5a720c01438cf0dd4a9000a",
+          "bytes": 107718
         },
         {
           "path": "plugins/computer-use/skills/computer-use/SKILL.md",
@@ -129,8 +129,8 @@
         {
           "path": "plugins/computer-use/docs/CUA_PARITY.md",
           "root": "repo",
-          "sha256": "473598c74b03040d08ce85f40f762bac7899f5a2b8085e77050eb505f3e54109",
-          "bytes": 8678
+          "sha256": "6f990fa8759319df2e02f84b3085c77fff842b47ce185c66005c6a812be3c1ff",
+          "bytes": 8887
         },
         {
           "path": "plugins/computer-use/src/trajectory.mjs",
@@ -163,7 +163,7 @@
           "bytes": 5612
         }
       ],
-      "sealed_at": "2026-10-08T12:29:18.037Z"
+      "sealed_at": "2026-10-08T12:39:41.519Z"
     },
     "pages/wiki-evidence.md": {
       "title": "How WhaleWiki earns a fresh badge",
@@ -300,5 +300,5 @@
       "sealed_at": "2026-10-07T04:42:05.051Z"
     }
   },
-  "updated_at": "2026-10-08T12:29:18.038Z"
+  "updated_at": "2026-10-08T12:39:41.520Z"
 }

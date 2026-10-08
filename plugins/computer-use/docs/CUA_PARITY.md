@@ -33,10 +33,13 @@ contracts in its existing tools; no upstream implementation is imported.
 | [macOS key spellings #4858](https://github.com/trycua/cua/pull/4858) | Named keys normalize spaces, underscores and hyphens, with common arrow/page/keypad aliases. Single-character punctuation keeps its original mapping. |
 | [Display-only previews #4881](https://github.com/trycua/cua/pull/4881) | Existing macOS preview polling is already separate from MCP observation state and raster pins. No new tool alias or competing capture cache is added. |
 
-Batches validate their plan before starting, stop on wait timeouts, and report
+Batches validate plan shape before starting, stop on wait timeouts, and report
 completed steps and known/unknown input delivery. The wait's returned state
 must still satisfy its predicate. A failed final observation does not undo
-earlier effects. Trajectory redaction and saved-capture refusal cover both
+earlier effects; per-call runtime checks can still refuse after earlier steps.
+Named uniqueness and absence cannot be inferred from truncated walks. A closed
+app satisfies an absence wait without producing a targetable state.
+Trajectory redaction and saved-capture refusal cover both
 argument spellings. Named lookup requires uniqueness; it does not infer a
 control from an ambiguous label or retry a previously dispatched action.
 
