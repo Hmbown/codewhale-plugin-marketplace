@@ -39,6 +39,8 @@ must still satisfy its predicate. A failed final observation does not undo
 earlier effects; per-call runtime checks can still refuse after earlier steps.
 Named uniqueness and absence cannot be inferred from truncated walks. A closed
 app satisfies an absence wait without producing a targetable state.
+Failed wait rechecks remain ephemeral: they cannot replace the last usable
+targeting state or evict pinned states. Batch aliases cannot select another computer.
 Trajectory redaction and saved-capture refusal cover both
 argument spellings. Named lookup requires uniqueness; it does not infer a
 control from an ambiguous label or retry a previously dispatched action.
