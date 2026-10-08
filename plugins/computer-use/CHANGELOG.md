@@ -2,6 +2,12 @@
 
 ## 0.12.1 — unreleased
 
+- Integrate the October 6–8 Cua Driver workflow improvements through the existing tools: fresh unique element lookup in batches, `args` compatibility, final observations, complete-plan validation and explicit completed/delivery receipts.
+- Stop batches on failed waits and recheck wait conditions on the returned observation.
+- Add same-view `get_app_state since` diffs without replacing the complete target cache; expired, changed or incomplete baselines return a full resync.
+- Forward filtered macOS searches to the native deep walk and accept common key spellings (`Page_Down`, `PgDn`, `ArrowLeft`, `Forward_Delete`, `KP_Enter`).
+- Preserve trajectory text redaction and capture-pin replay refusal for aliased batch arguments.
+
 - Supply the concise operating skill through standard MCP initialization.
 - Serve detailed operations and recording as exact packaged MCP resources; incomplete skill packs fail at startup.
 - Clarify bundled-helper setup and the local-app, signed-in-Chrome and isolated-browser routes.

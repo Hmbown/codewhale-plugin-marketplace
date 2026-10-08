@@ -1,6 +1,6 @@
 # Cua reference and Codewhale parity
 
-Verified October 4, 2026. This is a source comparison and implementation plan.
+Reviewed October 8, 2026. This is a source comparison and implementation plan.
 Upstream documentation, local protocol fixtures, native application receipts,
 installed builds and real cloud tasks are separate evidence.
 
@@ -8,7 +8,7 @@ installed builds and real cloud tasks are separate evidence.
 
 | Component | Version | Release commit |
 | --- | --- | --- |
-| [Cua Driver](https://github.com/trycua/cua/releases/tag/cua-driver-rs-v0.33.2) | 0.33.2 | `c82d32e3e1adbc6578a148962002ddf6e3e8a15a` |
+| [Cua Driver](https://github.com/trycua/cua/releases/tag/cua-driver-rs-v0.34.0) | 0.34.0 | `b0968e1b12834e485dda68789541a3cc57664a9f` |
 | [Base SDK / CLI](https://github.com/trycua/cua/releases/tag/cua-sdk-v0.3.1) | 0.3.1 | `3f01aec64307e989c5e10e73c9af68f91f94c13e` |
 | [Spaces app](https://github.com/trycua/cua/releases/tag/cua-spaces-v0.7.0) | 0.7.0 | `e5c86b47ecbe9409a26a4eb954b32cd8c4ae9c28` |
 | [spacesd](https://github.com/trycua/cua/releases/tag/cua-spacesd-v0.5.3) | 0.5.3 | `0d274d0d428ebb7c9f1345c377028c2315eecc2b` |
@@ -17,6 +17,33 @@ Driver's release notes explain that its GitHub prerelease badge reserves the
 monorepo's Latest pointer; ordinary Driver SemVer is its stable channel.
 Newer website documentation must not be assumed to describe every released
 Spaces feature.
+
+## October 6–8 Driver source integration
+
+The review also covers unreleased Driver source through
+[`4cbd0966c`](https://github.com/trycua/cua/commit/4cbd0966c5054753c22c2800157709ad4d3ca3ce).
+These commits are newer than stable 0.34.0. Codewhale implements the useful
+contracts in its existing tools; no upstream implementation is imported.
+
+| Upstream change | Codewhale integration |
+| --- | --- |
+| [Slim observations and diffs #4743](https://github.com/trycua/cua/pull/4743) | `get_app_state {since:state_id}` or `since:"latest"` compares the same complete view. Full raw records remain available for live element revalidation. Scope changes, expired states and truncated walks/views return a full baseline. Diffs do not bind captures. |
+| [Named batch targets #4820](https://github.com/trycua/cua/pull/4820) and [reliable batch shapes #4859](https://github.com/trycua/cua/pull/4859) | Existing `run_actions` accepts `args` as an alias and `find:{query,role,app_ref,window_id}` for a fresh unique lookup. Zero/multiple matches and stale elements refuse before input. Every action uses the existing consent, grant, route, lease and target gates. No action is automatically retried. Optional `observe` returns final state. |
+| [Whole-window query #4855](https://github.com/trycua/cua/pull/4855) | The macOS adapter now forwards query/role to the native walk's existing deeper budget. Response limits remain post-filter limits. |
+| [macOS key spellings #4858](https://github.com/trycua/cua/pull/4858) | Named keys normalize spaces, underscores and hyphens, with common arrow/page/keypad aliases. Single-character punctuation keeps its original mapping. |
+| [Display-only previews #4881](https://github.com/trycua/cua/pull/4881) | Existing macOS preview polling is already separate from MCP observation state and raster pins. No new tool alias or competing capture cache is added. |
+
+Batches validate their plan before starting, stop on wait timeouts, and report
+completed steps and known/unknown input delivery. The wait's returned state
+must still satisfy its predicate. A failed final observation does not undo
+earlier effects. Trajectory redaction and saved-capture refusal cover both
+argument spellings. Named lookup requires uniqueness; it does not infer a
+control from an ambiguous label or retry a previously dispatched action.
+
+Wayland EIS delivery acknowledgements, optional perception/model extensions,
+cursor-motion planning and broader native Windows/Linux behaviors remain
+separate work. Source/protocol checks are not installed-helper, real-model,
+cross-platform-native or release qualification.
 
 ## Existing authority and concrete gaps
 
