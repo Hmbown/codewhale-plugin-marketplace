@@ -29,6 +29,15 @@ Engine responsibility. `/computer setup` distinguishes local apps, signed-in
 Chrome and an isolated browser; `request_access` identifies the actual helper
 and permission owner. Bundled macOS builds do not require a second helper install.
 
+The October 8 source update adds `get_app_state {since:state_id}` diffs of the
+same complete view, with a full baseline when scope changes or a walk is
+incomplete. `run_actions` can find a unique named control immediately before
+each step and optionally return final state. Ambiguity, stale targets and wait
+timeouts stop the batch; receipts retain completed effects so the agent does
+not replay sent input. These paths reuse the existing permission and target
+checks. Native macOS fixture checks establish the intended edit and Apply
+effect; installed-model acceptance and human coexistence remain separate gates.
+
 The current source returns a `raster_id` with screenshots, OCR rasters and zooms.
 Carry that ID in pixel targets and as the parent of a zoom; use the zoom's new
 ID for coordinates in the child image. OCR targets already include their pin.

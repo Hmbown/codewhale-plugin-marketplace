@@ -1,5 +1,13 @@
 # Refusal codes and the move that fixes them
 
+Named batch lookup returns `element_not_found` or `element_ambiguous` before
+input when its search has zero or multiple matches. `observation_incomplete`
+means a truncated walk cannot prove uniqueness or absence. Narrow the app/window
+or explicitly observe/select a target. Observe and narrow query
+and exact role; do not substitute guessed coordinates. `condition_not_met`
+means a batch wait timed out and subsequent steps did not run. Inspect
+`completed_steps`, `action_sent` and `outcome_unknown`; earlier effects remain.
+
 Every refusal is structured: `ok:false` with an `error.code` you can branch on.
 Never retry a refusal unchanged — re-observe, re-target, or change route.
 
