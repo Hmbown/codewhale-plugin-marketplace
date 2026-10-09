@@ -8,6 +8,21 @@
 - Forward filtered macOS searches to the native deep walk and accept common key spellings (`Page_Down`, `PgDn`, `ArrowLeft`, `Forward_Delete`, `KP_Enter`).
 - Preserve trajectory text redaction and capture-pin replay refusal for aliased batch arguments.
 
+### Linux desktop control (X11)
+
+- Consent now covers the window that receives input. Keystrokes check the active window's app and pointer events check the topmost window under the point, so input aimed at an unapproved app is refused. Previously a fresh server could click and type into any window, and an approved app's decision covered input that landed elsewhere.
+- Keystrokes are refused while a menu or popup item is open (`popup_open`); Escape is always allowed.
+- `focus`, `get_value` and `select_text` work through AT-SPI. Targeted `type` and `key` refuse when the element's window is not the active one (`window_not_active`).
+- `screenshot` and `list_windows` accept `app_ref.name`. App-window captures list the windows stacked above them in `occluded_by`.
+- `list_apps` returns one entry per process, with its pid.
+- Screen recording runs ffmpeg `x11grab` as a child this server owns; it is finished by `recording_stop`, session close and server exit.
+- `kill_app` is implemented: window close first, `force:true` for SIGKILL, ambiguous names refused.
+- `list_sessions` is implemented.
+- `browser start` reports why Chromium exited (root sandbox, exit code, stderr tail) instead of a generic timeout.
+- `computer_switch` reports an unknown computer as a tool error (`unknown_computer`), not a protocol error.
+- Smoke: consent checks run only for the app named in `CU_SMOKE_APP`; the registry checks expect the refusals the host actually gives.
+- Held input on standalone Linux (drag, hold, held mouse) still requires the desktop helper. See LIMITATIONS for why.
+
 - Supply the concise operating skill through standard MCP initialization.
 - Serve detailed operations and recording as exact packaged MCP resources; incomplete skill packs fail at startup.
 - Clarify bundled-helper setup and the local-app, signed-in-Chrome and isolated-browser routes.

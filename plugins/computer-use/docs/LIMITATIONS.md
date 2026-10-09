@@ -419,17 +419,20 @@ require a connected, session-owning Computer Use desktop helper. Direct mode
 refuses these gestures before any pointer movement or key press and reports
 `input_owner_required`; `request_access` exposes `held_input`. This prevents
 an abruptly killed MCP client from leaving a persistent press behind. A
-mouse-up also refuses when this session owns no press. Ordinary one-shot and
+mouse-up also refuses when this session owns no press. The gate stays on
+standalone Linux on purpose: X does not release a button or key that a crashed
+client pressed through XTEST, so even an atomic drag can leave a stuck button
+if the server dies mid-gesture. Connect the desktop helper to drag or hold
+keys. Ordinary one-shot and
 semantic operations remain available according to the platform's capabilities.
 These command paths have local injected-runner tests, not fresh device proof.
 
-Linux and Windows recording is unavailable in 0.2.1. Their former detached
-recorders could outlive the client and a second start could lose the first
-recorder's ownership. `recordingStart` now refuses with
-`owned_recording_unavailable` before launching a process, and the capability
-probe reports recording unavailable. Restoring it requires owned lifecycle
-cleanup and device verification. Screenshots and existing recording-file
-listing remain available.
+Linux X11 recording runs ffmpeg `x11grab` as a child this server owns. The
+recording is finished by `recording_stop`, by session close, and when the
+server exits. Wayland and Windows recording stay unavailable:
+`recording_start` there refuses with `owned_recording_unavailable` before
+launching anything, and the capability probe says so. Screenshots and the
+recording-file listing remain available on every platform.
 
 ## Known behavioral limitations (from the live runs)
 
@@ -474,6 +477,43 @@ listing remain available.
   X11/Wayland session is visible, `permissions_denied` when the input or
   screen-capture probe fails — this is intentional, but means headless Linux
   agents get an error rather than a capability table.
+
+## Linux desktop control (X11)
+
+- **Input follows the window, not the last observation.** Keys go to the
+  active window; pointer events go to the topmost window under the point. The
+  consent ledger checks the app that owns that window, so input aimed at an
+  app the user has not approved is refused before any event is sent. Without a
+  window manager that publishes its stacking order, or on Wayland, the owner is
+  unknown and input is refused (`input_owner_unknown`) rather than sent.
+- **Menus take keys.** While a menu or popup item is showing in the target app,
+  keystrokes are refused with `popup_open`; send Escape first, which is always
+  allowed. Menus are seen through AT-SPI, so an app without accessibility
+  support gets no such guard.
+- **Element focus does not raise windows.** `focus` moves keyboard focus inside
+  an app and reports `window_active`. Keys aimed at an element whose window is
+  not active are refused (`window_not_active`) until the app is brought forward
+  with foreground consent.
+- **`app_ref` is an exact app name.** Screenshots and window listings crop to an
+  app's frame. Windows stacked above it are named in `occluded_by`, and their
+  pixels appear in the crop, so read that list before trusting the image.
+- **`kill_app` closes the window first**, so the app can ask to save. It reports
+  `still_running` if it does not quit. `force:true` sends SIGKILL and discards
+  unsaved work. A name matching several processes is refused
+  (`ambiguous_application`); pass the pid. Kernel process names are cut to 15
+  bytes, so a longer name needs its pid.
+- **GTK completions.** A Return sent right after typing waits about 300 ms so
+  GTK's completion popups settle. Confirm a save or submit by reading the
+  result rather than assuming it.
+- **Keystroke loss is not ruled out.** Thirty controlled click-then-type pairs
+  with exact read-back lost nothing, but two earlier mixed runs dropped a
+  character that could not be reproduced. For element targets, confirm the text
+  with `get_value`.
+- **`get_value` reads at most 4000 characters.** `select_text` with no
+  selection present adds one (AT-SPI `addSelection`), so a second call replaces
+  it.
+- **Not exercised:** multi-monitor, HiDPI and Wayland desktops. The evidence
+  comes from an Xvfb display with openbox, GTK 3 (Mousepad) and Chromium.
 
 ## Signed updates / bundle identity
 
